@@ -31,7 +31,25 @@ app.use(
 // Clerk proxy must come BEFORE body parsers (streams raw bytes)
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-app.use(cors({ credentials: true, origin: true }));
+const allowedOrigins = new Set<string>();
+const replitDomain = process.env.REPLIT_DEV_DOMAIN;
+if (replitDomain) allowedOrigins.add(`https://${replitDomain}`);
+const extra = (process.env.ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+for (const o of extra) allowedOrigins.add(o);
+
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.has(origin)) return cb(null, true);
+      return cb(null, false);
+    },
+    credentials: false,
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

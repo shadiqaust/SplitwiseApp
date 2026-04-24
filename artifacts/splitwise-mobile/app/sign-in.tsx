@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getErrorMessage } from "@/lib/error";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -40,8 +41,8 @@ export default function SignInScreen() {
       } else {
         setError("Sign-in incomplete");
       }
-    } catch (err: any) {
-      setError(err?.errors?.[0]?.message ?? "Failed to sign in");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to sign in"));
     } finally {
       setLoading(false);
     }
@@ -61,8 +62,8 @@ export default function SignInScreen() {
       });
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setMode("verify");
-    } catch (err: any) {
-      setError(err?.errors?.[0]?.message ?? "Failed to sign up");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to sign up"));
     } finally {
       setLoading(false);
     }
@@ -79,8 +80,8 @@ export default function SignInScreen() {
       } else {
         setError("Verification incomplete");
       }
-    } catch (err: any) {
-      setError(err?.errors?.[0]?.message ?? "Invalid code");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Invalid code"));
     } finally {
       setLoading(false);
     }

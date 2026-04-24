@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getErrorMessage } from "@/lib/error";
 import {
   ActivityIndicator,
   Pressable,
@@ -88,8 +89,8 @@ export default function GroupDetailScreen() {
             queryKey: getListGroupsQueryKey(),
           });
         },
-        onError: (err: any) => {
-          setAddError(err?.message ?? "Failed to add member");
+        onError: (err: unknown) => {
+          setAddError(getErrorMessage(err, "Failed to add member"));
         },
       },
     );

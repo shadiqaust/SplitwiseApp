@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getErrorMessage } from "@/lib/error";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -85,8 +86,8 @@ export default function NewPaymentScreen() {
           });
           router.back();
         },
-        onError: (err: any) => {
-          setError(err?.message ?? "Failed to record payment");
+        onError: (err: unknown) => {
+          setError(getErrorMessage(err, "Failed to record payment"));
         },
       },
     );

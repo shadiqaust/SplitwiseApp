@@ -57,6 +57,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { cn, formatCurrency } from "@/lib/format";
+import { getErrorMessage } from "@/lib/error";
 
 function getInitials(name: string): string {
   return name
@@ -112,10 +113,10 @@ function AddMemberDialog({ groupId }: { groupId: number }) {
           setOpen(false);
           setEmail("");
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
           toast({
             title: "Failed to add member",
-            description: err?.message,
+            description: getErrorMessage(err),
             variant: "destructive",
           });
         },
@@ -291,10 +292,10 @@ function AddExpenseDialog({
           toast({ title: "Expense added" });
           setOpen(false);
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
           toast({
             title: "Failed to add expense",
-            description: err?.message,
+            description: getErrorMessage(err),
             variant: "destructive",
           });
         },
@@ -502,10 +503,10 @@ function SettleUpDialog({
           toast({ title: "Payment recorded" });
           setOpen(false);
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
           toast({
             title: "Failed to record payment",
-            description: err?.message,
+            description: getErrorMessage(err),
             variant: "destructive",
           });
         },

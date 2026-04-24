@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getErrorMessage } from "@/lib/error";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -46,8 +47,8 @@ export default function NewGroupScreen() {
           queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
           router.replace(`/groups/${group.id}`);
         },
-        onError: (err: any) => {
-          setError(err?.message ?? "Failed to create group");
+        onError: (err: unknown) => {
+          setError(getErrorMessage(err, "Failed to create group"));
         },
       },
     );

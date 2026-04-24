@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getErrorMessage } from "@/lib/error";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -154,8 +155,8 @@ export default function NewExpenseScreen() {
           });
           router.back();
         },
-        onError: (err: any) => {
-          setError(err?.message ?? "Failed to add expense");
+        onError: (err: unknown) => {
+          setError(getErrorMessage(err, "Failed to add expense"));
         },
       },
     );
