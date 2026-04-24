@@ -1,7 +1,16 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
-import { db, paymentsTable, usersTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
+import {
+  db,
+  paymentsTable,
+  usersTable,
+  groupMembersTable,
+} from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import {
+  requireGroupMember,
+  requirePaymentAccess,
+} from "../middlewares/requireGroupAccess";
 import { CreatePaymentBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -23,55 +32,93 @@ async function buildPayment(payment: typeof paymentsTable.$inferSelect) {
   };
 }
 
-// GET /groups/:groupId/payments
-router.get("/groups/:groupId/payments", requireAuth, async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
-  const groupId = parseInt(raw, 10);
+async function getMemberIds(groupId: number): Promise<Set<number>> {
+  const rows = await db
+    .select({ userId: groupMembersTable.userId })
+    .from(groupMembersTable)
+    .where(eq(groupMembersTable.groupId, groupId));
+  return new Set(rows.map((r) => r.userId));
+}
 
-  const payments = await db.select()
-    .from(paymentsTable)
-    .where(eq(paymentsTable.groupId, groupId))
-    .orderBy(desc(paymentsTable.date), desc(paymentsTable.createdAt));
+router.get(
+  "/groups/:groupId/payments",
+  requireAuth,
+  requireGroupMember(),
+  async (req, res): Promise<void> => {
+    const groupId = req.authorizedGroupId!;
+    const payments = await db
+      .select()
+      .from(paymentsTable)
+      .where(eq(paymentsTable.groupId, groupId))
+      .orderBy(desc(paymentsTable.date), desc(paymentsTable.createdAt));
+    const result = await Promise.all(payments.map(buildPayment));
+    res.json(result);
+  },
+);
 
-  const result = await Promise.all(payments.map(buildPayment));
-  res.json(result);
-});
+router.post(
+  "/groups/:groupId/payments",
+  requireAuth,
+  requireGroupMember(),
+  async (req, res): Promise<void> => {
+    const groupId = req.authorizedGroupId!;
+    const parsed = CreatePaymentBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
 
-// POST /groups/:groupId/payments
-router.post("/groups/:groupId/payments", requireAuth, async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.groupId) ? req.params.groupId[0] : req.params.groupId;
-  const groupId = parseInt(raw, 10);
+    const { fromUserId, toUserId, amount, note, date } = parsed.data;
 
-  const parsed = CreatePaymentBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
+    if (amount <= 0) {
+      res.status(400).json({ error: "Amount must be positive" });
+      return;
+    }
+    if (fromUserId === toUserId) {
+      res.status(400).json({ error: "From and to users must differ" });
+      return;
+    }
+    const memberIds = await getMemberIds(groupId);
+    if (!memberIds.has(fromUserId) || !memberIds.has(toUserId)) {
+      res.status(400).json({ error: "Both users must be group members" });
+      return;
+    }
 
-  const [payment] = await db.insert(paymentsTable).values({
-    groupId,
-    fromUserId: parsed.data.fromUserId,
-    toUserId: parsed.data.toUserId,
-    amount: parsed.data.amount.toFixed(2),
-    note: parsed.data.note ?? null,
-    date: String(parsed.data.date),
-  }).returning();
+    const [payment] = await db
+      .insert(paymentsTable)
+      .values({
+        groupId,
+        fromUserId,
+        toUserId,
+        amount: amount.toFixed(2),
+        note: note ?? null,
+        date: String(date),
+      })
+      .returning();
 
-  res.status(201).json(await buildPayment(payment));
-});
+    res.status(201).json(await buildPayment(payment));
+  },
+);
 
-// DELETE /payments/:paymentId
-router.delete("/payments/:paymentId", requireAuth, async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.paymentId) ? req.params.paymentId[0] : req.params.paymentId;
-  const paymentId = parseInt(raw, 10);
-
-  const [payment] = await db.delete(paymentsTable).where(eq(paymentsTable.id, paymentId)).returning();
-  if (!payment) {
-    res.status(404).json({ error: "Payment not found" });
-    return;
-  }
-
-  res.sendStatus(204);
-});
+router.delete(
+  "/payments/:paymentId",
+  requireAuth,
+  requirePaymentAccess(),
+  async (req, res): Promise<void> => {
+    const raw = Array.isArray(req.params.paymentId)
+      ? req.params.paymentId[0]
+      : req.params.paymentId;
+    const paymentId = parseInt(raw, 10);
+    const [payment] = await db
+      .delete(paymentsTable)
+      .where(eq(paymentsTable.id, paymentId))
+      .returning();
+    if (!payment) {
+      res.status(404).json({ error: "Payment not found" });
+      return;
+    }
+    res.sendStatus(204);
+  },
+);
 
 export default router;

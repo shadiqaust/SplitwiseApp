@@ -20,22 +20,39 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  // Look up or create the user in the DB
   let [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
 
   if (!user) {
-    // Auto-provision the user on first authenticated request
     const sessionClaims = auth.sessionClaims as Record<string, unknown> | undefined;
-    const email = (sessionClaims?.email as string) || `${clerkId}@unknown.com`;
-    const name = (sessionClaims?.name as string) || (sessionClaims?.full_name as string) || "User";
-    const avatarUrl = (sessionClaims?.image_url as string) || null;
+    const claimsEmail = (sessionClaims?.email as string | undefined) ?? null;
+    const email = claimsEmail ?? `${clerkId}@unknown.com`;
+    const name =
+      (sessionClaims?.name as string | undefined) ||
+      (sessionClaims?.full_name as string | undefined) ||
+      "User";
+    const avatarUrl = (sessionClaims?.image_url as string | undefined) ?? null;
 
-    [user] = await db.insert(usersTable).values({
-      clerkId,
-      name,
-      email,
-      avatarUrl,
-    }).returning();
+    if (claimsEmail) {
+      const [existingByEmail] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.email, claimsEmail));
+
+      if (existingByEmail) {
+        [user] = await db
+          .update(usersTable)
+          .set({ clerkId, name, avatarUrl })
+          .where(eq(usersTable.id, existingByEmail.id))
+          .returning();
+      }
+    }
+
+    if (!user) {
+      [user] = await db
+        .insert(usersTable)
+        .values({ clerkId, name, email, avatarUrl })
+        .returning();
+    }
   }
 
   req.dbUserId = user.id;

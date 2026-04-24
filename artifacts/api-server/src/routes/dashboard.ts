@@ -66,16 +66,14 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     for (const p of receivedPayments) groupOwed -= parseFloat(p.amount);
     for (const p of sentPayments) groupIOwe -= parseFloat(p.amount);
 
-    groupOwed = Math.max(0, groupOwed);
-    groupIOwe = Math.max(0, groupIOwe);
-
-    totalOwed += groupOwed;
-    totalIOwe += groupIOwe;
+    const groupNet = groupOwed - groupIOwe;
+    if (groupNet > 0) totalOwed += groupNet;
+    else if (groupNet < 0) totalIOwe += -groupNet;
 
     return {
       groupId: group.id,
       groupName: group.name,
-      myNetBalance: Math.round((groupOwed - groupIOwe) * 100) / 100,
+      myNetBalance: Math.round(groupNet * 100) / 100,
     };
   }));
 

@@ -1,28 +1,239 @@
-import { StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import {
+  useGetActivity,
+  useGetDashboardSummary,
+} from "@workspace/api-client-react";
 
-export default function TabOneScreen() {
+import { Avatar } from "@/components/ui/Avatar";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useColors } from "@/hooks/useColors";
+import { formatCurrency, formatDate } from "@/lib/format";
+
+export default function DashboardScreen() {
+  const colors = useColors();
+  const router = useRouter();
+  const summary = useGetDashboardSummary();
+  const activity = useGetActivity({ limit: 20 });
+
+  const refreshing = summary.isFetching || activity.isFetching;
+
+  const onRefresh = () => {
+    summary.refetch();
+    activity.refetch();
+  };
+
+  if (summary.isLoading && !summary.data) {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  const data = summary.data;
+  const net = data?.netBalance ?? 0;
+  const owed = data?.totalOwed ?? 0;
+  const iOwe = data?.totalIOwe ?? 0;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Replit Agent is building...</Text>
-      <Text style={styles.text}>Your app will appear here once it's ready.</Text>
-    </View>
+    <ScrollView
+      style={{ backgroundColor: colors.background }}
+      contentContainerStyle={styles.scroll}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+        />
+      }
+    >
+      <Card style={styles.heroCard}>
+        <Text style={[styles.heroLabel, { color: colors.mutedForeground }]}>
+          Your overall balance
+        </Text>
+        <Text
+          style={[
+            styles.heroAmount,
+            {
+              color:
+                net > 0
+                  ? colors.positive
+                  : net < 0
+                    ? colors.negative
+                    : colors.foreground,
+            },
+          ]}
+        >
+          {net > 0 ? "+" : ""}
+          {formatCurrency(net)}
+        </Text>
+        <Text style={[styles.heroHint, { color: colors.mutedForeground }]}>
+          {net > 0
+            ? "you are owed overall"
+            : net < 0
+              ? "you owe overall"
+              : "you are all settled up"}
+        </Text>
+
+        <View style={styles.heroRow}>
+          <View style={styles.heroStat}>
+            <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>
+              You're owed
+            </Text>
+            <Text style={[styles.heroStatValue, { color: colors.positive }]}>
+              {formatCurrency(owed)}
+            </Text>
+          </View>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.heroStat}>
+            <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>
+              You owe
+            </Text>
+            <Text style={[styles.heroStatValue, { color: colors.negative }]}>
+              {formatCurrency(iOwe)}
+            </Text>
+          </View>
+        </View>
+      </Card>
+
+      <View>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+          Groups
+        </Text>
+        {data?.groupSummaries && data.groupSummaries.length > 0 ? (
+          <View style={{ gap: 8 }}>
+            {data.groupSummaries.map((g) => (
+              <Card
+                key={g.groupId}
+                style={styles.groupRow}
+                onTouchEnd={() => router.push(`/groups/${g.groupId}`)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.groupName, { color: colors.foreground }]}
+                    numberOfLines={1}
+                  >
+                    {g.groupName}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.groupBalance,
+                      {
+                        color:
+                          g.myNetBalance > 0
+                            ? colors.positive
+                            : g.myNetBalance < 0
+                              ? colors.negative
+                              : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {g.myNetBalance > 0
+                      ? `you are owed ${formatCurrency(g.myNetBalance)}`
+                      : g.myNetBalance < 0
+                        ? `you owe ${formatCurrency(Math.abs(g.myNetBalance))}`
+                        : "settled up"}
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+              </Card>
+            ))}
+          </View>
+        ) : (
+          <Card>
+            <EmptyState
+              icon="users"
+              title="No groups yet"
+              message="Create a group to start tracking shared expenses."
+            />
+          </Card>
+        )}
+      </View>
+
+      <View>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+          Recent activity
+        </Text>
+        {activity.data && activity.data.length > 0 ? (
+          <View style={{ gap: 8 }}>
+            {activity.data.map((item) => (
+              <Card key={item.id} style={styles.activityRow}>
+                <Avatar
+                  name={item.involvedUser.name}
+                  url={item.involvedUser.avatarUrl}
+                  size={36}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.activityTitle, { color: colors.foreground }]}
+                    numberOfLines={1}
+                  >
+                    {item.type === "payment" ? "Payment" : item.description}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.activitySub,
+                      { color: colors.mutedForeground },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {item.groupName} · {formatDate(item.date)}
+                  </Text>
+                </View>
+                <Text
+                  style={[styles.activityAmount, { color: colors.foreground }]}
+                >
+                  {formatCurrency(item.amount)}
+                </Text>
+              </Card>
+            ))}
+          </View>
+        ) : (
+          <Card>
+            <EmptyState
+              icon="activity"
+              title="No activity yet"
+              message="Add an expense and it'll show up here."
+            />
+          </Card>
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  scroll: { padding: 16, gap: 24, paddingBottom: 80 },
+  heroCard: { gap: 4 },
+  heroLabel: { fontFamily: "Inter_500Medium", fontSize: 13 },
+  heroAmount: { fontFamily: "Inter_700Bold", fontSize: 36 },
+  heroHint: { fontFamily: "Inter_400Regular", fontSize: 13 },
+  heroRow: { flexDirection: "row", marginTop: 16 },
+  heroStat: { flex: 1, gap: 4 },
+  heroStatLabel: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  heroStatValue: { fontFamily: "Inter_600SemiBold", fontSize: 18 },
+  divider: { width: 1, marginHorizontal: 16 },
+  sectionTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 18,
+    marginBottom: 12,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  text: {
-    fontSize: 16,
-    textAlign: "center",
-    paddingHorizontal: 20,
-  },
+  groupRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  groupName: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  groupBalance: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 2 },
+  activityRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  activityTitle: { fontFamily: "Inter_500Medium", fontSize: 14 },
+  activitySub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  activityAmount: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
 });

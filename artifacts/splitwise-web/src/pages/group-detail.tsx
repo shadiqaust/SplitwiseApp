@@ -1,678 +1,813 @@
-import { useState, useMemo } from "react";
-import { useParams, useLocation } from "wouter";
-import { formatCurrency, cn } from "@/lib/format";
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "wouter";
+import {
+  getGetActivityQueryKey,
+  getGetDashboardSummaryQueryKey,
+  getGetGroupBalancesQueryKey,
+  getGetGroupQueryKey,
+  getListExpensesQueryKey,
+  getListGroupsQueryKey,
+  getListPaymentsQueryKey,
+  SplitType,
+  useAddGroupMember,
+  useCreateExpense,
+  useCreatePayment,
+  useGetGroup,
+  useGetGroupBalances,
+  useGetMe,
+  useListExpenses,
+  useListPayments,
+  type GroupMember,
+} from "@workspace/api-client-react";
+import { Plus, UserPlus, HandCoins, Receipt } from "lucide-react";
+
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
-  DialogFooter
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { 
-  useGetGroup, useGetGroupBalances, useListExpenses, useListPayments, 
-  useAddGroupMember, useCreateExpense, useCreatePayment, useGetMe,
-  getGetGroupQueryKey, getGetGroupBalancesQueryKey, getListExpensesQueryKey, getListPaymentsQueryKey,
-  useDeleteExpense, useDeletePayment, getGetDashboardSummaryQueryKey
-} from "@workspace/api-client-react";
-import { Plus, UserPlus, Settings, HandCoins, Receipt, Trash2 } from "lucide-react";
-import { SplitType, ExpenseSplitInput } from "@workspace/api-client-react/src/generated/api.schemas";
+import { cn, formatCurrency } from "@/lib/format";
 
-// --- FORMS ---
+function getInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
-const addMemberSchema = z.object({
-  email: z.string().email("Invalid email address"),
-});
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString();
+}
+
+function MemberAvatar({ name, size = 32 }: { name: string; size?: number }) {
+  return (
+    <div
+      className="flex items-center justify-center rounded-full bg-accent text-accent-foreground font-medium"
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
+    >
+      {getInitials(name)}
+    </div>
+  );
+}
+
+function invalidateGroupData(groupId: number) {
+  queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
+  queryClient.invalidateQueries({
+    queryKey: getGetGroupBalancesQueryKey(groupId),
+  });
+  queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey(groupId) });
+  queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey(groupId) });
+  queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
+  queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+  queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey() });
+}
 
 function AddMemberDialog({ groupId }: { groupId: number }) {
   const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
   const { toast } = useToast();
   const addMember = useAddGroupMember();
-  
-  const form = useForm<z.infer<typeof addMemberSchema>>({
-    resolver: zodResolver(addMemberSchema),
-    defaultValues: { email: "" },
-  });
 
-  const onSubmit = (values: z.infer<typeof addMemberSchema>) => {
-    addMember.mutate({ groupId, data: values }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
-        toast({ title: "Member added successfully" });
-        setOpen(false);
-        form.reset();
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    addMember.mutate(
+      { groupId, data: { email: email.trim() } },
+      {
+        onSuccess: () => {
+          invalidateGroupData(groupId);
+          toast({ title: "Member added" });
+          setOpen(false);
+          setEmail("");
+        },
+        onError: (err: any) => {
+          toast({
+            title: "Failed to add member",
+            description: err?.message,
+            variant: "destructive",
+          });
+        },
       },
-      onError: (err: any) => {
-        toast({ title: "Failed to add member", description: err?.response?.data?.error || err.message, variant: "destructive" });
-      }
-    });
+    );
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full justify-start mt-2">
-          <UserPlus className="w-4 h-4 mr-2" />
-          Add Member
+        <Button variant="outline" size="sm">
+          <UserPlus className="w-4 h-4 mr-2" /> Add member
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Member</DialogTitle>
-          <DialogDescription>Invite someone to this group by email.</DialogDescription>
+          <DialogTitle>Add member</DialogTitle>
+          <DialogDescription>Invite someone by email.</DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email Address</FormLabel>
-                  <FormControl>
-                    <Input placeholder="friend@example.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="friend@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
-            <Button type="submit" disabled={addMember.isPending} className="w-full">
-              {addMember.isPending ? "Adding..." : "Add Member"}
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={addMember.isPending}>
+              {addMember.isPending ? "Adding..." : "Add"}
             </Button>
-          </form>
-        </Form>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
 }
 
-const expenseSchema = z.object({
-  description: z.string().min(1, "Description is required"),
-  totalAmount: z.coerce.number().positive("Amount must be greater than zero"),
-  paidByUserId: z.coerce.number().positive("Please select who paid"),
-  splitType: z.enum([SplitType.equal, SplitType.exact, SplitType.percentage]),
-  date: z.string(),
-  splits: z.array(z.object({
-    userId: z.coerce.number(),
-    amount: z.coerce.number().optional().nullable(),
-    percentage: z.coerce.number().optional().nullable(),
-  }))
-});
-
-function AddExpenseDialog({ groupId, members, currentUserId }: { groupId: number, members: any[], currentUserId?: number }) {
+function AddExpenseDialog({
+  groupId,
+  members,
+  currentUserId,
+}: {
+  groupId: number;
+  members: GroupMember[];
+  currentUserId: number;
+}) {
   const [open, setOpen] = useState(false);
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [paidByUserId, setPaidByUserId] = useState<number>(currentUserId);
+  const [splitType, setSplitType] = useState<SplitType>(SplitType.equal);
+  const [participantIds, setParticipantIds] = useState<Set<number>>(
+    new Set(members.map((m) => m.userId)),
+  );
+  const [exactAmounts, setExactAmounts] = useState<Record<number, string>>({});
+  const [percentages, setPercentages] = useState<Record<number, string>>({});
   const { toast } = useToast();
   const createExpense = useCreateExpense();
-  
-  const form = useForm<z.infer<typeof expenseSchema>>({
-    resolver: zodResolver(expenseSchema),
-    defaultValues: { 
-      description: "", 
-      totalAmount: 0,
-      paidByUserId: currentUserId || members?.[0]?.userId || 0,
-      splitType: SplitType.equal,
-      date: new Date().toISOString().split("T")[0],
-      splits: members?.map(m => ({ userId: m.userId, amount: null, percentage: null })) || []
-    },
-  });
 
-  const splitType = form.watch("splitType");
+  useEffect(() => {
+    if (open) {
+      setDescription("");
+      setAmount("");
+      setPaidByUserId(currentUserId);
+      setSplitType(SplitType.equal);
+      setParticipantIds(new Set(members.map((m) => m.userId)));
+      setExactAmounts({});
+      setPercentages({});
+    }
+  }, [open, currentUserId, members]);
 
-  const onSubmit = (values: z.infer<typeof expenseSchema>) => {
-    // Clean up splits before sending based on splitType
-    let cleanedSplits = [...values.splits];
-    
-    if (values.splitType === SplitType.equal) {
-      cleanedSplits = cleanedSplits.map(s => ({ userId: s.userId, amount: null, percentage: null }));
-    } else if (values.splitType === SplitType.percentage) {
-      let totalPct = 0;
-      cleanedSplits.forEach(s => totalPct += (s.percentage || 0));
-      if (Math.abs(totalPct - 100) > 0.01) {
-        toast({ title: "Percentages must add up to 100%", variant: "destructive" });
-        return;
-      }
-      cleanedSplits = cleanedSplits.map(s => ({ userId: s.userId, amount: null, percentage: s.percentage || 0 }));
-    } else if (values.splitType === SplitType.exact) {
-      let totalAmt = 0;
-      cleanedSplits.forEach(s => totalAmt += (s.amount || 0));
-      if (Math.abs(totalAmt - values.totalAmount) > 0.01) {
-        toast({ title: `Exact amounts must add up to ${formatCurrency(values.totalAmount)}`, variant: "destructive" });
-        return;
-      }
-      cleanedSplits = cleanedSplits.map(s => ({ userId: s.userId, amount: s.amount || 0, percentage: null }));
+  const toggleParticipant = (userId: number) => {
+    const next = new Set(participantIds);
+    if (next.has(userId)) next.delete(userId);
+    else next.add(userId);
+    setParticipantIds(next);
+  };
+
+  const buildSplits = (): Array<{
+    userId: number;
+    amount: number;
+    percentage?: number;
+  }> => {
+    const total = parseFloat(amount);
+    const ids = Array.from(participantIds);
+    if (splitType === SplitType.equal) {
+      if (ids.length === 0) return [];
+      const share = Math.round((total / ids.length) * 100) / 100;
+      const remainder = Math.round((total - share * ids.length) * 100) / 100;
+      return ids.map((userId, i) => ({
+        userId,
+        amount: i === 0 ? share + remainder : share,
+      }));
+    }
+    if (splitType === SplitType.exact) {
+      return ids.map((userId) => ({
+        userId,
+        amount: parseFloat(exactAmounts[userId] ?? "0") || 0,
+      }));
+    }
+    return ids.map((userId) => {
+      const pct = parseFloat(percentages[userId] ?? "0") || 0;
+      return {
+        userId,
+        amount: Math.round(total * (pct / 100) * 100) / 100,
+        percentage: pct,
+      };
+    });
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const total = parseFloat(amount);
+    if (!description.trim()) {
+      toast({ title: "Description required", variant: "destructive" });
+      return;
+    }
+    if (!total || total <= 0) {
+      toast({ title: "Invalid amount", variant: "destructive" });
+      return;
+    }
+    if (participantIds.size === 0) {
+      toast({
+        title: "Select at least one participant",
+        variant: "destructive",
+      });
+      return;
     }
 
-    createExpense.mutate({ 
-      data: {
-        ...values,
-        currency: "USD",
-        groupId,
-        splits: cleanedSplits
-      } 
-    }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey(groupId) });
-        queryClient.invalidateQueries({ queryKey: getGetGroupBalancesQueryKey(groupId) });
-        queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
-        queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-        toast({ title: "Expense added" });
-        setOpen(false);
-        form.reset();
-      },
-      onError: (err: any) => {
-        toast({ title: "Failed to add expense", description: err?.response?.data?.error || err.message, variant: "destructive" });
+    const splits = buildSplits();
+
+    if (splitType === SplitType.exact) {
+      const sum = splits.reduce((a, s) => a + s.amount, 0);
+      if (Math.abs(sum - total) > 0.01) {
+        toast({
+          title: `Exact amounts must sum to ${formatCurrency(total)}`,
+          variant: "destructive",
+        });
+        return;
       }
-    });
+    }
+    if (splitType === SplitType.percentage) {
+      const sum = splits.reduce((a, s) => a + (s.percentage ?? 0), 0);
+      if (Math.abs(sum - 100) > 0.01) {
+        toast({
+          title: "Percentages must sum to 100",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    createExpense.mutate(
+      {
+        groupId,
+        data: {
+          description: description.trim(),
+          totalAmount: total,
+          currency: "USD",
+          splitType,
+          paidByUserId,
+          date: new Date().toISOString().slice(0, 10),
+          splits,
+        },
+      },
+      {
+        onSuccess: () => {
+          invalidateGroupData(groupId);
+          toast({ title: "Expense added" });
+          setOpen(false);
+        },
+        onError: (err: any) => {
+          toast({
+            title: "Failed to add expense",
+            description: err?.message,
+            variant: "destructive",
+          });
+        },
+      },
+    );
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Expense
+          <Plus className="w-4 h-4 mr-2" /> Add expense
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Expense</DialogTitle>
+          <DialogTitle>Add expense</DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Dinner, Groceries, etc." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Description</Label>
+            <Input
+              placeholder="Dinner, Groceries..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="totalAmount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" min="0" placeholder="0.00" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Amount</Label>
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Paid by</Label>
+              <Select
+                value={String(paidByUserId)}
+                onValueChange={(v) => setPaidByUserId(Number(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {members.map((m) => (
+                    <SelectItem key={m.userId} value={String(m.userId)}>
+                      {m.userId === currentUserId ? "You" : m.user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            
-            <FormField
-              control={form.control}
-              name="paidByUserId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Paid By</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value?.toString()}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select user" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {members?.map(m => (
-                        <SelectItem key={m.userId} value={m.userId.toString()}>{m.user.name || m.user.email}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
-            <FormField
-              control={form.control}
-              name="splitType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Split Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select split type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={SplitType.equal}>Equally</SelectItem>
-                      <SelectItem value={SplitType.exact}>Exact Amounts</SelectItem>
-                      <SelectItem value={SplitType.percentage}>Percentages</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="space-y-2">
+              <Label>Split</Label>
+              <Select
+                value={splitType}
+                onValueChange={(v) => setSplitType(v as SplitType)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SplitType.equal}>Equally</SelectItem>
+                  <SelectItem value={SplitType.exact}>
+                    Exact amounts
+                  </SelectItem>
+                  <SelectItem value={SplitType.percentage}>
+                    Percentages
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-            {splitType !== SplitType.equal && (
-              <div className="space-y-3 p-4 border rounded-md bg-muted/20">
-                <FormLabel>Split details</FormLabel>
-                {members?.map((m, index) => (
-                  <div key={m.userId} className="flex items-center gap-3">
-                    <span className="flex-1 text-sm">{m.user.name || m.user.email}</span>
-                    {splitType === SplitType.exact ? (
-                      <FormField
-                        control={form.control}
-                        name={`splits.${index}.amount`}
-                        render={({ field }) => (
-                          <FormItem className="w-24 m-0 space-y-0">
-                            <FormControl>
-                              <Input type="number" step="0.01" min="0" placeholder="$0.00" {...field} value={field.value || ''} />
-                            </FormControl>
-                          </FormItem>
-                        )}
+          <div className="space-y-2">
+            <Label>Participants</Label>
+            <div className="border rounded-md divide-y">
+              {members.map((m) => {
+                const checked = participantIds.has(m.userId);
+                return (
+                  <label
+                    key={m.userId}
+                    className="flex items-center gap-3 p-3 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleParticipant(m.userId)}
+                    />
+                    <MemberAvatar name={m.user.name} size={28} />
+                    <span className="flex-1 text-sm">
+                      {m.userId === currentUserId ? "You" : m.user.name}
+                    </span>
+                    {checked && splitType === SplitType.exact ? (
+                      <Input
+                        className="w-24"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={exactAmounts[m.userId] ?? ""}
+                        onChange={(e) =>
+                          setExactAmounts((prev) => ({
+                            ...prev,
+                            [m.userId]: e.target.value,
+                          }))
+                        }
                       />
-                    ) : (
-                      <FormField
-                        control={form.control}
-                        name={`splits.${index}.percentage`}
-                        render={({ field }) => (
-                          <FormItem className="w-24 m-0 space-y-0">
-                            <FormControl>
-                              <Input type="number" step="1" min="0" max="100" placeholder="0%" {...field} value={field.value || ''} />
-                            </FormControl>
-                          </FormItem>
-                        )}
+                    ) : null}
+                    {checked && splitType === SplitType.percentage ? (
+                      <Input
+                        className="w-20"
+                        type="number"
+                        step="0.01"
+                        placeholder="%"
+                        value={percentages[m.userId] ?? ""}
+                        onChange={(e) =>
+                          setPercentages((prev) => ({
+                            ...prev,
+                            [m.userId]: e.target.value,
+                          }))
+                        }
                       />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                    ) : null}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
 
-            <Button type="submit" disabled={createExpense.isPending} className="w-full mt-4">
-              {createExpense.isPending ? "Adding..." : "Add Expense"}
+          <DialogFooter>
+            <Button type="submit" disabled={createExpense.isPending}>
+              {createExpense.isPending ? "Saving..." : "Save expense"}
             </Button>
-          </form>
-        </Form>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
 }
 
-const settleUpSchema = z.object({
-  fromUserId: z.coerce.number().positive("Required"),
-  toUserId: z.coerce.number().positive("Required"),
-  amount: z.coerce.number().positive("Amount must be greater than zero"),
-  date: z.string(),
-});
-
-function SettleUpDialog({ groupId, members, balances, currentUserId }: { groupId: number, members: any[], balances: any[], currentUserId?: number }) {
+function SettleUpDialog({
+  groupId,
+  members,
+  currentUserId,
+}: {
+  groupId: number;
+  members: GroupMember[];
+  currentUserId: number;
+}) {
   const [open, setOpen] = useState(false);
+  const [fromUserId, setFromUserId] = useState<number>(currentUserId);
+  const [toUserId, setToUserId] = useState<number | null>(null);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
   const { toast } = useToast();
   const createPayment = useCreatePayment();
-  
-  // Find who the current user owes the most
-  const myDebts = balances?.filter(b => b.fromUserId === currentUserId) || [];
-  const largestDebt = myDebts.length > 0 ? myDebts.reduce((prev, current) => (prev.amount > current.amount) ? prev : current) : null;
-  
-  const form = useForm<z.infer<typeof settleUpSchema>>({
-    resolver: zodResolver(settleUpSchema),
-    defaultValues: { 
-      fromUserId: currentUserId || 0,
-      toUserId: largestDebt ? largestDebt.toUserId : (members?.filter(m => m.userId !== currentUserId)?.[0]?.userId || 0),
-      amount: largestDebt ? largestDebt.amount : 0,
-      date: new Date().toISOString().split("T")[0],
-    },
-  });
 
-  const onSubmit = (values: z.infer<typeof settleUpSchema>) => {
-    createPayment.mutate({ 
-      data: {
-        ...values,
+  useEffect(() => {
+    if (open) {
+      setFromUserId(currentUserId);
+      const other = members.find((m) => m.userId !== currentUserId);
+      setToUserId(other?.userId ?? null);
+      setAmount("");
+      setNote("");
+    }
+  }, [open, currentUserId, members]);
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = parseFloat(amount);
+    if (!toUserId) {
+      toast({ title: "Select recipient", variant: "destructive" });
+      return;
+    }
+    if (fromUserId === toUserId) {
+      toast({ title: "From and to must differ", variant: "destructive" });
+      return;
+    }
+    if (!value || value <= 0) {
+      toast({ title: "Invalid amount", variant: "destructive" });
+      return;
+    }
+
+    createPayment.mutate(
+      {
         groupId,
-      } 
-    }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey(groupId) });
-        queryClient.invalidateQueries({ queryKey: getGetGroupBalancesQueryKey(groupId) });
-        queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
-        queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-        toast({ title: "Payment recorded" });
-        setOpen(false);
-        form.reset();
+        data: {
+          fromUserId,
+          toUserId,
+          amount: value,
+          note: note.trim() || null,
+          date: new Date().toISOString().slice(0, 10),
+        },
       },
-      onError: (err: any) => {
-        toast({ title: "Failed to record payment", description: err?.response?.data?.error || err.message, variant: "destructive" });
-      }
-    });
+      {
+        onSuccess: () => {
+          invalidateGroupData(groupId);
+          toast({ title: "Payment recorded" });
+          setOpen(false);
+        },
+        onError: (err: any) => {
+          toast({
+            title: "Failed to record payment",
+            description: err?.message,
+            variant: "destructive",
+          });
+        },
+      },
+    );
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary">
-          <HandCoins className="w-4 h-4 mr-2" />
-          Settle Up
+        <Button variant="outline">
+          <HandCoins className="w-4 h-4 mr-2" /> Settle up
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Record a Payment</DialogTitle>
-          <DialogDescription>Record a cash or outside payment between members.</DialogDescription>
+          <DialogTitle>Settle up</DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="flex items-center gap-2">
-              <FormField
-                control={form.control}
-                name="fromUserId"
-                render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <FormLabel>From</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value?.toString()}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sender" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {members?.map(m => (
-                          <SelectItem key={m.userId} value={m.userId.toString()}>{m.user.name || m.user.email}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <span className="mt-8 text-muted-foreground">→</span>
-              <FormField
-                control={form.control}
-                name="toUserId"
-                render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <FormLabel>To</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value?.toString()}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Recipient" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {members?.map(m => (
-                          <SelectItem key={m.userId} value={m.userId.toString()}>{m.user.name || m.user.email}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>From</Label>
+              <Select
+                value={String(fromUserId)}
+                onValueChange={(v) => setFromUserId(Number(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {members.map((m) => (
+                    <SelectItem key={m.userId} value={String(m.userId)}>
+                      {m.userId === currentUserId ? "You" : m.user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            
-            <FormField
-              control={form.control}
-              name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Amount</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.01" min="0" placeholder="0.00" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+            <div className="space-y-2">
+              <Label>To</Label>
+              <Select
+                value={toUserId !== null ? String(toUserId) : ""}
+                onValueChange={(v) => setToUserId(Number(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {members.map((m) => (
+                    <SelectItem key={m.userId} value={String(m.userId)}>
+                      {m.userId === currentUserId ? "You" : m.user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Amount</Label>
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
             />
-            
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Date</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          </div>
+          <div className="space-y-2">
+            <Label>Note (optional)</Label>
+            <Input
+              placeholder="Cash / Venmo / etc."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
             />
-
-            <Button type="submit" disabled={createPayment.isPending} className="w-full">
-              {createPayment.isPending ? "Saving..." : "Record Payment"}
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={createPayment.isPending}>
+              {createPayment.isPending ? "Saving..." : "Record payment"}
             </Button>
-          </form>
-        </Form>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
 }
 
-// --- PAGE ---
-
 export function GroupDetailPage() {
-  const params = useParams();
-  const groupId = parseInt(params.groupId || "0", 10);
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
-  
-  const { data: userProfile } = useGetMe();
-  const { data: group, isLoading: loadingGroup } = useGetGroup(groupId, { query: { enabled: !!groupId } });
-  const { data: balances, isLoading: loadingBalances } = useGetGroupBalances(groupId, { query: { enabled: !!groupId } });
-  const { data: expenses, isLoading: loadingExpenses } = useListExpenses(groupId, { query: { enabled: !!groupId } });
-  const { data: payments, isLoading: loadingPayments } = useListPayments(groupId, { query: { enabled: !!groupId } });
-  
-  const deleteExpense = useDeleteExpense();
-  const deletePayment = useDeletePayment();
+  const params = useParams<{ groupId: string }>();
+  const groupId = Number(params.groupId);
 
-  if (!groupId) return <Layout><div>Invalid group ID</div></Layout>;
+  const me = useGetMe();
+  const group = useGetGroup(groupId);
+  const expenses = useListExpenses(groupId);
+  const payments = useListPayments(groupId);
+  const balances = useGetGroupBalances(groupId);
 
-  if (loadingGroup) {
+  const myUserId = me.data?.id ?? -1;
+  const members = group.data?.members ?? [];
+
+  const combined = useMemo(() => {
+    const e = (expenses.data ?? []).map((x) => ({
+      kind: "expense" as const,
+      id: `e-${x.id}`,
+      data: x,
+      date: x.date,
+      createdAt: x.createdAt,
+    }));
+    const p = (payments.data ?? []).map((x) => ({
+      kind: "payment" as const,
+      id: `p-${x.id}`,
+      data: x,
+      date: x.date,
+      createdAt: x.createdAt,
+    }));
+    return [...e, ...p].sort((a, b) =>
+      a.createdAt < b.createdAt ? 1 : -1,
+    );
+  }, [expenses.data, payments.data]);
+
+  if (group.isLoading || !group.data) {
     return (
       <Layout>
-        <div className="space-y-6">
+        <div className="space-y-4">
           <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-[400px] w-full" />
+          <Skeleton className="h-40 w-full" />
         </div>
       </Layout>
     );
   }
-
-  if (!group) {
-    return (
-      <Layout>
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-semibold mb-2">Group not found</h2>
-          <Button onClick={() => setLocation("/groups")} variant="outline">Back to Groups</Button>
-        </div>
-      </Layout>
-    );
-  }
-
-  const currentUserId = userProfile?.id;
-
-  const handleDeleteExpense = (expenseId: number) => {
-    if (!confirm("Are you sure you want to delete this expense?")) return;
-    deleteExpense.mutate({ expenseId }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey(groupId) });
-        queryClient.invalidateQueries({ queryKey: getGetGroupBalancesQueryKey(groupId) });
-        toast({ title: "Expense deleted" });
-      }
-    });
-  };
-
-  const handleDeletePayment = (paymentId: number) => {
-    if (!confirm("Are you sure you want to delete this payment?")) return;
-    deletePayment.mutate({ paymentId }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListPaymentsQueryKey(groupId) });
-        queryClient.invalidateQueries({ queryKey: getGetGroupBalancesQueryKey(groupId) });
-        toast({ title: "Payment deleted" });
-      }
-    });
-  };
-
-  // Process activities list (expenses + payments combined and sorted)
-  const combinedActivity = useMemo(() => {
-    const list = [];
-    if (expenses) {
-      list.push(...expenses.map(e => ({ ...e, isPayment: false })));
-    }
-    if (payments) {
-      list.push(...payments.map(p => ({ ...p, isPayment: true })));
-    }
-    return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [expenses, payments]);
 
   return (
     <Layout>
-      <div className="space-y-6 max-w-4xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+      <div className="space-y-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{group.name}</h1>
-            {group.description && <p className="text-muted-foreground mt-1">{group.description}</p>}
+            <h1 className="text-3xl font-bold tracking-tight">
+              {group.data.name}
+            </h1>
+            {group.data.description ? (
+              <p className="text-muted-foreground mt-1">
+                {group.data.description}
+              </p>
+            ) : null}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <AddExpenseDialog groupId={groupId} members={group.members} currentUserId={currentUserId} />
-            <SettleUpDialog groupId={groupId} members={group.members} balances={balances || []} currentUserId={currentUserId} />
+          <div className="flex gap-2">
+            {me.data ? (
+              <>
+                <SettleUpDialog
+                  groupId={groupId}
+                  members={members}
+                  currentUserId={myUserId}
+                />
+                <AddExpenseDialog
+                  groupId={groupId}
+                  members={members}
+                  currentUserId={myUserId}
+                />
+              </>
+            ) : null}
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="md:col-span-2 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Activity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingExpenses || loadingPayments ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
-                  </div>
-                ) : combinedActivity.length ? (
-                  <div className="space-y-4">
-                    {combinedActivity.map((item) => (
-                      <div key={`${item.isPayment ? 'p' : 'e'}-${item.id}`} className="flex items-center justify-between p-3 rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center",
-                            item.isPayment ? "bg-primary/10 text-primary" : "bg-accent text-accent-foreground"
-                          )}>
-                            {item.isPayment ? <HandCoins className="w-5 h-5" /> : <Receipt className="w-5 h-5" />}
-                          </div>
-                          <div>
-                            <p className="font-medium">
-                              {item.isPayment 
-                                ? `${(item as any).fromUser?.name || 'Someone'} paid ${(item as any).toUser?.name || 'someone'}` 
-                                : (item as any).description}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(item.date).toLocaleDateString()}
-                              {!item.isPayment && ` • Paid by ${(item as any).paidByUser?.name || 'Someone'}`}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className={cn(
-                            "font-bold text-right",
-                            item.isPayment ? "text-primary" : ""
-                          )}>
-                            {formatCurrency(item.amount || (item as any).totalAmount)}
-                          </div>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => item.isPayment ? handleDeletePayment(item.id) : handleDeleteExpense(item.id)}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No expenses or payments yet. Add an expense to get started!
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Members</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center gap-3">
+              {members.map((m) => (
+                <div key={m.id} className="flex items-center gap-2">
+                  <MemberAvatar name={m.user.name} />
+                  <span className="text-sm">
+                    {m.userId === myUserId ? "You" : m.user.name}
+                  </span>
+                </div>
+              ))}
+              <AddMemberDialog groupId={groupId} />
+            </div>
+          </CardContent>
+        </Card>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Balances</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingBalances ? (
-                  <div className="space-y-3">
-                    {[1, 2].map(i => <Skeleton key={i} className="h-8 w-full" />)}
-                  </div>
-                ) : balances?.length ? (
-                  <div className="space-y-3">
-                    {balances.map((balance, i) => (
-                      <div key={i} className="text-sm">
-                        <span className="font-medium">{balance.fromUser.name || balance.fromUser.email}</span> owes{' '}
-                        <span className="font-medium">{balance.toUser.name || balance.toUser.email}</span>
-                        <div className="font-bold text-primary mt-1">{formatCurrency(balance.amount)}</div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground text-center py-4">
-                    Settled up!
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+        <Tabs defaultValue="activity">
+          <TabsList>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="balances">Balances</TabsTrigger>
+          </TabsList>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex justify-between items-center">
-                  Members
-                  <span className="text-sm font-normal text-muted-foreground">{group.members?.length || 0}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {group.members?.map(member => (
-                    <div key={member.id} className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-                        {(member.user.name || member.user.email)?.[0]?.toUpperCase()}
+          <TabsContent value="activity" className="space-y-2">
+            {combined.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <Receipt className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                  No expenses yet. Add your first one.
+                </CardContent>
+              </Card>
+            ) : (
+              combined.map((item) => {
+                if (item.kind === "expense") {
+                  const e = item.data;
+                  const youPaid = e.paidByUserId === myUserId;
+                  const yourSplit = e.splits.find(
+                    (s) => s.userId === myUserId,
+                  );
+                  const yourShare = yourSplit?.amount ?? 0;
+                  const lentOrBorrowed = youPaid
+                    ? e.totalAmount - yourShare
+                    : -yourShare;
+                  return (
+                    <Card key={item.id}>
+                      <CardContent className="py-4 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          <Receipt className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">
+                            {e.description}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {youPaid ? "You" : e.paidByUser.name} paid{" "}
+                            {formatCurrency(e.totalAmount)} ·{" "}
+                            {formatDate(e.date)}
+                          </p>
+                        </div>
+                        <div
+                          className={cn(
+                            "font-medium text-sm whitespace-nowrap",
+                            lentOrBorrowed > 0
+                              ? "text-primary"
+                              : lentOrBorrowed < 0
+                                ? "text-destructive"
+                                : "text-muted-foreground",
+                          )}
+                        >
+                          {lentOrBorrowed > 0
+                            ? `+${formatCurrency(lentOrBorrowed)}`
+                            : lentOrBorrowed < 0
+                              ? `-${formatCurrency(Math.abs(lentOrBorrowed))}`
+                              : formatCurrency(0)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+                const p = item.data;
+                const fromYou = p.fromUserId === myUserId;
+                const toYou = p.toUserId === myUserId;
+                return (
+                  <Card key={item.id}>
+                    <CardContent className="py-4 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
+                        <HandCoins className="w-5 h-5 text-accent-foreground" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{member.user.name || member.user.email}</p>
+                        <p className="font-medium truncate">
+                          {fromYou ? "You" : p.fromUser.name} paid{" "}
+                          {toYou ? "you" : p.toUser.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(p.date)}
+                          {p.note ? ` · ${p.note}` : ""}
+                        </p>
                       </div>
+                      <div className="font-medium text-sm whitespace-nowrap">
+                        {formatCurrency(p.amount)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </TabsContent>
+
+          <TabsContent value="balances" className="space-y-2">
+            {balances.data && balances.data.length > 0 ? (
+              balances.data.map((b, i) => (
+                <Card key={`${b.fromUserId}-${b.toUserId}-${i}`}>
+                  <CardContent className="py-4 flex items-center gap-3">
+                    <MemberAvatar name={b.fromUser.name} />
+                    <p className="flex-1 text-sm">
+                      <span className="font-semibold">
+                        {b.fromUserId === myUserId ? "You" : b.fromUser.name}
+                      </span>{" "}
+                      owe{b.fromUserId === myUserId ? "" : "s"}{" "}
+                      <span className="font-semibold">
+                        {b.toUserId === myUserId ? "you" : b.toUser.name}
+                      </span>
+                    </p>
+                    <div className="text-destructive font-medium">
+                      {formatCurrency(b.amount)}
                     </div>
-                  ))}
-                  
-                  <AddMemberDialog groupId={groupId} />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  All settled up.
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );

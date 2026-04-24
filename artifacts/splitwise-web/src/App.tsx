@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
-import { SignIn, SignUp, Show, useClerk } from "@clerk/react";
+import { useEffect, useRef } from "react";
+import { SignIn, SignUp, Show, useAuth, useClerk } from "@clerk/react";
 import { Switch, Route, Redirect, useLocation, Router as WouterRouter } from "wouter";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { queryClient } from "./lib/queryClient";
+import { configureAuth, queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -12,6 +12,7 @@ import { Layout } from "./components/layout";
 import { DashboardPage } from "./pages/dashboard";
 import { GroupsPage } from "./pages/groups";
 import { NewGroupPage } from "./pages/group-new";
+import { GroupDetailPage } from "./pages/group-detail";
 import { ProfilePage } from "./pages/profile";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -40,8 +41,19 @@ function SignUpPage() {
 
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
+  const { getToken } = useAuth();
   const queryClient = useQueryClient();
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    configureAuth(async () => {
+      try {
+        return await getToken();
+      } catch {
+        return null;
+      }
+    });
+  }, [getToken]);
 
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
@@ -70,7 +82,6 @@ function HomeRedirect() {
   );
 }
 
-function GroupDetailPage() { return <Layout><div>Group Detail (WIP)</div></Layout>; }
 function NotFound() { return <Layout><div>Not Found</div></Layout>; }
 
 function ClerkProviderWithRoutes() {
