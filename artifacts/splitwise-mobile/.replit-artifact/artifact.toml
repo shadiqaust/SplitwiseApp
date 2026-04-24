@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/mobile/"
+title = "Splitwise Mobile"
+version = "1.0.0"
+id = "artifacts/splitwise-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/mobile/" ]
+localPort = 18196
+
+[services.development]
+run = "pnpm --filter @workspace/splitwise-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/splitwise-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/splitwise-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "18196"
+BASE_PATH = "/mobile/"
