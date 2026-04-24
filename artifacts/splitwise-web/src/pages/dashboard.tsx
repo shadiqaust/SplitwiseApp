@@ -8,7 +8,7 @@ import { ArrowUpRight, ArrowDownRight, Activity } from "lucide-react";
 
 export function DashboardPage() {
   const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary();
-  const { data: activities, isLoading: loadingActivities } = useGetActivity({ query: { queryKey: ["dashboard-activity"] } });
+  const { data: activities, isLoading: loadingActivities } = useGetActivity({ query: { queryKey: ["dashboard-activity"] as const } });
 
   return (
     <Layout>

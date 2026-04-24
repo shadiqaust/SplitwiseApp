@@ -1,4 +1,8 @@
 import { QueryClient } from "@tanstack/react-query";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
+
+setBaseUrl(`${window.location.origin}/api`);
+setAuthTokenGetter(async () => null);
 
 export const queryClient = new QueryClient({
   defaultOptions: {
