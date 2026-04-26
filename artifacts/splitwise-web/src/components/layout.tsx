@@ -1,6 +1,6 @@
 import { useAuth } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, User, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, User, LogOut, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -36,6 +36,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Button variant={location === "/groups" ? "secondary" : "ghost"} className="w-full justify-start">
               <Users className="w-4 h-4 mr-2" />
               Groups
+            </Button>
+          </Link>
+          <Link href="/friends">
+            <Button variant={location === "/friends" ? "secondary" : "ghost"} className="w-full justify-start">
+              <UserCheck className="w-4 h-4 mr-2" />
+              Friends
             </Button>
           </Link>
           <Link href="/profile">

@@ -6,6 +6,7 @@ import groupsRouter from "./groups";
 import expensesRouter from "./expenses";
 import paymentsRouter from "./payments";
 import dashboardRouter from "./dashboard";
+import friendsRouter from "./friends";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(groupsRouter);
 router.use(expensesRouter);
 router.use(paymentsRouter);
 router.use(dashboardRouter);
+router.use(friendsRouter);
 
 export default router;
