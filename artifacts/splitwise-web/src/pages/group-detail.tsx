@@ -127,7 +127,10 @@ function AddMemberDialog({ groupId }: { groupId: number }) {
     queryFn: async () => {
       const params = new URLSearchParams({ excludeGroupId: String(groupId) });
       if (search.trim()) params.set("q", search.trim());
-      const res = await fetch(`/api/users/search?${params}`);
+      const token = localStorage.getItem("sw_auth_token");
+      const res = await fetch(`/api/users/search?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!res.ok) throw new Error("Failed to load users");
       return res.json();
     },
