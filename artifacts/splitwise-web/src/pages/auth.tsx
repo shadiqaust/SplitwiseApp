@@ -22,10 +22,12 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) { setError("Please enter your email"); return; }
+    if (!password) { setError("Please enter your password"); return; }
     setError(null);
     setLoading(true);
     try {
-      await signIn(email, password);
+      await signIn(email.trim(), password);
       setLocation("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");
@@ -36,10 +38,14 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) { setError("Please enter your full name"); return; }
+    if (!email.trim()) { setError("Please enter your email"); return; }
+    if (!email.includes("@")) { setError("Please enter a valid email address"); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
     setError(null);
     setLoading(true);
     try {
-      await signUp(name.trim(), email, password);
+      await signUp(name.trim(), email.trim(), password);
       setLocation("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign up failed");
@@ -80,28 +86,26 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
         </CardHeader>
         <CardContent>
           {mode === "sign-in" ? (
-            <form onSubmit={handleSignIn} className="space-y-4">
+            <form onSubmit={handleSignIn} noValidate className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="signin-email">Email</Label>
                 <Input
-                  id="email"
+                  id="signin-email"
                   type="email"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
                   autoComplete="email"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="signin-password">Password</Label>
                 <Input
-                  id="password"
+                  id="signin-password"
                   type="password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
                   autoComplete="current-password"
                 />
               </div>
@@ -118,41 +122,37 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
               </p>
             </form>
           ) : (
-            <form onSubmit={handleSignUp} className="space-y-4">
+            <form onSubmit={handleSignUp} noValidate className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Full name</Label>
+                <Label htmlFor="signup-name">Full name</Label>
                 <Input
-                  id="name"
+                  id="signup-name"
                   type="text"
                   placeholder="Jane Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  required
                   autoComplete="name"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="signup-email">Email</Label>
                 <Input
-                  id="email"
-                  type="email"
+                  id="signup-email"
+                  type="text"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
                   autoComplete="email"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="signup-password">Password</Label>
                 <Input
-                  id="password"
+                  id="signup-password"
                   type="password"
                   placeholder="At least 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={8}
                   autoComplete="new-password"
                 />
               </div>
