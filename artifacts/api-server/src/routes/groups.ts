@@ -230,16 +230,10 @@ router.post(
 
     const email = parsed.data.email.trim().toLowerCase();
 
-    let [targetUser] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+    const [targetUser] = await db.select().from(usersTable).where(eq(usersTable.email, email));
     if (!targetUser) {
-      [targetUser] = await db
-        .insert(usersTable)
-        .values({
-          clerkId: `invite_${Date.now()}_${email}`,
-          name: email.split("@")[0],
-          email,
-        })
-        .returning();
+      res.status(404).json({ error: "No account found with that email address. Ask them to sign up first." });
+      return;
     }
 
     const [existing] = await db

@@ -141,7 +141,7 @@ function AddMemberDialog({ groupId }: { groupId: number }) {
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
-              type="email"
+              type="text"
               placeholder="friend@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
