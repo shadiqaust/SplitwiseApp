@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import {
   ActivityIndicator,
@@ -14,7 +14,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -96,6 +96,8 @@ export default function GroupDetailScreen() {
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
+  const [filterMemberId, setFilterMemberId] = useState<number | "all">("all");
+  const [filterPeriod, setFilterPeriod] = useState<"all" | "7d" | "30d">("all");
 
   const me = useGetMe();
   const POLL = { query: { refetchInterval: 15_000 } } as const;
@@ -202,20 +204,54 @@ export default function GroupDetailScreen() {
 
   const myUserId = me.data?.id;
 
-  const combined = [
-    ...(expenses.data ?? []).map((e) => ({
-      kind: "expense" as const,
-      id: `e-${e.id}`,
-      data: e,
-      date: e.date,
-    })),
-    ...(payments.data ?? []).map((p) => ({
-      kind: "payment" as const,
-      id: `p-${p.id}`,
-      data: p,
-      date: p.date,
-    })),
-  ].sort((a, b) => (a.date < b.date ? 1 : -1));
+  const totalGroupSpend = useMemo(
+    () => (expenses.data ?? []).reduce((sum, e) => sum + e.totalAmount, 0),
+    [expenses.data],
+  );
+
+  const combined = useMemo(
+    () =>
+      [
+        ...(expenses.data ?? []).map((e) => ({
+          kind: "expense" as const,
+          id: `e-${e.id}`,
+          data: e,
+          date: e.date,
+        })),
+        ...(payments.data ?? []).map((p) => ({
+          kind: "payment" as const,
+          id: `p-${p.id}`,
+          data: p,
+          date: p.date,
+        })),
+      ].sort((a, b) => (a.date < b.date ? 1 : -1)),
+    [expenses.data, payments.data],
+  );
+
+  const filteredCombined = useMemo(() => {
+    let items = combined;
+    if (filterPeriod !== "all") {
+      const days = filterPeriod === "7d" ? 7 : 30;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      items = items.filter((item) => {
+        const d = item.date instanceof Date ? item.date : new Date(item.date as string);
+        return d >= cutoff;
+      });
+    }
+    if (filterMemberId !== "all") {
+      items = items.filter((item) => {
+        if (item.kind === "expense") {
+          return (
+            item.data.paidByUserId === filterMemberId ||
+            item.data.splits.some((s) => s.userId === filterMemberId)
+          );
+        }
+        return item.data.fromUserId === filterMemberId || item.data.toUserId === filterMemberId;
+      });
+    }
+    return items;
+  }, [combined, filterMemberId, filterPeriod]);
 
   return (
     <>
@@ -342,13 +378,15 @@ export default function GroupDetailScreen() {
                 const creator = group.data.members.find((m) => m.userId === group.data?.createdByUserId);
                 if (!creator) return null;
                 return (
-                  <Text style={[styles.creatorText, { color: colors.mutedForeground }]}>
-                    <Feather name="award" size={11} color={colors.mutedForeground} />{" "}
-                    Created by{" "}
-                    <Text style={{ fontFamily: "Inter_600SemiBold" }}>
-                      {creator.userId === myUserId ? "you" : creator.user.name}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                    <MaterialCommunityIcons name="crown" size={13} color="#f59e0b" />
+                    <Text style={[styles.creatorText, { color: colors.mutedForeground, marginTop: 0 }]}>
+                      Created by{" "}
+                      <Text style={{ fontFamily: "Inter_600SemiBold" }}>
+                        {creator.userId === myUserId ? "you" : creator.user.name}
+                      </Text>
                     </Text>
-                  </Text>
+                  </View>
                 );
               })()}
             </View>
@@ -378,6 +416,11 @@ export default function GroupDetailScreen() {
               onPress={() => router.push({ pathname: "/payments/new", params: { groupId: String(groupId) } })}
             />
           </View>
+
+          <View style={[styles.spendRow, { borderTopColor: colors.border }]}>
+            <Text style={[styles.spendLabel, { color: colors.mutedForeground }]}>Total group spend</Text>
+            <Text style={[styles.spendValue, { color: colors.foreground }]}>{formatCurrency(totalGroupSpend)}</Text>
+          </View>
         </Card>
 
         <View style={[styles.tabs, { borderColor: colors.border }]}>
@@ -403,9 +446,67 @@ export default function GroupDetailScreen() {
         </View>
 
         {tab === "expenses" ? (
-          combined.length > 0 ? (
+          <View style={{ gap: 8 }}>
+            {/* Member filter */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: "row", gap: 8, paddingVertical: 2 }}>
+                {(["all", ...group.data.members.map((m) => m.userId)] as (number | "all")[]).map((uid) => {
+                  const m = uid === "all" ? null : group.data.members.find((mm) => mm.userId === uid);
+                  const label = uid === "all" ? "All" : (m ? (m.userId === myUserId ? "You" : m.user.name.split(" ")[0]) : "");
+                  const active = filterMemberId === uid;
+                  return (
+                    <Pressable
+                      key={String(uid)}
+                      onPress={() => setFilterMemberId(uid)}
+                      style={[
+                        styles.filterChip,
+                        {
+                          backgroundColor: active ? colors.primary : colors.card,
+                          borderColor: active ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      {uid !== "all" && m && (
+                        <Avatar name={m.user.name} url={m.user.avatarUrl} size={16} />
+                      )}
+                      <Text style={[styles.filterChipText, { color: active ? "#fff" : colors.foreground }]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            {/* Period filter */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+              <View style={{ flexDirection: "row", gap: 8, paddingVertical: 2 }}>
+                {([["all", "All time"], ["7d", "Last 7 days"], ["30d", "Last 30 days"]] as [typeof filterPeriod, string][]).map(([val, label]) => {
+                  const active = filterPeriod === val;
+                  return (
+                    <Pressable
+                      key={val}
+                      onPress={() => setFilterPeriod(val)}
+                      style={[
+                        styles.filterChip,
+                        {
+                          backgroundColor: active ? colors.primary : colors.card,
+                          borderColor: active ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.filterChipText, { color: active ? "#fff" : colors.foreground }]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+          {filteredCombined.length > 0 ? (
             <View style={{ gap: 8 }}>
-              {combined.map((item) => {
+              {filteredCombined.map((item) => {
                 if (item.kind === "expense") {
                   const e = item.data;
                   const youPaid = e.paidByUserId === myUserId;
@@ -445,18 +546,20 @@ export default function GroupDetailScreen() {
                 const toYou = p.toUserId === myUserId;
                 return (
                   <Card key={item.id} style={styles.activityRow}>
-                    <View style={[styles.bubble, { backgroundColor: colors.accent, borderRadius: 100 }]}>
-                      <Feather name="dollar-sign" size={18} color={colors.accentForeground} />
+                    <View style={[styles.bubble, { backgroundColor: "#dcfce7", borderRadius: 100 }]}>
+                      <Feather name="check-circle" size={18} color="#16a34a" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.activityTitle, { color: colors.foreground }]} numberOfLines={1}>
-                        {fromYou ? "You" : p.fromUser.name} paid {toYou ? "you" : p.toUser.name}
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={[styles.activityTitle, { color: colors.foreground }]} numberOfLines={1}>
+                          {fromYou ? "You" : p.fromUser.name} settled with {toYou ? "you" : p.toUser.name}
+                        </Text>
+                      </View>
                       <Text style={[styles.activitySub, { color: colors.mutedForeground }]}>
-                        {formatDate(p.date)}
+                        {formatDate(p.date)}{p.note ? ` · ${p.note}` : ""}
                       </Text>
                     </View>
-                    <Text style={[styles.activityAmount, { color: colors.foreground }]}>
+                    <Text style={[styles.activityAmount, { color: "#16a34a" }]}>
                       {formatCurrency(p.amount)}
                     </Text>
                   </Card>
@@ -465,9 +568,10 @@ export default function GroupDetailScreen() {
             </View>
           ) : (
             <Card>
-              <EmptyState icon="file-text" title="No expenses yet" message="Add an expense to start splitting." />
+              <EmptyState icon="file-text" title="No activity yet" message="Add an expense to start splitting." />
             </Card>
-          )
+          )}
+          </View>
         ) : balances.data && balances.data.length > 0 ? (
           <View style={{ gap: 8 }}>
             {balances.data.map((b, i) => (
@@ -612,7 +716,12 @@ const styles = StyleSheet.create({
   groupAvatarFallback: { width: 64, height: 64, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   groupAvatarText: { fontFamily: "Inter_700Bold", fontSize: 22 },
   groupCamBadge: { position: "absolute", bottom: -4, right: -4, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  creatorText: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 4 },
+  creatorText: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  spendRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 14, marginTop: 14, borderTopWidth: StyleSheet.hairlineWidth },
+  spendLabel: { fontFamily: "Inter_400Regular", fontSize: 13 },
+  spendValue: { fontFamily: "Inter_700Bold", fontSize: 15 },
+  filterChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  filterChipText: { fontFamily: "Inter_500Medium", fontSize: 12 },
   overlaySheet: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   avatarSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "80%", paddingBottom: 8 },
   presetImg: { width: 64, height: 64, borderRadius: 10, borderWidth: 2 },

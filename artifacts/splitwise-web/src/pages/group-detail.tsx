@@ -947,6 +947,14 @@ export function GroupDetailPage() {
   const myUserId = me.data?.id ?? -1;
   const members = group.data?.members ?? [];
 
+  const [filterMemberId, setFilterMemberId] = useState<number | "all">("all");
+  const [filterPeriod, setFilterPeriod] = useState<"all" | "7d" | "30d">("all");
+
+  const totalGroupSpend = useMemo(
+    () => (expenses.data ?? []).reduce((sum, e) => sum + e.totalAmount, 0),
+    [expenses.data],
+  );
+
   const combined = useMemo(() => {
     const e = (expenses.data ?? []).map((x) => ({
       kind: "expense" as const,
@@ -966,6 +974,31 @@ export function GroupDetailPage() {
       a.createdAt < b.createdAt ? 1 : -1,
     );
   }, [expenses.data, payments.data]);
+
+  const filteredCombined = useMemo(() => {
+    let items = combined;
+    if (filterPeriod !== "all") {
+      const days = filterPeriod === "7d" ? 7 : 30;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      items = items.filter((item) => {
+        const d = item.date instanceof Date ? item.date : new Date(item.date as string);
+        return d >= cutoff;
+      });
+    }
+    if (filterMemberId !== "all") {
+      items = items.filter((item) => {
+        if (item.kind === "expense") {
+          return (
+            item.data.paidByUserId === filterMemberId ||
+            item.data.splits.some((s) => s.userId === filterMemberId)
+          );
+        }
+        return item.data.fromUserId === filterMemberId || item.data.toUserId === filterMemberId;
+      });
+    }
+    return items;
+  }, [combined, filterMemberId, filterPeriod]);
 
   if (group.isLoading || !group.data) {
     return (
@@ -1050,22 +1083,68 @@ export function GroupDetailPage() {
           </CardContent>
         </Card>
 
+        {/* Total spend stat */}
+        <Card>
+          <CardContent className="py-4 flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Total group spend</span>
+            <span className="text-lg font-bold">{formatCurrency(totalGroupSpend)}</span>
+          </CardContent>
+        </Card>
+
         <Tabs defaultValue="activity">
           <TabsList>
             <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="balances">Balances</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="activity" className="space-y-2">
-            {combined.length === 0 ? (
+          <TabsContent value="activity" className="space-y-3">
+            {/* Filters */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <Select value={String(filterMemberId)} onValueChange={(v) => setFilterMemberId(v === "all" ? "all" : Number(v))}>
+                <SelectTrigger className="w-40 h-8 text-xs">
+                  <SelectValue placeholder="All members" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All members</SelectItem>
+                  {members.map((m) => (
+                    <SelectItem key={m.userId} value={String(m.userId)}>
+                      {m.userId === myUserId ? "You" : m.user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterPeriod} onValueChange={(v) => setFilterPeriod(v as typeof filterPeriod)}>
+                <SelectTrigger className="w-36 h-8 text-xs">
+                  <SelectValue placeholder="All time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All time</SelectItem>
+                  <SelectItem value="7d">Last 7 days</SelectItem>
+                  <SelectItem value="30d">Last 30 days</SelectItem>
+                </SelectContent>
+              </Select>
+              {(filterMemberId !== "all" || filterPeriod !== "all") && (
+                <button
+                  className="text-xs text-muted-foreground underline"
+                  onClick={() => { setFilterMemberId("all"); setFilterPeriod("all"); }}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+
+            {filteredCombined.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
                   <Receipt className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                  No expenses yet. Add your first one.
+                  {filterMemberId !== "all" || filterPeriod !== "all"
+                    ? "No activity matches the current filters."
+                    : "No expenses yet. Add your first one."}
                 </CardContent>
               </Card>
             ) : (
-              combined.map((item) => {
+              <div className="space-y-2">
+              {filteredCombined.map((item) => {
                 if (item.kind === "expense") {
                   const e = item.data;
                   const youPaid = e.paidByUserId === myUserId;
@@ -1079,7 +1158,7 @@ export function GroupDetailPage() {
                   return (
                     <Card key={item.id}>
                       <CardContent className="py-4 flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
                           <Receipt className="w-5 h-5 text-muted-foreground" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1118,12 +1197,12 @@ export function GroupDetailPage() {
                 return (
                   <Card key={item.id}>
                     <CardContent className="py-4 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
-                        <HandCoins className="w-5 h-5 text-accent-foreground" />
+                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                        <HandCoins className="w-5 h-5 text-green-700" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">
-                          {fromYou ? "You" : p.fromUser.name} paid{" "}
+                          {fromYou ? "You" : p.fromUser.name} settled with{" "}
                           {toYou ? "you" : p.toUser.name}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -1131,13 +1210,14 @@ export function GroupDetailPage() {
                           {p.note ? ` · ${p.note}` : ""}
                         </p>
                       </div>
-                      <div className="font-medium text-sm whitespace-nowrap">
+                      <div className="font-medium text-sm whitespace-nowrap text-green-700">
                         {formatCurrency(p.amount)}
                       </div>
                     </CardContent>
                   </Card>
                 );
-              })
+              })}
+              </div>
             )}
           </TabsContent>
 
