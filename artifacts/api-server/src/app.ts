@@ -52,8 +52,8 @@ app.use(
     credentials: false,
   }),
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "6mb" }));
+app.use(express.urlencoded({ extended: true, limit: "6mb" }));
 
 app.use("/api", router);
 
