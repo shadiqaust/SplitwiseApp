@@ -84,6 +84,8 @@ router.post(
       return;
     }
 
+    const dateStr = (date instanceof Date ? date.toISOString() : String(date)).slice(0, 10);
+
     const [payment] = await db
       .insert(paymentsTable)
       .values({
@@ -92,7 +94,7 @@ router.post(
         toUserId,
         amount: amount.toFixed(2),
         note: note ?? null,
-        date: String(date),
+        date: dateStr,
       })
       .returning();
 

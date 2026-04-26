@@ -737,14 +737,18 @@ function AddExpenseDialog({
   );
 }
 
+type Balance = { fromUserId: number; toUserId: number; amount: number; fromUser: { name: string }; toUser: { name: string } };
+
 function SettleUpDialog({
   groupId,
   members,
   currentUserId,
+  balances,
 }: {
   groupId: number;
   members: GroupMember[];
   currentUserId: number;
+  balances: Balance[];
 }) {
   const [open, setOpen] = useState(false);
   const [fromUserId, setFromUserId] = useState<number>(currentUserId);
@@ -763,6 +767,16 @@ function SettleUpDialog({
       setNote("");
     }
   }, [open, currentUserId, members]);
+
+  const balanceHint = toUserId
+    ? (() => {
+        const owes = balances.find((b) => b.fromUserId === fromUserId && b.toUserId === toUserId);
+        const owed = balances.find((b) => b.fromUserId === toUserId && b.toUserId === fromUserId);
+        if (owes) return { text: `${fromUserId === currentUserId ? "You owe" : `${owes.fromUser.name} owes`} ${toUserId === currentUserId ? "you" : owes.toUser.name} ${formatCurrency(owes.amount)}`, amount: owes.amount, positive: true };
+        if (owed) return { text: `${toUserId === currentUserId ? "You owe" : `${owed.fromUser.name} owes`} ${fromUserId === currentUserId ? "you" : owed.toUser.name} ${formatCurrency(owed.amount)}`, amount: null, positive: false };
+        return null;
+      })()
+    : null;
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -858,6 +872,25 @@ function SettleUpDialog({
               </Select>
             </div>
           </div>
+
+          {balanceHint && (
+            <div className={cn(
+              "flex items-center justify-between rounded-lg px-3 py-2 text-sm",
+              balanceHint.positive ? "bg-amber-50 border border-amber-200 text-amber-800" : "bg-muted text-muted-foreground"
+            )}>
+              <span>{balanceHint.text}</span>
+              {balanceHint.amount !== null && (
+                <button
+                  type="button"
+                  className="ml-3 text-xs font-semibold text-amber-700 hover:underline whitespace-nowrap"
+                  onClick={() => setAmount(String(balanceHint.amount))}
+                >
+                  Use this amount
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Amount</Label>
             <Input
@@ -970,6 +1003,7 @@ export function GroupDetailPage() {
                   groupId={groupId}
                   members={members}
                   currentUserId={myUserId}
+                  balances={balances.data ?? []}
                 />
                 <AddExpenseDialog
                   groupId={groupId}

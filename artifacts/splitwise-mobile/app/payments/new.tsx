@@ -19,6 +19,7 @@ import {
   getListPaymentsQueryKey,
   useCreatePayment,
   useGetGroup,
+  useGetGroupBalances,
   useGetMe,
 } from "@workspace/api-client-react";
 
@@ -36,6 +37,7 @@ export default function NewPaymentScreen() {
 
   const me = useGetMe();
   const group = useGetGroup(groupId);
+  const balances = useGetGroupBalances(groupId);
   const createPayment = useCreatePayment();
 
   const [fromUserId, setFromUserId] = useState<number | null>(null);
@@ -45,6 +47,18 @@ export default function NewPaymentScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const members = group.data?.members ?? [];
+
+  const balanceHint = fromUserId && toUserId && balances.data
+    ? (() => {
+        const owes = balances.data.find((b) => b.fromUserId === fromUserId && b.toUserId === toUserId);
+        const owed = balances.data.find((b) => b.fromUserId === toUserId && b.toUserId === fromUserId);
+        const fromName = fromUserId === me.data?.id ? "You" : members.find((m) => m.userId === fromUserId)?.user.name ?? "Payer";
+        const toName = toUserId === me.data?.id ? "you" : members.find((m) => m.userId === toUserId)?.user.name ?? "Recipient";
+        if (owes) return { text: `${fromName} ${fromUserId === me.data?.id ? "owe" : "owes"} ${toName} $${owes.amount.toFixed(2)}`, amount: owes.amount };
+        if (owed) return { text: `${owed.fromUserId === me.data?.id ? "You owe" : `${members.find((m) => m.userId === owed.fromUserId)?.user.name} owes`} ${owed.toUserId === me.data?.id ? "you" : members.find((m) => m.userId === owed.toUserId)?.user.name} $${owed.amount.toFixed(2)}`, amount: null };
+        return null;
+      })()
+    : null;
 
   useEffect(() => {
     if (fromUserId === null && me.data) setFromUserId(me.data.id);
@@ -145,6 +159,19 @@ export default function NewPaymentScreen() {
             {renderChips(toUserId, setToUserId)}
           </View>
 
+          {balanceHint && (
+            <View style={[styles.hintCard, { backgroundColor: balanceHint.amount !== null ? "#fef9c3" : colors.muted, borderColor: balanceHint.amount !== null ? "#fde68a" : colors.border }]}>
+              <Text style={[styles.hintText, { color: balanceHint.amount !== null ? "#92400e" : colors.mutedForeground }]}>
+                {balanceHint.text}
+              </Text>
+              {balanceHint.amount !== null && (
+                <Pressable onPress={() => setAmount(String(balanceHint.amount))} style={styles.hintBtn}>
+                  <Text style={styles.hintBtnText}>Use this amount</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
           <Input
             label="Amount"
             placeholder="0.00"
@@ -197,4 +224,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipText: { fontFamily: "Inter_500Medium", fontSize: 13 },
+  hintCard: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 6 },
+  hintText: { fontFamily: "Inter_500Medium", fontSize: 13 },
+  hintBtn: { alignSelf: "flex-start" },
+  hintBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#b45309", textDecorationLine: "underline" },
 });
