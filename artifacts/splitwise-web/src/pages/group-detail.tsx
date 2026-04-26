@@ -173,7 +173,7 @@ function AddMemberDialog({ groupId }: { groupId: number }) {
         <DialogHeader>
           <DialogTitle>Add member</DialogTitle>
           <DialogDescription>
-            Search by name or email to add an existing user to this group.
+            Search your friends by name or email to add them to this group.
           </DialogDescription>
         </DialogHeader>
 
@@ -182,7 +182,7 @@ function AddMemberDialog({ groupId }: { groupId: number }) {
           <Input
             autoFocus
             className="pl-9"
-            placeholder="Search by name or email…"
+            placeholder="Search friends by name or email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -195,8 +195,8 @@ function AddMemberDialog({ groupId }: { groupId: number }) {
           {!isFetching && users.length === 0 && (
             <div className="p-4 text-sm text-muted-foreground text-center">
               {search
-                ? "No users found. They may need to sign up first."
-                : "No other registered users to add."}
+                ? "No friends match that search."
+                : "None of your friends are available to add."}
             </div>
           )}
           {users.map((user) => (

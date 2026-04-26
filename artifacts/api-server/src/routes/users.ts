@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, ilike, or, notInArray, and, ne, sql } from "drizzle-orm";
-import { db, usersTable, groupMembersTable } from "@workspace/db";
+import { eq, ilike, or, notInArray, and, ne, sql, inArray } from "drizzle-orm";
+import { db, usersTable, groupMembersTable, friendshipsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { UpdateMeBody, GetMeResponse, UpdateMeResponse } from "@workspace/api-zod";
 import { z } from "zod";
@@ -50,7 +50,27 @@ router.get("/users/search", requireAuth, async (req, res): Promise<void> => {
   const { q, excludeGroupId } = parsed.data;
   const currentUserId = req.dbUserId!;
 
-  const conditions = [ne(usersTable.id, currentUserId)];
+  // Collect IDs of all friends (friendship is bidirectional)
+  const friendRows = await db
+    .select({ friendId: friendshipsTable.friendId, userId: friendshipsTable.userId })
+    .from(friendshipsTable)
+    .where(
+      or(
+        eq(friendshipsTable.userId, currentUserId),
+        eq(friendshipsTable.friendId, currentUserId),
+      )!,
+    );
+
+  const friendIds = friendRows.map((r) =>
+    r.userId === currentUserId ? r.friendId : r.userId,
+  );
+
+  if (friendIds.length === 0) {
+    res.json([]);
+    return;
+  }
+
+  const conditions = [inArray(usersTable.id, friendIds)];
 
   if (q) {
     const pattern = `%${q.replace(/[%_]/g, "\\$&")}%`;

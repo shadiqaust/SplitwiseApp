@@ -187,7 +187,7 @@ export default function GroupDetailScreen() {
               <Feather name="search" size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
               <TextInput
                 style={[styles.searchInput, { color: colors.foreground }]}
-                placeholder="Search by name or email…"
+                placeholder="Search friends by name or email…"
                 placeholderTextColor={colors.mutedForeground}
                 value={memberSearch}
                 onChangeText={setMemberSearch}
@@ -200,7 +200,7 @@ export default function GroupDetailScreen() {
             <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
           ) : searchResults.length === 0 ? (
             <Text style={[styles.emptySearch, { color: colors.mutedForeground }]}>
-              {memberSearch ? "No registered users found." : "Start typing to search…"}
+              {memberSearch ? "No friends match that search." : "None of your friends are available to add."}
             </Text>
           ) : (
             <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
