@@ -1,12 +1,15 @@
-import { useUser, useClerk } from "@clerk/react";
+import { useAuth } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, User, LogOut, Plus } from "lucide-react";
+import { LayoutDashboard, Users, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { user } = useUser();
-  const { signOut } = useClerk();
-  const [location, setLocation] = useLocation();
+  const { user, signOut } = useAuth();
+  const [location] = useLocation();
+
+  const initials = user?.name
+    ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    : user?.email?.[0]?.toUpperCase() ?? "?";
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
@@ -21,7 +24,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             Splitwise
           </Link>
         </div>
-        
+
         <nav className="flex-1 p-4 space-y-2">
           <Link href="/dashboard">
             <Button variant={location === "/dashboard" ? "secondary" : "ghost"} className="w-full justify-start">
@@ -45,15 +48,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="p-4 border-t">
           <div className="flex items-center gap-3 mb-4">
-            {user?.imageUrl ? (
-              <img src={user.imageUrl} alt="Avatar" className="w-10 h-10 rounded-full" />
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="Avatar" className="w-10 h-10 rounded-full" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                {user?.firstName?.[0] || user?.emailAddresses[0]?.emailAddress?.[0]?.toUpperCase()}
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
+                {initials}
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.firstName || user?.emailAddresses[0]?.emailAddress}</p>
+              <p className="text-sm font-medium truncate">{user?.name || user?.email}</p>
+              {user?.name && (
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              )}
             </div>
           </div>
           <Button variant="outline" className="w-full justify-start text-destructive" onClick={() => signOut()}>
