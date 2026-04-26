@@ -51,6 +51,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="groups"
         options={{
+          headerShown: false,
           title: "Groups",
           tabBarIcon: ({ color }) => (
             <Feather name="users" size={22} color={color} />

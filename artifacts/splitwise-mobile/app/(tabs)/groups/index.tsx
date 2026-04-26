@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useListGroups } from "@workspace/api-client-react";
 
 import { Button } from "@/components/ui/Button";
@@ -25,13 +25,16 @@ export default function GroupsScreen() {
   if (isLoading && !data) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <Stack.Screen options={{ title: "Groups" }} />
         <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <ScrollView
+    <>
+      <Stack.Screen options={{ title: "Groups" }} />
+      <ScrollView
       style={{ backgroundColor: colors.background }}
       contentContainerStyle={styles.scroll}
       refreshControl={
@@ -115,12 +118,13 @@ export default function GroupsScreen() {
         </Card>
       )}
     </ScrollView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  scroll: { padding: 16, gap: 16, paddingBottom: 80 },
+  scroll: { padding: 16, gap: 16, paddingBottom: 32 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   bubble: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   name: { fontFamily: "Inter_600SemiBold", fontSize: 15 },

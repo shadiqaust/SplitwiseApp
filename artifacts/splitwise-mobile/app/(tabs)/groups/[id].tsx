@@ -17,7 +17,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getGetGroupBalancesQueryKey,
   getGetGroupQueryKey,
-  getListExpensesQueryKey,
   getListGroupsQueryKey,
   useAddGroupMember,
   useGetGroup,
@@ -135,7 +134,6 @@ export default function GroupDetailScreen() {
 
   const myUserId = me.data?.id;
 
-  // Combine expenses + payments for the activity tab
   const combined = [
     ...(expenses.data ?? []).map((e) => ({
       kind: "expense" as const,
@@ -156,6 +154,7 @@ export default function GroupDetailScreen() {
       <Stack.Screen
         options={{
           title: group.data.name,
+          headerBackTitle: "Groups",
           headerRight: () => (
             <Pressable
               onPress={() => setShowAddModal(true)}
@@ -231,24 +230,17 @@ export default function GroupDetailScreen() {
           )}
         </View>
       </Modal>
+
       <ScrollView
         style={{ backgroundColor: colors.background }}
         contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {/* Header card with members + actions */}
         <Card>
           {group.data.description ? (
-            <Text
-              style={[styles.desc, { color: colors.mutedForeground }]}
-              numberOfLines={3}
-            >
+            <Text style={[styles.desc, { color: colors.mutedForeground }]} numberOfLines={3}>
               {group.data.description}
             </Text>
           ) : null}
@@ -256,10 +248,7 @@ export default function GroupDetailScreen() {
             {group.data.members.map((m) => (
               <View key={m.id} style={{ alignItems: "center", width: 56 }}>
                 <Avatar name={m.user.name} url={m.user.avatarUrl} size={40} />
-                <Text
-                  style={[styles.memberName, { color: colors.mutedForeground }]}
-                  numberOfLines={1}
-                >
+                <Text style={[styles.memberName, { color: colors.mutedForeground }]} numberOfLines={1}>
                   {m.user.id === myUserId ? "You" : m.user.name.split(" ")[0]}
                 </Text>
               </View>
@@ -270,50 +259,30 @@ export default function GroupDetailScreen() {
             <Button
               title="Add expense"
               icon={<Feather name="plus" size={16} color="#fff" />}
-              onPress={() =>
-                router.push({
-                  pathname: "/expenses/new",
-                  params: { groupId: String(groupId) },
-                })
-              }
+              onPress={() => router.push({ pathname: "/expenses/new", params: { groupId: String(groupId) } })}
             />
             <Button
               title="Settle up"
               variant="outline"
-              icon={
-                <Feather name="check" size={16} color={colors.foreground} />
-              }
-              onPress={() =>
-                router.push({
-                  pathname: "/payments/new",
-                  params: { groupId: String(groupId) },
-                })
-              }
+              icon={<Feather name="check" size={16} color={colors.foreground} />}
+              onPress={() => router.push({ pathname: "/payments/new", params: { groupId: String(groupId) } })}
             />
           </View>
         </Card>
 
-        {/* Tabs */}
         <View style={[styles.tabs, { borderColor: colors.border }]}>
           {(["expenses", "balances"] as Tab[]).map((t) => (
             <Pressable
               key={t}
               onPress={() => setTab(t)}
-              style={[
-                styles.tab,
-                {
-                  borderBottomColor: tab === t ? colors.primary : "transparent",
-                },
-              ]}
+              style={[styles.tab, { borderBottomColor: tab === t ? colors.primary : "transparent" }]}
             >
               <Text
                 style={[
                   styles.tabText,
                   {
-                    color:
-                      tab === t ? colors.primary : colors.mutedForeground,
-                    fontFamily:
-                      tab === t ? "Inter_600SemiBold" : "Inter_500Medium",
+                    color: tab === t ? colors.primary : colors.mutedForeground,
+                    fontFamily: tab === t ? "Inter_600SemiBold" : "Inter_500Medium",
                   },
                 ]}
               >
@@ -332,57 +301,24 @@ export default function GroupDetailScreen() {
                   const youPaid = e.paidByUserId === myUserId;
                   const yourSplit = e.splits.find((s) => s.userId === myUserId);
                   const yourShare = yourSplit?.amount ?? 0;
-                  const lentOrBorrowed = youPaid
-                    ? e.totalAmount - yourShare
-                    : -yourShare;
+                  const lentOrBorrowed = youPaid ? e.totalAmount - yourShare : -yourShare;
                   return (
                     <Card key={item.id} style={styles.activityRow}>
-                      <View
-                        style={[
-                          styles.bubble,
-                          {
-                            backgroundColor: colors.muted,
-                            borderRadius: 100,
-                          },
-                        ]}
-                      >
-                        <Feather
-                          name="file-text"
-                          size={18}
-                          color={colors.mutedForeground}
-                        />
+                      <View style={[styles.bubble, { backgroundColor: colors.muted, borderRadius: 100 }]}>
+                        <Feather name="file-text" size={18} color={colors.mutedForeground} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text
-                          style={[
-                            styles.activityTitle,
-                            { color: colors.foreground },
-                          ]}
-                          numberOfLines={1}
-                        >
+                        <Text style={[styles.activityTitle, { color: colors.foreground }]} numberOfLines={1}>
                           {e.description}
                         </Text>
-                        <Text
-                          style={[
-                            styles.activitySub,
-                            { color: colors.mutedForeground },
-                          ]}
-                        >
-                          {youPaid ? "You" : e.paidByUser.name} paid{" "}
-                          {formatCurrency(e.totalAmount)} · {formatDate(e.date)}
+                        <Text style={[styles.activitySub, { color: colors.mutedForeground }]}>
+                          {youPaid ? "You" : e.paidByUser.name} paid {formatCurrency(e.totalAmount)} · {formatDate(e.date)}
                         </Text>
                       </View>
                       <Text
                         style={[
                           styles.activityAmount,
-                          {
-                            color:
-                              lentOrBorrowed > 0
-                                ? colors.positive
-                                : lentOrBorrowed < 0
-                                  ? colors.negative
-                                  : colors.mutedForeground,
-                          },
+                          { color: lentOrBorrowed > 0 ? colors.positive : lentOrBorrowed < 0 ? colors.negative : colors.mutedForeground },
                         ]}
                       >
                         {lentOrBorrowed > 0
@@ -399,47 +335,18 @@ export default function GroupDetailScreen() {
                 const toYou = p.toUserId === myUserId;
                 return (
                   <Card key={item.id} style={styles.activityRow}>
-                    <View
-                      style={[
-                        styles.bubble,
-                        {
-                          backgroundColor: colors.accent,
-                          borderRadius: 100,
-                        },
-                      ]}
-                    >
-                      <Feather
-                        name="dollar-sign"
-                        size={18}
-                        color={colors.accentForeground}
-                      />
+                    <View style={[styles.bubble, { backgroundColor: colors.accent, borderRadius: 100 }]}>
+                      <Feather name="dollar-sign" size={18} color={colors.accentForeground} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text
-                        style={[
-                          styles.activityTitle,
-                          { color: colors.foreground },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {fromYou ? "You" : p.fromUser.name} paid{" "}
-                        {toYou ? "you" : p.toUser.name}
+                      <Text style={[styles.activityTitle, { color: colors.foreground }]} numberOfLines={1}>
+                        {fromYou ? "You" : p.fromUser.name} paid {toYou ? "you" : p.toUser.name}
                       </Text>
-                      <Text
-                        style={[
-                          styles.activitySub,
-                          { color: colors.mutedForeground },
-                        ]}
-                      >
+                      <Text style={[styles.activitySub, { color: colors.mutedForeground }]}>
                         {formatDate(p.date)}
                       </Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.activityAmount,
-                        { color: colors.foreground },
-                      ]}
-                    >
+                    <Text style={[styles.activityAmount, { color: colors.foreground }]}>
                       {formatCurrency(p.amount)}
                     </Text>
                   </Card>
@@ -448,11 +355,7 @@ export default function GroupDetailScreen() {
             </View>
           ) : (
             <Card>
-              <EmptyState
-                icon="file-text"
-                title="No expenses yet"
-                message="Add an expense to start splitting."
-              />
+              <EmptyState icon="file-text" title="No expenses yet" message="Add an expense to start splitting." />
             </Card>
           )
         ) : balances.data && balances.data.length > 0 ? (
@@ -469,12 +372,7 @@ export default function GroupDetailScreen() {
                     {b.toUserId === myUserId ? "you" : b.toUser.name}
                   </Text>
                 </Text>
-                <Text
-                  style={[
-                    styles.balanceAmount,
-                    { color: colors.negative },
-                  ]}
-                >
+                <Text style={[styles.balanceAmount, { color: colors.negative }]}>
                   {formatCurrency(b.amount)}
                 </Text>
               </Card>
@@ -482,11 +380,7 @@ export default function GroupDetailScreen() {
           </View>
         ) : (
           <Card>
-            <EmptyState
-              icon="check-circle"
-              title="All settled up"
-              message="Everyone in this group is even."
-            />
+            <EmptyState icon="check-circle" title="All settled up" message="Everyone in this group is even." />
           </Card>
         )}
       </ScrollView>
@@ -496,15 +390,10 @@ export default function GroupDetailScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  scroll: { padding: 16, gap: 16, paddingBottom: 80 },
+  scroll: { padding: 16, gap: 16, paddingBottom: 32 },
   desc: { fontFamily: "Inter_400Regular", fontSize: 13, marginBottom: 12 },
   memberRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  memberName: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    marginTop: 4,
-    textAlign: "center",
-  },
+  memberName: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 4, textAlign: "center" },
   actionRow: { flexDirection: "row", gap: 8, marginTop: 16 },
   tabs: { flexDirection: "row", borderBottomWidth: 1 },
   tab: { flex: 1, paddingVertical: 12, alignItems: "center", borderBottomWidth: 2 },
