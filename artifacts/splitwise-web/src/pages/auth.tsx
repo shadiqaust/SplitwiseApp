@@ -91,7 +91,7 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
                 <Label htmlFor="signin-email">Email</Label>
                 <Input
                   id="signin-email"
-                  type="email"
+                  type="text"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
