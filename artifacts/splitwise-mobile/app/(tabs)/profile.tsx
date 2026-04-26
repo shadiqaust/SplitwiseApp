@@ -5,18 +5,25 @@ import {
   Text,
   View,
 } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
 import { useGetMe } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useColors } from "@/hooks/useColors";
+import { useAuth } from "@/lib/auth";
 
 export default function ProfileScreen() {
   const colors = useColors();
   const { signOut } = useAuth();
   const { data: me, isLoading } = useGetMe();
+  const queryClient = useQueryClient();
+
+  const handleSignOut = async () => {
+    await signOut();
+    queryClient.clear();
+  };
 
   if (isLoading || !me) {
     return (
@@ -44,7 +51,7 @@ export default function ProfileScreen() {
       <Button
         title="Log out"
         variant="destructive"
-        onPress={() => signOut()}
+        onPress={handleSignOut}
         fullWidth
       />
     </ScrollView>

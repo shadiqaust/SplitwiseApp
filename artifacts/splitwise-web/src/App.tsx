@@ -1,8 +1,7 @@
-import { useEffect, useRef } from "react";
-import { Show, useAuth, useClerk } from "@clerk/react";
-import { Switch, Route, Redirect, useLocation, Router as WouterRouter } from "wouter";
-import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { configureAuth, queryClient } from "./lib/queryClient";
+import { Switch, Route, Redirect, Router as WouterRouter } from "wouter";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
+import { AuthProvider, useAuth } from "./lib/auth";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -18,103 +17,66 @@ import { ProfilePage } from "./pages/profile";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function SignInPage() {
-  return <AuthPage initialMode="sign-in" />;
-}
-
-function SignUpPage() {
-  return <AuthPage initialMode="sign-up" />;
-}
-
-function ClerkQueryClientCacheInvalidator() {
-  const { addListener } = useClerk();
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  const prevUserIdRef = useRef<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    configureAuth(async () => {
-      try {
-        return await getToken();
-      } catch {
-        return null;
-      }
-    });
-  }, [getToken]);
-
-  useEffect(() => {
-    const unsubscribe = addListener(({ user }) => {
-      const userId = user?.id ?? null;
-      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
-        queryClient.clear();
-      }
-      prevUserIdRef.current = userId;
-    });
-    return unsubscribe;
-  }, [addListener, queryClient]);
-
-  return null;
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { isLoaded, isSignedIn } = useAuth();
+  if (!isLoaded) return null;
+  if (!isSignedIn) return <Redirect to="/" />;
+  return <>{children}</>;
 }
 
 function HomeRedirect() {
-  return (
-    <>
-      <Show when="signed-in">
-        <Redirect to="/dashboard" />
-      </Show>
-      <Show when="signed-out">
-        <LandingPage />
-      </Show>
-    </>
-  );
+  const { isLoaded, isSignedIn } = useAuth();
+  if (!isLoaded) return null;
+  if (isSignedIn) return <Redirect to="/dashboard" />;
+  return <LandingPage />;
 }
 
-function NotFound() { return <Layout><div>Not Found</div></Layout>; }
+function NotFound() {
+  return <Layout><div>Not Found</div></Layout>;
+}
 
-function ClerkProviderWithRoutes() {
+function Routes() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ClerkQueryClientCacheInvalidator />
-      <Switch>
-        <Route path="/" component={HomeRedirect} />
-        <Route path="/sign-in/*?" component={SignInPage} />
-        <Route path="/sign-up/*?" component={SignUpPage} />
-        
-        <Route path="/dashboard">
-          <Show when="signed-in"><DashboardPage /></Show>
-          <Show when="signed-out"><Redirect to="/" /></Show>
-        </Route>
-        <Route path="/groups">
-          <Show when="signed-in"><GroupsPage /></Show>
-          <Show when="signed-out"><Redirect to="/" /></Show>
-        </Route>
-        <Route path="/groups/new">
-          <Show when="signed-in"><NewGroupPage /></Show>
-          <Show when="signed-out"><Redirect to="/" /></Show>
-        </Route>
-        <Route path="/groups/:groupId">
-          <Show when="signed-in"><GroupDetailPage /></Show>
-          <Show when="signed-out"><Redirect to="/" /></Show>
-        </Route>
-        <Route path="/profile">
-          <Show when="signed-in"><ProfilePage /></Show>
-          <Show when="signed-out"><Redirect to="/" /></Show>
-        </Route>
-        
-        <Route component={NotFound} />
-      </Switch>
-    </QueryClientProvider>
+    <Switch>
+      <Route path="/" component={HomeRedirect} />
+      <Route path="/sign-in">
+        <AuthPage initialMode="sign-in" />
+      </Route>
+      <Route path="/sign-up">
+        <AuthPage initialMode="sign-up" />
+      </Route>
+      <Route path="/dashboard">
+        <PrivateRoute><DashboardPage /></PrivateRoute>
+      </Route>
+      <Route path="/groups">
+        <PrivateRoute><GroupsPage /></PrivateRoute>
+      </Route>
+      <Route path="/groups/new">
+        <PrivateRoute><NewGroupPage /></PrivateRoute>
+      </Route>
+      <Route path="/groups/:groupId">
+        <PrivateRoute><GroupDetailPage /></PrivateRoute>
+      </Route>
+      <Route path="/profile">
+        <PrivateRoute><ProfilePage /></PrivateRoute>
+      </Route>
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 
 function App() {
   return (
-    <TooltipProvider>
-      <WouterRouter base={basePath}>
-        <ClerkProviderWithRoutes />
-      </WouterRouter>
-      <Toaster />
-    </TooltipProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={basePath}>
+            <Routes />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AuthProvider>
   );
 }
 

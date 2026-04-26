@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useEffect, useRef } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUser } from "@clerk/react";
+import { useAuth } from "@/lib/auth";
+import { useLocation } from "wouter";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -20,7 +21,8 @@ export function ProfilePage() {
   const { data: userProfile, isLoading } = useGetMe();
   const updateMe = useUpdateMe();
   const { toast } = useToast();
-  const { user: clerkUser } = useUser();
+  const { signOut } = useAuth();
+  const [, setLocation] = useLocation();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -48,6 +50,12 @@ export function ProfilePage() {
     });
   };
 
+  const handleSignOut = () => {
+    signOut();
+    queryClient.clear();
+    setLocation("/");
+  };
+
   if (isLoading) {
     return (
       <Layout>
@@ -65,8 +73,11 @@ export function ProfilePage() {
         <h1 className="text-3xl font-bold tracking-tight">Your Profile</h1>
 
         <div className="flex items-center gap-4 mb-6">
-          <img src={userProfile?.avatarUrl || clerkUser?.imageUrl} alt="Avatar" className="w-16 h-16 rounded-full" />
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary">
+            {userProfile?.name?.charAt(0).toUpperCase() ?? "?"}
+          </div>
           <div>
+            <div className="font-medium">{userProfile?.name}</div>
             <div className="text-sm text-muted-foreground">{userProfile?.email}</div>
           </div>
         </div>
@@ -91,6 +102,12 @@ export function ProfilePage() {
             </Button>
           </form>
         </Form>
+
+        <div className="pt-4 border-t">
+          <Button variant="destructive" onClick={handleSignOut} className="w-full">
+            Log out
+          </Button>
+        </div>
       </div>
     </Layout>
   );

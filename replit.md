@@ -6,7 +6,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 This workspace hosts a **Splitwise clone**:
 
-- `artifacts/splitwise-web` — React + Vite + Tailwind v4 + Clerk web app served at `/`
+- `artifacts/splitwise-web` — React + Vite + Tailwind v4 web app served at `/`
 - `artifacts/splitwise-mobile` — Expo Router 6 mobile app served at `/mobile`
 - `artifacts/api-server` — Express 5 + Drizzle + Postgres API at `/api`
 - `lib/db` — Drizzle schema (users, groups, group_members, expenses, expense_splits, payments)
@@ -20,7 +20,7 @@ This workspace hosts a **Splitwise clone**:
 - **Node.js version**: 24
 - **Package manager**: pnpm
 - **TypeScript version**: 5.9
-- **Auth**: Clerk (web: `@clerk/react`, mobile: `@clerk/clerk-expo` + `expo-secure-store`)
+- **Auth**: Custom JWT + bcrypt backed by PostgreSQL (no third-party auth provider)
 - **API framework**: Express 5 (mounted at `/api`)
 - **Database**: PostgreSQL + Drizzle ORM
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
@@ -35,16 +35,46 @@ This workspace hosts a **Splitwise clone**:
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
+## Auth System
+
+Custom JWT-based authentication — no Clerk or third-party provider.
+
+### API endpoints
+- `POST /api/auth/register` — `{ name, email, password }` → `{ token, user }`
+- `POST /api/auth/login` — `{ email, password }` → `{ token, user }`
+- `POST /api/auth/logout` — stateless (token invalidation is client-side)
+
+### Server middleware
+- `requireAuth` (`artifacts/api-server/src/middlewares/requireAuth.ts`) — validates `Authorization: Bearer <jwt>` header, looks up the user in the DB, attaches `req.dbUserId`
+- `artifacts/api-server/src/lib/jwt.ts` — `signToken(payload)` / `verifyToken(token)` using `jsonwebtoken`. Secret from `JWT_SECRET` env var (falls back to dev secret in development).
+
+### Web (`artifacts/splitwise-web`)
+- `src/lib/auth.tsx` — `AuthProvider` + `useAuth()` hook. Stores JWT + user in `localStorage`. Calls `setAuthTokenGetter` on the shared API client so all requests include `Authorization: Bearer <token>`.
+- `src/pages/auth.tsx` — custom sign-in / sign-up forms, no external dependencies.
+
+### Mobile (`artifacts/splitwise-mobile`)
+- `lib/auth.tsx` — `AuthProvider` + `useAuth()` hook. Stores JWT in `expo-secure-store` (native) or `localStorage` (web). Exports `getToken()` for the API client.
+- `app/sign-in.tsx` — native sign-in / sign-up screen.
+- `app/_layout.tsx` — wraps app in `AuthProvider` + `AuthGate` for redirect logic.
+
+### Database schema (`lib/db/src/schema/users.ts`)
+- `id` serial PK
+- `name` text
+- `email` text (unique)
+- `passwordHash` text (bcrypt, 12 rounds)
+- `avatarUrl` text (optional)
+- `createdAt` timestamp
+
 ## API auth & authorization
 
-- `requireAuth` (in `artifacts/api-server/src/middlewares/requireAuth.ts`) verifies the Clerk session and looks up / auto-provisions the corresponding `users` row, attaching `req.dbUserId`. If a placeholder user already exists for the email (created by an invite), it links it to the new `clerkId` instead of creating a duplicate row.
+- `requireAuth` — verifies JWT, attaches `req.dbUserId`
 - `requireGroupMember` / `requireExpenseAccess` / `requirePaymentAccess` / `requireGroupMemberByMember` (in `artifacts/api-server/src/middlewares/requireGroupAccess.ts`) enforce that the authenticated user is a member of the relevant group; they attach `req.authorizedGroupId`. Every group-, expense-, and payment-scoped route uses one of these guards.
 
 ## API client wiring
 
 - Generated URLs from `lib/api-client-react/src/generated/api.ts` already include the `/api` prefix, so callers must set the base URL to the **origin only** (no `/api` suffix).
-- Web: `artifacts/splitwise-web/src/lib/queryClient.ts` calls `setBaseUrl(window.location.origin)` and exposes `configureAuth(getToken)` which is invoked from `App.tsx` with Clerk's `useAuth().getToken`.
-- Mobile: `artifacts/splitwise-mobile/lib/api.ts` exports `configureApi(getToken)` which sets the base URL to `https://${EXPO_PUBLIC_DOMAIN}` and wires Clerk's token getter; `app/_layout.tsx` calls it from inside the `ClerkProvider`.
+- Web: `AuthProvider` calls `setBaseUrl(window.location.origin)` and `setAuthTokenGetter(() => token)` on mount.
+- Mobile: `configureApi(() => getToken())` in `app/_layout.tsx` wires the token getter; base URL is `https://${EXPO_PUBLIC_DOMAIN}`.
 
 ## Split / payment math
 

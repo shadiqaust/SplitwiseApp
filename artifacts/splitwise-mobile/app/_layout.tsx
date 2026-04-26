@@ -5,7 +5,6 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
-import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Slot, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -16,7 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { configureApi } from "@/lib/api";
-import { tokenCache } from "@/lib/tokenCache";
+import { AuthProvider, useAuth, getToken } from "@/lib/auth";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,22 +28,17 @@ const queryClient = new QueryClient({
   },
 });
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const domain = process.env.EXPO_PUBLIC_DOMAIN;
+const API_BASE_URL = domain ? `https://${domain}` : "";
 
 function AuthGate() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    configureApi(async () => {
-      try {
-        return await getToken();
-      } catch {
-        return null;
-      }
-    });
-  }, [getToken]);
+    configureApi(() => getToken());
+  }, []);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -76,14 +70,10 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError) return null;
 
-  if (!publishableKey) {
-    throw new Error("Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY");
-  }
-
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+        <AuthProvider apiBaseUrl={API_BASE_URL}>
           <QueryClientProvider client={queryClient}>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>
@@ -91,7 +81,7 @@ export default function RootLayout() {
               </KeyboardProvider>
             </GestureHandlerRootView>
           </QueryClientProvider>
-        </ClerkProvider>
+        </AuthProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

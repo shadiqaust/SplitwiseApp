@@ -1,53 +1,34 @@
 import { useState } from "react";
-import { useSignIn, useSignUp } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
-function getErrorMessage(err: unknown): string {
-  if (err && typeof err === "object" && "errors" in err) {
-    const e = err as { errors: Array<{ message: string }> };
-    return e.errors?.[0]?.message ?? "An error occurred";
-  }
-  if (err instanceof Error) return err.message;
-  return "An unexpected error occurred";
-}
-
-type AuthMode = "sign-in" | "sign-up" | "verify";
+type AuthMode = "sign-in" | "sign-up";
 
 export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }) {
   const [, setLocation] = useLocation();
-  const { signIn, setActive: setSignInActive, isLoaded: signInLoaded } = useSignIn();
-  const { signUp, setActive: setSignUpActive, isLoaded: signUpLoaded } = useSignUp();
+  const { signIn, signUp } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isLoaded = signInLoaded && signUpLoaded;
-
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signIn || !setSignInActive) return;
     setError(null);
     setLoading(true);
     try {
-      const attempt = await signIn.create({ identifier: email, password });
-      if (attempt.status === "complete") {
-        await setSignInActive({ session: attempt.createdSessionId });
-        setLocation("/dashboard");
-      } else {
-        setError("Sign-in could not be completed. Please try again.");
-      }
+      await signIn(email, password);
+      setLocation("/dashboard");
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
       setLoading(false);
     }
@@ -55,62 +36,25 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signUp) return;
     setError(null);
     setLoading(true);
     try {
-      const [first, ...rest] = name.trim().split(/\s+/);
-      await signUp.create({
-        emailAddress: email,
-        password,
-        firstName: first || undefined,
-        lastName: rest.join(" ") || undefined,
-      });
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      setMode("verify");
+      await signUp(name.trim(), email, password);
+      setLocation("/dashboard");
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(err instanceof Error ? err.message : "Sign up failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!signUp || !setSignUpActive) return;
-    setError(null);
-    setLoading(true);
-    try {
-      const attempt = await signUp.attemptEmailAddressVerification({ code });
-      if (attempt.status === "complete") {
-        await setSignUpActive({ session: attempt.createdSessionId });
-        setLocation("/dashboard");
-      } else {
-        setError("Verification incomplete. Please check the code and try again.");
-      }
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const switchMode = (newMode: "sign-in" | "sign-up") => {
+  const switchMode = (newMode: AuthMode) => {
     setError(null);
     setMode(newMode);
     setEmail("");
     setPassword("");
     setName("");
-    setCode("");
   };
-
-  if (!isLoaded) {
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-muted/30 px-4 py-12">
@@ -126,18 +70,16 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">
-            {mode === "sign-in" ? "Welcome back" : mode === "sign-up" ? "Create an account" : "Check your email"}
+            {mode === "sign-in" ? "Welcome back" : "Create an account"}
           </CardTitle>
           <CardDescription>
             {mode === "sign-in"
               ? "Sign in to your Splitwise account"
-              : mode === "sign-up"
-              ? "Start sharing expenses with friends"
-              : `We sent a 6-digit code to ${email}`}
+              : "Start sharing expenses with friends"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {mode === "sign-in" && (
+          {mode === "sign-in" ? (
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -163,11 +105,7 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
                   autoComplete="current-password"
                 />
               </div>
-              {error && (
-                
-                  <p className="text-sm text-destructive">{error}</p>
-                
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Log in
@@ -179,9 +117,7 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
                 </button>
               </p>
             </form>
-          )}
-
-          {mode === "sign-up" && (
+          ) : (
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full name</Label>
@@ -216,14 +152,11 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  minLength={8}
                   autoComplete="new-password"
                 />
               </div>
-              {error && (
-                
-                  <p className="text-sm text-destructive">{error}</p>
-                
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create account
@@ -234,45 +167,6 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
                   Log in
                 </button>
               </p>
-            </form>
-          )}
-
-          {mode === "verify" && (
-            <form onSubmit={handleVerify} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="code">Verification code</Label>
-                <Input
-                  id="code"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="123456"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  required
-                  maxLength={6}
-                  className="text-center text-lg tracking-widest"
-                />
-              </div>
-              {error && (
-                
-                  <p className="text-sm text-destructive">{error}</p>
-                
-              )}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Verify email
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => {
-                  setError(null);
-                  setMode("sign-up");
-                }}
-              >
-                Back
-              </Button>
             </form>
           )}
         </CardContent>
