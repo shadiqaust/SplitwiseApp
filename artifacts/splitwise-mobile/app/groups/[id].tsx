@@ -2,16 +2,18 @@ import { useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getGetGroupBalancesQueryKey,
   getGetGroupQueryKey,
@@ -24,14 +26,35 @@ import {
   useListExpenses,
   useListPayments,
 } from "@workspace/api-client-react";
+import { getToken } from "@/lib/auth";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency, formatDate } from "@/lib/format";
+
+const domain = process.env.EXPO_PUBLIC_DOMAIN;
+const API_BASE_URL = domain ? `https://${domain}` : "";
+
+async function authFetch(path: string, options: RequestInit = {}) {
+  const token = await getToken();
+  return fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...(options.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+}
+
+interface UserResult {
+  id: number;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+}
 
 type Tab = "expenses" | "balances";
 
@@ -43,9 +66,9 @@ export default function GroupDetailScreen() {
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<Tab>("expenses");
-  const [memberEmail, setMemberEmail] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [addingUserId, setAddingUserId] = useState<number | null>(null);
 
   const me = useGetMe();
   const POLL = { query: { refetchInterval: 15_000 } } as const;
@@ -68,30 +91,34 @@ export default function GroupDetailScreen() {
     balances.refetch();
   };
 
-  const onAddMember = () => {
-    if (!memberEmail.trim()) {
-      setAddError("Email is required");
-      return;
-    }
-    setAddError(null);
+  const { data: searchResults = [], isFetching: isSearching } = useQuery<UserResult[]>({
+    queryKey: ["add-member-search", memberSearch, groupId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ excludeGroupId: String(groupId) });
+      if (memberSearch.trim()) params.set("q", memberSearch.trim());
+      const res = await authFetch(`/api/users/search?${params}`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: showAddModal,
+    staleTime: 0,
+  });
+
+  const onAddMember = (user: UserResult) => {
+    setAddingUserId(user.id);
     addMember.mutate(
-      { groupId, data: { email: memberEmail.trim() } },
+      { groupId, data: { userId: user.id } as unknown as { email: string } },
       {
         onSuccess: () => {
-          setMemberEmail("");
-          setShowAdd(false);
-          queryClient.invalidateQueries({
-            queryKey: getGetGroupQueryKey(groupId),
-          });
-          queryClient.invalidateQueries({
-            queryKey: getGetGroupBalancesQueryKey(groupId),
-          });
-          queryClient.invalidateQueries({
-            queryKey: getListGroupsQueryKey(),
-          });
+          setAddingUserId(null);
+          setShowAddModal(false);
+          setMemberSearch("");
+          queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
+          queryClient.invalidateQueries({ queryKey: getGetGroupBalancesQueryKey(groupId) });
+          queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
         },
-        onError: (err: unknown) => {
-          setAddError(getErrorMessage(err, "Failed to add member"));
+        onError: () => {
+          setAddingUserId(null);
         },
       },
     );
@@ -131,7 +158,7 @@ export default function GroupDetailScreen() {
           title: group.data.name,
           headerRight: () => (
             <Pressable
-              onPress={() => setShowAdd((v) => !v)}
+              onPress={() => setShowAddModal(true)}
               style={{ paddingHorizontal: 12 }}
             >
               <Feather name="user-plus" size={20} color={colors.primary} />
@@ -139,6 +166,71 @@ export default function GroupDetailScreen() {
           ),
         }}
       />
+
+      {/* Add Member Modal */}
+      <Modal
+        animationType="slide"
+        transparent
+        presentationStyle="pageSheet"
+        visible={showAddModal}
+        onRequestClose={() => { setShowAddModal(false); setMemberSearch(""); }}
+      >
+        <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+          <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Add Member</Text>
+            <Pressable onPress={() => { setShowAddModal(false); setMemberSearch(""); }} hitSlop={12}>
+              <Feather name="x" size={22} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+
+          <View style={{ padding: 16 }}>
+            <View style={[styles.searchRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+              <Feather name="search" size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.foreground }]}
+                placeholder="Search by name or email…"
+                placeholderTextColor={colors.mutedForeground}
+                value={memberSearch}
+                onChangeText={setMemberSearch}
+                autoFocus
+              />
+            </View>
+          </View>
+
+          {isSearching && searchResults.length === 0 ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
+          ) : searchResults.length === 0 ? (
+            <Text style={[styles.emptySearch, { color: colors.mutedForeground }]}>
+              {memberSearch ? "No registered users found." : "Start typing to search…"}
+            </Text>
+          ) : (
+            <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+              {searchResults.map((user) => {
+                const isPending = addingUserId === user.id;
+                const initials = user.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+                return (
+                  <View key={user.id} style={[styles.userRow, { borderBottomColor: colors.border }]}>
+                    <View style={[styles.initials, { backgroundColor: colors.accent }]}>
+                      <Text style={[styles.initialsText, { color: colors.accentForeground }]}>{initials}</Text>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={[styles.userName, { color: colors.foreground }]} numberOfLines={1}>{user.name}</Text>
+                      <Text style={[styles.userEmail, { color: colors.mutedForeground }]} numberOfLines={1}>{user.email}</Text>
+                    </View>
+                    <Pressable
+                      disabled={isPending}
+                      onPress={() => onAddMember(user)}
+                      style={[styles.addBtn, { backgroundColor: colors.primary, opacity: isPending ? 0.6 : 1 }]}
+                    >
+                      <Text style={styles.addBtnText}>{isPending ? "Adding…" : "Add"}</Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
       <ScrollView
         style={{ backgroundColor: colors.background }}
         contentContainerStyle={styles.scroll}
@@ -173,25 +265,6 @@ export default function GroupDetailScreen() {
               </View>
             ))}
           </View>
-
-          {showAdd ? (
-            <View style={{ gap: 8, marginTop: 12 }}>
-              <Input
-                placeholder="member@email.com"
-                value={memberEmail}
-                onChangeText={setMemberEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                error={addError ?? undefined}
-              />
-              <Button
-                title="Add member"
-                onPress={onAddMember}
-                loading={addMember.isPending}
-                fullWidth
-              />
-            </View>
-          ) : null}
 
           <View style={styles.actionRow}>
             <Button
@@ -444,4 +517,17 @@ const styles = StyleSheet.create({
   balanceRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   balanceText: { fontFamily: "Inter_400Regular", fontSize: 14, flex: 1 },
   balanceAmount: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  sheet: { flex: 1, borderTopLeftRadius: 16, borderTopRightRadius: 16, marginTop: 60 },
+  sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1 },
+  sheetTitle: { fontFamily: "Inter_700Bold", fontSize: 17 },
+  searchRow: { flexDirection: "row", alignItems: "center", borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  searchInput: { flex: 1, fontFamily: "Inter_400Regular", fontSize: 14 },
+  userRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  initials: { width: 40, height: 40, borderRadius: 100, alignItems: "center", justifyContent: "center" },
+  initialsText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  userName: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  userEmail: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  addBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8 },
+  addBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" },
+  emptySearch: { textAlign: "center", fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 32, paddingHorizontal: 16 },
 });

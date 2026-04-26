@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import {
   db,
   groupsTable,
@@ -228,11 +228,16 @@ router.post(
       return;
     }
 
-    const email = parsed.data.email.trim().toLowerCase();
+    let targetUser;
+    if ("userId" in parsed.data) {
+      [targetUser] = await db.select().from(usersTable).where(eq(usersTable.id, parsed.data.userId));
+    } else {
+      const email = parsed.data.email.trim();
+      [targetUser] = await db.select().from(usersTable).where(sql`lower(${usersTable.email}) = lower(${email})`);
+    }
 
-    const [targetUser] = await db.select().from(usersTable).where(eq(usersTable.email, email));
     if (!targetUser) {
-      res.status(404).json({ error: "No account found with that email address. Ask them to sign up first." });
+      res.status(404).json({ error: "No account found. Ask them to sign up first." });
       return;
     }
 
