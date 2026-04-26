@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -173,6 +174,26 @@ export default function NewExpenseScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
+          {group.data && (
+            <View style={[styles.groupBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {group.data.avatarUrl ? (
+                <Image source={{ uri: group.data.avatarUrl }} style={styles.groupBannerAvatar} />
+              ) : (
+                <View style={[styles.groupBannerAvatarFallback, { backgroundColor: colors.accent }]}>
+                  <Text style={[styles.groupBannerAvatarText, { color: colors.accentForeground }]}>
+                    {group.data.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.groupBannerLabel, { color: colors.mutedForeground }]}>Adding expense to</Text>
+                <Text style={[styles.groupBannerName, { color: colors.foreground }]} numberOfLines={1}>
+                  {group.data.name}
+                </Text>
+              </View>
+            </View>
+          )}
+
           <Input
             label="Description"
             placeholder="Dinner, Groceries, Hotel..."
@@ -332,6 +353,12 @@ export default function NewExpenseScreen() {
 
 const styles = StyleSheet.create({
   scroll: { padding: 16, gap: 16, paddingBottom: 32 },
+  groupBanner: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 12, padding: 12 },
+  groupBannerAvatar: { width: 44, height: 44, borderRadius: 10 },
+  groupBannerAvatarFallback: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  groupBannerAvatarText: { fontFamily: "Inter_700Bold", fontSize: 20 },
+  groupBannerLabel: { fontFamily: "Inter_400Regular", fontSize: 11 },
+  groupBannerName: { fontFamily: "Inter_700Bold", fontSize: 16, marginTop: 1 },
   label: { fontFamily: "Inter_500Medium", fontSize: 14 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {

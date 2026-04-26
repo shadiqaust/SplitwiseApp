@@ -474,6 +474,7 @@ export const GetDashboardSummaryResponse = zod.object({
     zod.object({
       groupId: zod.number(),
       groupName: zod.string(),
+      avatarUrl: zod.string().nullish(),
       myNetBalance: zod.number(),
     }),
   ),

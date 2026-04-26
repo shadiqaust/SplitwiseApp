@@ -1,5 +1,6 @@
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -60,14 +61,15 @@ export default function GroupsScreen() {
               onPress={() => router.push(`/groups/${g.id}`)}
             >
               <Card style={styles.row}>
-                <View
-                  style={[
-                    styles.bubble,
-                    { backgroundColor: colors.accent, borderRadius: 100 },
-                  ]}
-                >
-                  <Feather name="users" size={18} color={colors.accentForeground} />
-                </View>
+                {g.avatarUrl ? (
+                  <Image source={{ uri: g.avatarUrl }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.bubble, { backgroundColor: colors.accent }]}>
+                    <Text style={[styles.bubbleText, { color: colors.accentForeground }]}>
+                      {g.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
                     {g.name}
@@ -126,7 +128,9 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { padding: 16, gap: 16, paddingBottom: 32 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
-  bubble: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  avatar: { width: 40, height: 40, borderRadius: 10 },
+  bubble: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  bubbleText: { fontFamily: "Inter_700Bold", fontSize: 18 },
   name: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   sub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
   balance: { fontFamily: "Inter_600SemiBold", fontSize: 15 },

@@ -1,5 +1,6 @@
 import {
   ActivityIndicator,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -119,6 +120,15 @@ export default function DashboardScreen() {
                 style={styles.groupRow}
                 onTouchEnd={() => router.push(`/groups/${g.groupId}`)}
               >
+                {g.avatarUrl ? (
+                  <Image source={{ uri: g.avatarUrl }} style={styles.groupAvatar} />
+                ) : (
+                  <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
+                    <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>
+                      {g.groupName.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
                 <View style={{ flex: 1 }}>
                   <Text
                     style={[styles.groupName, { color: colors.foreground }]}
@@ -231,6 +241,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   groupRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  groupAvatar: { width: 40, height: 40, borderRadius: 10 },
+  groupAvatarFallback: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  groupAvatarText: { fontFamily: "Inter_700Bold", fontSize: 18 },
   groupName: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   groupBalance: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 2 },
   activityRow: { flexDirection: "row", alignItems: "center", gap: 12 },

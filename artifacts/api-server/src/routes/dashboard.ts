@@ -73,6 +73,7 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     return {
       groupId: group.id,
       groupName: group.name,
+      avatarUrl: group.avatarUrl ?? null,
       myNetBalance: Math.round(groupNet * 100) / 100,
     };
   }));

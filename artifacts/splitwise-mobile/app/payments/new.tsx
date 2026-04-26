@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -151,6 +152,26 @@ export default function NewPaymentScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
+          {group.data && (
+            <View style={[styles.groupBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {group.data.avatarUrl ? (
+                <Image source={{ uri: group.data.avatarUrl }} style={styles.groupBannerAvatar} />
+              ) : (
+                <View style={[styles.groupBannerAvatarFallback, { backgroundColor: colors.accent }]}>
+                  <Text style={[styles.groupBannerAvatarText, { color: colors.accentForeground }]}>
+                    {group.data.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.groupBannerLabel, { color: colors.mutedForeground }]}>Settling up in</Text>
+                <Text style={[styles.groupBannerName, { color: colors.foreground }]} numberOfLines={1}>
+                  {group.data.name}
+                </Text>
+              </View>
+            </View>
+          )}
+
           <View style={{ gap: 8 }}>
             <Text style={[styles.label, { color: colors.foreground }]}>
               From
@@ -239,6 +260,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipText: { fontFamily: "Inter_500Medium", fontSize: 13 },
+  groupBanner: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 12, padding: 12 },
+  groupBannerAvatar: { width: 44, height: 44, borderRadius: 10 },
+  groupBannerAvatarFallback: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  groupBannerAvatarText: { fontFamily: "Inter_700Bold", fontSize: 20 },
+  groupBannerLabel: { fontFamily: "Inter_400Regular", fontSize: 11 },
+  groupBannerName: { fontFamily: "Inter_700Bold", fontSize: 16, marginTop: 1 },
   hintCard: { borderWidth: 1, borderRadius: 10, padding: 12 },
   hintText: { fontFamily: "Inter_500Medium", fontSize: 13 },
   hintBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1 },
