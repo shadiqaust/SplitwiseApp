@@ -22,6 +22,8 @@ export const GetMeResponse = zod.object({
   name: zod.string(),
   email: zod.string(),
   avatarUrl: zod.string().nullish(),
+  country: zod.string().nullish(),
+  location: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -31,6 +33,8 @@ export const GetMeResponse = zod.object({
 export const UpdateMeBody = zod.object({
   name: zod.string().optional(),
   avatarUrl: zod.string().nullish(),
+  country: zod.string().nullish(),
+  location: zod.string().nullish(),
 });
 
 export const UpdateMeResponse = zod.object({
@@ -38,6 +42,8 @@ export const UpdateMeResponse = zod.object({
   name: zod.string(),
   email: zod.string(),
   avatarUrl: zod.string().nullish(),
+  country: zod.string().nullish(),
+  location: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 

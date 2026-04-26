@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   Image,
 } from "react-native";
@@ -24,22 +27,18 @@ import { useAuth } from "@/lib/auth";
 
 // ─── Predefined avatar presets ────────────────────────────────────────────────
 const PRESETS = [
-  // Avataaars — cartoon people
   { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Alice&size=200", label: "Alice" },
   { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Bob&size=200", label: "Bob" },
   { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Charlie&size=200", label: "Charlie" },
   { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Diana&size=200", label: "Diana" },
-  // Fun emoji
   { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Alex&size=200", label: "Alex" },
   { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Sam&size=200", label: "Sam" },
   { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Jordan&size=200", label: "Jordan" },
   { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Casey&size=200", label: "Casey" },
-  // Adventurer
   { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Felix&size=200", label: "Felix" },
   { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Luna&size=200", label: "Luna" },
   { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Rider&size=200", label: "Rider" },
   { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Max&size=200", label: "Max" },
-  // Pixel art
   { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=River&size=200", label: "River" },
   { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=Sage&size=200", label: "Sage" },
   { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=Sky&size=200", label: "Sky" },
@@ -53,17 +52,61 @@ export default function ProfileScreen() {
   const updateMe = useUpdateMe();
   const queryClient = useQueryClient();
 
+  // Avatar sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+
+  // Profile form state
+  const [name, setName] = useState("");
+  const [country, setCountry] = useState("");
+  const [location, setLocation] = useState("");
+  const [formSaving, setFormSaving] = useState(false);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (me && !initialized.current) {
+      setName(me.name);
+      setCountry(me.country ?? "");
+      setLocation(me.location ?? "");
+      initialized.current = true;
+    }
+  }, [me]);
 
   const handleSignOut = async () => {
     await signOut();
     queryClient.clear();
   };
 
-  const previewUrl = selectedUrl ?? me?.avatarUrl ?? null;
+  const handleSaveProfile = () => {
+    if (!name.trim()) {
+      Alert.alert("Validation", "Name is required.");
+      return;
+    }
+    setFormSaving(true);
+    updateMe.mutate(
+      {
+        data: {
+          name: name.trim(),
+          country: country.trim() || null,
+          location: location.trim() || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          setFormSaving(false);
+          Alert.alert("Saved", "Your profile has been updated.");
+        },
+        onError: () => {
+          setFormSaving(false);
+          Alert.alert("Error", "Failed to save profile. Please try again.");
+        },
+      },
+    );
+  };
 
+  // ── Avatar picker ──────────────────────────────────────────────────────────
   const handlePickGallery = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -71,7 +114,7 @@ export default function ProfileScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
@@ -99,20 +142,20 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleSave = () => {
+  const handleSaveAvatar = () => {
     if (!selectedUrl) return;
-    setSaving(true);
+    setAvatarSaving(true);
     updateMe.mutate(
       { data: { avatarUrl: selectedUrl } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-          setSaving(false);
+          setAvatarSaving(false);
           setSheetOpen(false);
           setSelectedUrl(null);
         },
         onError: () => {
-          setSaving(false);
+          setAvatarSaving(false);
           Alert.alert("Error", "Failed to save avatar. Please try again.");
         },
       },
@@ -127,33 +170,119 @@ export default function ProfileScreen() {
     );
   }
 
+  const previewUrl = selectedUrl ?? me.avatarUrl ?? null;
+
   return (
     <>
-      <ScrollView
-        style={{ backgroundColor: colors.background }}
-        contentContainerStyle={styles.scroll}
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Card style={styles.profileCard}>
-          {/* Avatar with edit overlay */}
-          <Pressable onPress={() => setSheetOpen(true)} style={styles.avatarWrap}>
-            <Avatar name={me.name} url={me.avatarUrl} size={88} />
-            <View style={[styles.editBadge, { backgroundColor: colors.primary }]}>
-              <Feather name="camera" size={14} color="#fff" />
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* ── Avatar card ────────────────────────────────────────── */}
+          <Card style={styles.avatarCard}>
+            <Pressable onPress={() => setSheetOpen(true)} style={styles.avatarWrap}>
+              <Avatar name={me.name} url={me.avatarUrl} size={88} />
+              <View style={[styles.editBadge, { backgroundColor: colors.primary }]}>
+                <Feather name="camera" size={14} color="#fff" />
+              </View>
+            </Pressable>
+            <Text style={[styles.displayName, { color: colors.foreground }]}>{me.name}</Text>
+            <Text style={[styles.email, { color: colors.mutedForeground }]}>{me.email}</Text>
+            {(me.location || me.country) && (
+              <View style={styles.metaRow}>
+                {me.location ? (
+                  <View style={styles.metaChip}>
+                    <Feather name="map-pin" size={11} color={colors.mutedForeground} />
+                    <Text style={[styles.metaText, { color: colors.mutedForeground }]}>{me.location}</Text>
+                  </View>
+                ) : null}
+                {me.country ? (
+                  <View style={styles.metaChip}>
+                    <Feather name="globe" size={11} color={colors.mutedForeground} />
+                    <Text style={[styles.metaText, { color: colors.mutedForeground }]}>{me.country}</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+            <Pressable onPress={() => setSheetOpen(true)}>
+              <Text style={[styles.changeAvatarLink, { color: colors.primary }]}>Change avatar</Text>
+            </Pressable>
+          </Card>
+
+          {/* ── Edit profile form ───────────────────────────────────── */}
+          <Card style={styles.formCard}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Edit Profile</Text>
+
+            <View style={styles.field}>
+              <Text style={[styles.label, { color: colors.foreground }]}>Full Name</Text>
+              <View style={[styles.inputWrap, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Feather name="user" size={16} color={colors.mutedForeground} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.foreground }]}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Your name"
+                  placeholderTextColor={colors.mutedForeground}
+                  returnKeyType="next"
+                />
+              </View>
             </View>
-          </Pressable>
 
-          <Text style={[styles.name, { color: colors.foreground }]}>{me.name}</Text>
-          <Text style={[styles.email, { color: colors.mutedForeground }]}>{me.email}</Text>
+            <View style={styles.field}>
+              <Text style={[styles.label, { color: colors.foreground }]}>
+                Country{" "}
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular" }}>(optional)</Text>
+              </Text>
+              <View style={[styles.inputWrap, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Feather name="globe" size={16} color={colors.mutedForeground} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.foreground }]}
+                  value={country}
+                  onChangeText={setCountry}
+                  placeholder="e.g. France"
+                  placeholderTextColor={colors.mutedForeground}
+                  returnKeyType="next"
+                />
+              </View>
+            </View>
 
-          <Pressable onPress={() => setSheetOpen(true)}>
-            <Text style={[styles.changeLink, { color: colors.primary }]}>Change avatar</Text>
-          </Pressable>
-        </Card>
+            <View style={styles.field}>
+              <Text style={[styles.label, { color: colors.foreground }]}>
+                Location{" "}
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular" }}>(optional)</Text>
+              </Text>
+              <View style={[styles.inputWrap, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                <Feather name="map-pin" size={16} color={colors.mutedForeground} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.foreground }]}
+                  value={location}
+                  onChangeText={setLocation}
+                  placeholder="e.g. Paris, Île-de-France"
+                  placeholderTextColor={colors.mutedForeground}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveProfile}
+                />
+              </View>
+            </View>
 
-        <Button title="Log out" variant="destructive" onPress={handleSignOut} fullWidth />
-      </ScrollView>
+            <Button
+              title={formSaving ? "Saving…" : "Save Changes"}
+              onPress={handleSaveProfile}
+              disabled={formSaving}
+              fullWidth
+            />
+          </Card>
 
-      {/* Avatar editor sheet */}
+          {/* ── Logout ──────────────────────────────────────────────── */}
+          <Button title="Log out" variant="destructive" onPress={handleSignOut} fullWidth />
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* ── Avatar editor bottom sheet ─────────────────────────────── */}
       <Modal
         visible={sheetOpen}
         animationType="slide"
@@ -162,7 +291,6 @@ export default function ProfileScreen() {
       >
         <View style={styles.overlay}>
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-            {/* Header */}
             <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Choose avatar</Text>
               <Pressable onPress={() => { setSheetOpen(false); setSelectedUrl(null); }} hitSlop={12}>
@@ -171,16 +299,14 @@ export default function ProfileScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
-              {/* Preview */}
               <View style={styles.previewRow}>
                 <Avatar name={me.name} url={previewUrl} size={72} />
                 <Text style={[styles.previewHint, { color: colors.mutedForeground }]}>
-                  {selectedUrl ? "Tap Save to apply this avatar." : "Select an avatar or upload a photo."}
+                  {selectedUrl ? "Tap Save to apply this avatar." : "Select a cartoon or upload a photo."}
                 </Text>
               </View>
 
-              {/* Cartoon avatars */}
-              <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Cartoon avatars</Text>
+              <Text style={[styles.sheetSectionLabel, { color: colors.foreground }]}>Cartoon avatars</Text>
               <FlatList
                 data={PRESETS}
                 keyExtractor={(item) => item.url}
@@ -188,7 +314,8 @@ export default function ProfileScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.presetRow}
                 renderItem={({ item }) => {
-                  const isSelected = selectedUrl === item.url || (!selectedUrl && me.avatarUrl === item.url);
+                  const isSelected =
+                    selectedUrl === item.url || (!selectedUrl && me.avatarUrl === item.url);
                   return (
                     <Pressable onPress={() => setSelectedUrl(item.url)} style={styles.presetItem}>
                       <Image
@@ -208,8 +335,7 @@ export default function ProfileScreen() {
                 }}
               />
 
-              {/* Upload section */}
-              <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Upload photo</Text>
+              <Text style={[styles.sheetSectionLabel, { color: colors.foreground }]}>Upload photo</Text>
               <View style={styles.uploadRow}>
                 <Pressable
                   onPress={handlePickGallery}
@@ -235,18 +361,9 @@ export default function ProfileScreen() {
               )}
             </ScrollView>
 
-            {/* Footer actions */}
             <View style={[styles.sheetFooter, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-              <Button
-                title="Cancel"
-                variant="outline"
-                onPress={() => { setSheetOpen(false); setSelectedUrl(null); }}
-              />
-              <Button
-                title={saving ? "Saving…" : "Save"}
-                onPress={handleSave}
-                disabled={!selectedUrl || saving}
-              />
+              <Button title="Cancel" variant="outline" onPress={() => { setSheetOpen(false); setSelectedUrl(null); }} />
+              <Button title={avatarSaving ? "Saving…" : "Save"} onPress={handleSaveAvatar} disabled={!selectedUrl || avatarSaving} />
             </View>
           </View>
         </View>
@@ -257,9 +374,11 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  scroll: { padding: 16, gap: 16, paddingBottom: 40 },
-  profileCard: { alignItems: "center", gap: 8, paddingVertical: 32 },
-  avatarWrap: { position: "relative" },
+  scroll: { padding: 16, gap: 16, paddingBottom: 48 },
+
+  // Avatar card
+  avatarCard: { alignItems: "center", gap: 6, paddingVertical: 28 },
+  avatarWrap: { position: "relative", marginBottom: 4 },
   editBadge: {
     position: "absolute",
     bottom: 2,
@@ -272,11 +391,32 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#fff",
   },
-  name: { fontFamily: "Inter_700Bold", fontSize: 22, marginTop: 4 },
-  email: { fontFamily: "Inter_400Regular", fontSize: 14 },
-  changeLink: { fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 4 },
+  displayName: { fontFamily: "Inter_700Bold", fontSize: 20 },
+  email: { fontFamily: "Inter_400Regular", fontSize: 13 },
+  metaRow: { flexDirection: "row", gap: 12, marginTop: 4 },
+  metaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
+  metaText: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  changeAvatarLink: { fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 6 },
+
+  // Form card
+  formCard: { gap: 16, padding: 16 },
+  sectionTitle: { fontFamily: "Inter_700Bold", fontSize: 16, marginBottom: 4 },
+  field: { gap: 6 },
+  label: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  inputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    height: 46,
+  },
+  inputIcon: { marginRight: 8 },
+  input: { flex: 1, fontFamily: "Inter_400Regular", fontSize: 15 },
+
+  // Avatar sheet
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "90%", paddingBottom: 0 },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "90%" },
   sheetHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -285,11 +425,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   sheetTitle: { fontFamily: "Inter_700Bold", fontSize: 17 },
-  sheetContent: { padding: 16, gap: 16 },
-  previewRow: { flexDirection: "row", alignItems: "center", gap: 16, paddingVertical: 8 },
+  sheetContent: { padding: 16, gap: 12 },
+  previewRow: { flexDirection: "row", alignItems: "center", gap: 16, paddingVertical: 4 },
   previewHint: { fontFamily: "Inter_400Regular", fontSize: 13, flex: 1 },
-  sectionLabel: { fontFamily: "Inter_600SemiBold", fontSize: 14, marginTop: 8 },
-  presetRow: { gap: 10, paddingVertical: 8 },
+  sheetSectionLabel: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  presetRow: { gap: 10, paddingVertical: 4 },
   presetItem: { position: "relative" },
   presetImg: { width: 72, height: 72, borderRadius: 12, borderWidth: 2 },
   checkBadge: {
@@ -302,7 +442,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  uploadRow: { flexDirection: "row", gap: 12, marginTop: 4 },
+  uploadRow: { flexDirection: "row", gap: 12 },
   uploadBtn: {
     flex: 1,
     borderRadius: 12,
@@ -312,7 +452,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   uploadBtnText: { fontFamily: "Inter_500Medium", fontSize: 13 },
-  uploadedPreview: { alignItems: "center", gap: 8, paddingVertical: 8 },
+  uploadedPreview: { alignItems: "center", gap: 8, paddingVertical: 4 },
   uploadedImg: { width: 80, height: 80, borderRadius: 40 },
   uploadedLabel: { fontFamily: "Inter_400Regular", fontSize: 12 },
   sheetFooter: {

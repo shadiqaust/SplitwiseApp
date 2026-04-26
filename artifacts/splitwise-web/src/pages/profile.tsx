@@ -14,34 +14,29 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { Camera, Upload, Check } from "lucide-react";
+import { Camera, Upload, Check, MapPin, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Predefined avatar presets ────────────────────────────────────────────────
 const PRESETS = [
-  // Avataaars — cartoon people
   { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Alice&size=200", label: "Alice" },
   { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Bob&size=200", label: "Bob" },
   { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Charlie&size=200", label: "Charlie" },
   { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Diana&size=200", label: "Diana" },
-  // Fun emoji
   { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Alex&size=200", label: "Alex" },
   { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Sam&size=200", label: "Sam" },
   { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Jordan&size=200", label: "Jordan" },
   { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Casey&size=200", label: "Casey" },
-  // Adventurer
   { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Felix&size=200", label: "Felix" },
   { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Luna&size=200", label: "Luna" },
   { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Rider&size=200", label: "Rider" },
   { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Max&size=200", label: "Max" },
-  // Pixel art
   { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=River&size=200", label: "River" },
   { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=Sage&size=200", label: "Sage" },
   { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=Sky&size=200", label: "Sky" },
   { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=Storm&size=200", label: "Storm" },
 ];
 
-// Resize + compress an image File to a square base64 JPEG (≈ 200×200, q=0.8)
 function compressImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -66,6 +61,8 @@ function compressImage(file: File): Promise<string> {
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  country: z.string().optional(),
+  location: z.string().optional(),
 });
 
 function UserAvatar({ name, url, size = 80 }: { name?: string; url?: string | null; size?: number }) {
@@ -75,7 +72,6 @@ function UserAvatar({ name, url, size = 80 }: { name?: string; url?: string | nu
     .join("")
     .toUpperCase()
     .slice(0, 2);
-
   if (url) {
     return (
       <img
@@ -111,60 +107,79 @@ export function ProfilePage() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "" },
+    defaultValues: { name: "", country: "", location: "" },
   });
 
   const initialized = useRef(false);
   useEffect(() => {
     if (userProfile && !initialized.current) {
-      form.reset({ name: userProfile.name });
+      form.reset({
+        name: userProfile.name,
+        country: userProfile.country ?? "",
+        location: userProfile.location ?? "",
+      });
       initialized.current = true;
     }
   }, [userProfile, form]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    updateMe.mutate({ data: values }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-        toast({ title: "Profile updated" });
+    updateMe.mutate(
+      {
+        data: {
+          name: values.name,
+          country: values.country || null,
+          location: values.location || null,
+        },
       },
-      onError: () => {
-        toast({ title: "Failed to save", variant: "destructive" });
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          toast({ title: "Profile updated" });
+        },
+        onError: () => {
+          toast({ title: "Failed to save", variant: "destructive" });
+        },
       },
-    });
+    );
   };
 
-  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const dataUrl = await compressImage(file);
-      setSelectedUrl(dataUrl);
-    } catch {
-      toast({ title: "Could not read image", variant: "destructive" });
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  }, [toast]);
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      try {
+        const dataUrl = await compressImage(file);
+        setSelectedUrl(dataUrl);
+      } catch {
+        toast({ title: "Could not read image", variant: "destructive" });
+      } finally {
+        setUploading(false);
+        e.target.value = "";
+      }
+    },
+    [toast],
+  );
 
   const handleSaveAvatar = useCallback(() => {
     if (!selectedUrl) return;
     setSaving(true);
-    updateMe.mutate({ data: { avatarUrl: selectedUrl } }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-        toast({ title: "Avatar updated!" });
-        setAvatarOpen(false);
-        setSelectedUrl(null);
-        setSaving(false);
+    updateMe.mutate(
+      { data: { avatarUrl: selectedUrl } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          toast({ title: "Avatar updated!" });
+          setAvatarOpen(false);
+          setSelectedUrl(null);
+          setSaving(false);
+        },
+        onError: () => {
+          toast({ title: "Failed to save avatar", variant: "destructive" });
+          setSaving(false);
+        },
       },
-      onError: () => {
-        toast({ title: "Failed to save avatar", variant: "destructive" });
-        setSaving(false);
-      },
-    });
+    );
   }, [selectedUrl, updateMe, toast]);
 
   const handleSignOut = () => {
@@ -193,7 +208,10 @@ export function ProfilePage() {
 
         {/* Avatar row */}
         <div className="flex items-center gap-4">
-          <div className="relative group cursor-pointer" onClick={() => setAvatarOpen(true)}>
+          <div
+            className="relative group cursor-pointer"
+            onClick={() => setAvatarOpen(true)}
+          >
             <UserAvatar name={userProfile?.name} url={currentAvatar} size={80} />
             <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
               <Camera className="w-6 h-6 text-white" />
@@ -202,6 +220,22 @@ export function ProfilePage() {
           <div>
             <div className="font-semibold text-lg">{userProfile?.name}</div>
             <div className="text-sm text-muted-foreground">{userProfile?.email}</div>
+            {(userProfile?.country || userProfile?.location) && (
+              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                {userProfile.location && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    {userProfile.location}
+                  </span>
+                )}
+                {userProfile.country && (
+                  <span className="flex items-center gap-1">
+                    <Globe className="w-3 h-3" />
+                    {userProfile.country}
+                  </span>
+                )}
+              </div>
+            )}
             <button
               className="text-xs text-primary hover:underline mt-0.5"
               onClick={() => setAvatarOpen(true)}
@@ -211,9 +245,9 @@ export function ProfilePage() {
           </div>
         </div>
 
-        {/* Name form */}
+        {/* Profile form */}
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="name"
@@ -227,6 +261,47 @@ export function ProfilePage() {
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="country"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Country{" "}
+                    <span className="text-muted-foreground font-normal text-xs">(optional)</span>
+                  </FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input {...field} className="pl-9" placeholder="e.g. France" />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Location{" "}
+                    <span className="text-muted-foreground font-normal text-xs">(optional)</span>
+                  </FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input {...field} className="pl-9" placeholder="e.g. Paris, Île-de-France" />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <Button type="submit" disabled={updateMe.isPending}>
               {updateMe.isPending ? "Saving…" : "Save Changes"}
             </Button>
@@ -241,31 +316,42 @@ export function ProfilePage() {
       </div>
 
       {/* Avatar editor dialog */}
-      <Dialog open={avatarOpen} onOpenChange={(o) => { setAvatarOpen(o); if (!o) setSelectedUrl(null); }}>
+      <Dialog
+        open={avatarOpen}
+        onOpenChange={(o) => {
+          setAvatarOpen(o);
+          if (!o) setSelectedUrl(null);
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Choose your avatar</DialogTitle>
           </DialogHeader>
 
-          {/* Preview */}
           <div className="flex items-center gap-4 py-2">
             <UserAvatar name={userProfile?.name} url={selectedUrl ?? currentAvatar} size={64} />
             <p className="text-sm text-muted-foreground">
-              {selectedUrl ? "New avatar selected — tap Save to apply." : "Select an avatar below or upload a photo."}
+              {selectedUrl
+                ? "New avatar selected — tap Save to apply."
+                : "Select an avatar below or upload a photo."}
             </p>
           </div>
 
           <Tabs defaultValue="presets">
             <TabsList className="w-full">
-              <TabsTrigger value="presets" className="flex-1">Cartoon avatars</TabsTrigger>
-              <TabsTrigger value="upload" className="flex-1">Upload photo</TabsTrigger>
+              <TabsTrigger value="presets" className="flex-1">
+                Cartoon avatars
+              </TabsTrigger>
+              <TabsTrigger value="upload" className="flex-1">
+                Upload photo
+              </TabsTrigger>
             </TabsList>
 
-            {/* Preset grid */}
             <TabsContent value="presets">
               <div className="grid grid-cols-4 gap-3 py-3 max-h-72 overflow-y-auto">
                 {PRESETS.map((p) => {
-                  const isSelected = selectedUrl === p.url || (!selectedUrl && currentAvatar === p.url);
+                  const isSelected =
+                    selectedUrl === p.url || (!selectedUrl && currentAvatar === p.url);
                   return (
                     <button
                       key={p.url}
@@ -275,7 +361,11 @@ export function ProfilePage() {
                         isSelected ? "border-primary shadow-md" : "border-transparent",
                       )}
                     >
-                      <img src={p.url} alt={p.label} className="w-full aspect-square object-cover" />
+                      <img
+                        src={p.url}
+                        alt={p.label}
+                        className="w-full aspect-square object-cover"
+                      />
                       {isSelected && (
                         <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
                           <Check className="w-3 h-3 text-white" />
@@ -287,7 +377,6 @@ export function ProfilePage() {
               </div>
             </TabsContent>
 
-            {/* Upload */}
             <TabsContent value="upload">
               <div className="py-4 space-y-4">
                 <div
@@ -319,7 +408,13 @@ export function ProfilePage() {
           </Tabs>
 
           <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={() => { setAvatarOpen(false); setSelectedUrl(null); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAvatarOpen(false);
+                setSelectedUrl(null);
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={handleSaveAvatar} disabled={!selectedUrl || saving}>

@@ -26,6 +26,8 @@ router.put("/users/me", requireAuth, async (req, res): Promise<void> => {
   const updateData: Record<string, unknown> = {};
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
   if (parsed.data.avatarUrl !== undefined) updateData.avatarUrl = parsed.data.avatarUrl;
+  if (parsed.data.country !== undefined) updateData.country = parsed.data.country ?? null;
+  if (parsed.data.location !== undefined) updateData.location = parsed.data.location ?? null;
 
   const [user] = await db.update(usersTable)
     .set(updateData)
