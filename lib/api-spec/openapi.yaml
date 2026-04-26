@@ -523,8 +523,6 @@ components:
       properties:
         id:
           type: integer
-        clerkId:
-          type: string
         name:
           type: string
         email:
@@ -535,7 +533,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, clerkId, name, email, createdAt]
+      required: [id, name, email, createdAt]
 
     UpdateUserBody:
       type: object

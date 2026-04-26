@@ -18,6 +18,11 @@ import {
   ListExpensesQueryParams,
 } from "@workspace/api-zod";
 
+function toDateString(value: string): string {
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? value : d.toISOString().split("T")[0];
+}
+
 const router: IRouter = Router();
 
 async function getUserById(id: number) {
@@ -206,7 +211,7 @@ router.post(
         currency: currency ?? "USD",
         splitType,
         paidByUserId,
-        date: String(date),
+        date: toDateString(String(date)),
       })
       .returning();
 
@@ -301,7 +306,7 @@ router.put(
     if (parsed.data.currency !== undefined) updateData.currency = parsed.data.currency;
     if (parsed.data.splitType !== undefined) updateData.splitType = parsed.data.splitType;
     if (parsed.data.paidByUserId !== undefined) updateData.paidByUserId = parsed.data.paidByUserId;
-    if (parsed.data.date !== undefined) updateData.date = String(parsed.data.date);
+    if (parsed.data.date !== undefined) updateData.date = toDateString(String(parsed.data.date));
 
     if (parsed.data.splits) {
       for (const s of parsed.data.splits) {

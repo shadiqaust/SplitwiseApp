@@ -15,7 +15,6 @@ export interface ErrorResponse {
 
 export interface User {
   id: number;
-  clerkId: string;
   name: string;
   email: string;
   avatarUrl?: string | null;

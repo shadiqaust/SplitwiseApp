@@ -19,7 +19,6 @@ export const HealthCheckResponse = zod.object({
  */
 export const GetMeResponse = zod.object({
   id: zod.number(),
-  clerkId: zod.string(),
   name: zod.string(),
   email: zod.string(),
   avatarUrl: zod.string().nullish(),
@@ -36,7 +35,6 @@ export const UpdateMeBody = zod.object({
 
 export const UpdateMeResponse = zod.object({
   id: zod.number(),
-  clerkId: zod.string(),
   name: zod.string(),
   email: zod.string(),
   avatarUrl: zod.string().nullish(),
@@ -99,7 +97,6 @@ export const GetGroupResponse = zod
           userId: zod.number(),
           user: zod.object({
             id: zod.number(),
-            clerkId: zod.string(),
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
@@ -171,7 +168,6 @@ export const GetGroupBalancesResponseItem = zod
     fromUserId: zod.number(),
     fromUser: zod.object({
       id: zod.number(),
-      clerkId: zod.string(),
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
@@ -180,7 +176,6 @@ export const GetGroupBalancesResponseItem = zod
     toUserId: zod.number(),
     toUser: zod.object({
       id: zod.number(),
-      clerkId: zod.string(),
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
@@ -219,7 +214,6 @@ export const ListExpensesResponseItem = zod
     paidByUserId: zod.number(),
     paidByUser: zod.object({
       id: zod.number(),
-      clerkId: zod.string(),
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
@@ -237,7 +231,6 @@ export const ListExpensesResponseItem = zod
           userId: zod.number(),
           user: zod.object({
             id: zod.number(),
-            clerkId: zod.string(),
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
@@ -296,7 +289,6 @@ export const GetExpenseResponse = zod
     paidByUserId: zod.number(),
     paidByUser: zod.object({
       id: zod.number(),
-      clerkId: zod.string(),
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
@@ -314,7 +306,6 @@ export const GetExpenseResponse = zod
           userId: zod.number(),
           user: zod.object({
             id: zod.number(),
-            clerkId: zod.string(),
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
@@ -365,7 +356,6 @@ export const UpdateExpenseResponse = zod
     paidByUserId: zod.number(),
     paidByUser: zod.object({
       id: zod.number(),
-      clerkId: zod.string(),
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
@@ -383,7 +373,6 @@ export const UpdateExpenseResponse = zod
           userId: zod.number(),
           user: zod.object({
             id: zod.number(),
-            clerkId: zod.string(),
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
@@ -416,7 +405,6 @@ export const ListPaymentsResponseItem = zod.object({
   fromUserId: zod.number(),
   fromUser: zod.object({
     id: zod.number(),
-    clerkId: zod.string(),
     name: zod.string(),
     email: zod.string(),
     avatarUrl: zod.string().nullish(),
@@ -425,7 +413,6 @@ export const ListPaymentsResponseItem = zod.object({
   toUserId: zod.number(),
   toUser: zod.object({
     id: zod.number(),
-    clerkId: zod.string(),
     name: zod.string(),
     email: zod.string(),
     avatarUrl: zod.string().nullish(),
@@ -502,7 +489,6 @@ export const GetActivityResponseItem = zod.object({
     .describe("The paidBy user (expense) or fromUser (payment)"),
   involvedUser: zod.object({
     id: zod.number(),
-    clerkId: zod.string(),
     name: zod.string(),
     email: zod.string(),
     avatarUrl: zod.string().nullish(),
