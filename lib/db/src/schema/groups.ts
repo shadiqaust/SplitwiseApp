@@ -8,6 +8,7 @@ export const groupsTable = pgTable("groups", {
   name: text("name").notNull(),
   description: text("description"),
   category: text("category"),
+  avatarUrl: text("avatar_url"),
   createdByUserId: integer("created_by_user_id")
     .notNull()
     .references(() => usersTable.id),

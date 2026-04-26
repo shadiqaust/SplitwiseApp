@@ -171,6 +171,7 @@ router.put(
     if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
     if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
     if (parsed.data.category !== undefined) updateData.category = parsed.data.category;
+    if (parsed.data.avatarUrl !== undefined) updateData.avatarUrl = parsed.data.avatarUrl ?? null;
 
     const [group] = await db
       .update(groupsTable)

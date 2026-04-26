@@ -2,6 +2,9 @@ import { useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import {
   ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
   Modal,
   Pressable,
   RefreshControl,
@@ -12,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -24,6 +28,7 @@ import {
   useGetMe,
   useListExpenses,
   useListPayments,
+  useUpdateGroup,
 } from "@workspace/api-client-react";
 import { getToken } from "@/lib/auth";
 
@@ -33,6 +38,25 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency, formatDate } from "@/lib/format";
+
+const GROUP_PRESETS = [
+  { url: "https://api.dicebear.com/9.x/bottts/png?seed=alpha&size=200", label: "Alpha" },
+  { url: "https://api.dicebear.com/9.x/bottts/png?seed=beta&size=200", label: "Beta" },
+  { url: "https://api.dicebear.com/9.x/bottts/png?seed=gamma&size=200", label: "Gamma" },
+  { url: "https://api.dicebear.com/9.x/bottts/png?seed=delta&size=200", label: "Delta" },
+  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=hike&size=200", label: "Hike" },
+  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=trip&size=200", label: "Trip" },
+  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=squad&size=200", label: "Squad" },
+  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=crew&size=200", label: "Crew" },
+  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=house&size=200", label: "House" },
+  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=flat&size=200", label: "Flat" },
+  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=family&size=200", label: "Family" },
+  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=work&size=200", label: "Work" },
+  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=voyage&size=200", label: "Voyage" },
+  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=explorer&size=200", label: "Explorer" },
+  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=nomad&size=200", label: "Nomad" },
+  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=trailblazer&size=200", label: "Trailblazer" },
+];
 
 const domain = process.env.EXPO_PUBLIC_DOMAIN;
 const API_BASE_URL = domain ? `https://${domain}` : "";
@@ -69,6 +93,9 @@ export default function GroupDetailScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [addingUserId, setAddingUserId] = useState<number | null>(null);
+  const [showAvatarSheet, setShowAvatarSheet] = useState(false);
+  const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
 
   const me = useGetMe();
   const POLL = { query: { refetchInterval: 15_000 } } as const;
@@ -77,6 +104,7 @@ export default function GroupDetailScreen() {
   const payments = useListPayments(groupId, POLL);
   const balances = useGetGroupBalances(groupId, POLL);
   const addMember = useAddGroupMember();
+  const updateGroup = useUpdateGroup();
 
   const refreshing =
     group.isFetching ||
@@ -124,6 +152,45 @@ export default function GroupDetailScreen() {
     );
   };
 
+  const handlePickGroupAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Please allow access to your photo library.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+    if (!result.canceled && result.assets[0].base64) {
+      setSelectedAvatarUrl(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    }
+  };
+
+  const handleSaveGroupAvatar = () => {
+    if (!selectedAvatarUrl) return;
+    setAvatarSaving(true);
+    updateGroup.mutate(
+      { groupId, data: { avatarUrl: selectedAvatarUrl } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
+          queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
+          setAvatarSaving(false);
+          setShowAvatarSheet(false);
+          setSelectedAvatarUrl(null);
+        },
+        onError: () => {
+          setAvatarSaving(false);
+          Alert.alert("Error", "Failed to save group photo.");
+        },
+      },
+    );
+  };
+
   if (group.isLoading || !group.data) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
@@ -157,12 +224,14 @@ export default function GroupDetailScreen() {
           title: group.data.name,
           headerBackTitle: "Groups",
           headerRight: () => (
-            <Pressable
-              onPress={() => setShowAddModal(true)}
-              style={{ paddingHorizontal: 12 }}
-            >
-              <Feather name="user-plus" size={20} color={colors.primary} />
-            </Pressable>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Pressable onPress={() => setShowAvatarSheet(true)} style={{ paddingHorizontal: 10 }}>
+                <Feather name="camera" size={20} color={colors.primary} />
+              </Pressable>
+              <Pressable onPress={() => setShowAddModal(true)} style={{ paddingHorizontal: 10 }}>
+                <Feather name="user-plus" size={20} color={colors.primary} />
+              </Pressable>
+            </View>
           ),
         }}
       />
@@ -247,11 +316,44 @@ export default function GroupDetailScreen() {
         }
       >
         <Card>
-          {group.data.description ? (
-            <Text style={[styles.desc, { color: colors.mutedForeground }]} numberOfLines={3}>
-              {group.data.description}
-            </Text>
-          ) : null}
+          {/* Group avatar + creator row */}
+          <View style={styles.groupHeaderRow}>
+            <Pressable onPress={() => setShowAvatarSheet(true)} style={styles.groupAvatarWrap}>
+              {group.data.avatarUrl ? (
+                <Image source={{ uri: group.data.avatarUrl }} style={styles.groupAvatar} />
+              ) : (
+                <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
+                  <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>
+                    {group.data.name.slice(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={[styles.groupCamBadge, { backgroundColor: colors.primary }]}>
+                <Feather name="camera" size={10} color="#fff" />
+              </View>
+            </Pressable>
+            <View style={{ flex: 1 }}>
+              {group.data.description ? (
+                <Text style={[styles.desc, { color: colors.mutedForeground, marginBottom: 0 }]} numberOfLines={2}>
+                  {group.data.description}
+                </Text>
+              ) : null}
+              {(() => {
+                const creator = group.data.members.find((m) => m.userId === group.data?.createdByUserId);
+                if (!creator) return null;
+                return (
+                  <Text style={[styles.creatorText, { color: colors.mutedForeground }]}>
+                    <Feather name="award" size={11} color={colors.mutedForeground} />{" "}
+                    Created by{" "}
+                    <Text style={{ fontFamily: "Inter_600SemiBold" }}>
+                      {creator.userId === myUserId ? "you" : creator.user.name}
+                    </Text>
+                  </Text>
+                );
+              })()}
+            </View>
+          </View>
+
           <View style={styles.memberRow}>
             {group.data.members.map((m) => (
               <View key={m.id} style={{ alignItems: "center", width: 56 }}>
@@ -392,6 +494,81 @@ export default function GroupDetailScreen() {
           </Card>
         )}
       </ScrollView>
+
+      {/* Group avatar sheet */}
+      <Modal
+        visible={showAvatarSheet}
+        animationType="slide"
+        transparent
+        onRequestClose={() => { setShowAvatarSheet(false); setSelectedAvatarUrl(null); }}
+      >
+        <View style={styles.overlaySheet}>
+          <View style={[styles.avatarSheet, { backgroundColor: colors.background }]}>
+            <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Group photo</Text>
+              <Pressable onPress={() => { setShowAvatarSheet(false); setSelectedAvatarUrl(null); }} hitSlop={12}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} showsVerticalScrollIndicator={false}>
+              {/* Preview */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+                {(selectedAvatarUrl ?? group.data.avatarUrl) ? (
+                  <Image source={{ uri: selectedAvatarUrl ?? group.data.avatarUrl! }} style={styles.groupAvatar} />
+                ) : (
+                  <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
+                    <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>
+                      {group.data.name.slice(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <Text style={[{ flex: 1, fontFamily: "Inter_400Regular", fontSize: 13 }, { color: colors.mutedForeground }]}>
+                  {selectedAvatarUrl ? "Tap Save to apply." : "Pick a preset icon or upload a photo."}
+                </Text>
+              </View>
+
+              <Text style={[{ fontFamily: "Inter_600SemiBold", fontSize: 14, marginTop: 8 }, { color: colors.foreground }]}>Preset icons</Text>
+              <FlatList
+                data={GROUP_PRESETS}
+                keyExtractor={(item) => item.url}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
+                renderItem={({ item }) => {
+                  const isSelected = selectedAvatarUrl === item.url || (!selectedAvatarUrl && group.data?.avatarUrl === item.url);
+                  return (
+                    <Pressable onPress={() => setSelectedAvatarUrl(item.url)}>
+                      <Image
+                        source={{ uri: item.url }}
+                        style={[styles.presetImg, { borderColor: isSelected ? colors.primary : colors.border }]}
+                      />
+                      {isSelected && (
+                        <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
+                          <Feather name="check" size={10} color="#fff" />
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                }}
+              />
+
+              <Text style={[{ fontFamily: "Inter_600SemiBold", fontSize: 14 }, { color: colors.foreground }]}>Upload photo</Text>
+              <Pressable
+                onPress={handlePickGroupAvatar}
+                style={[styles.uploadBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              >
+                <Feather name="image" size={22} color={colors.mutedForeground} />
+                <Text style={[{ fontFamily: "Inter_500Medium", fontSize: 13 }, { color: colors.foreground }]}>Choose from gallery</Text>
+              </Pressable>
+            </ScrollView>
+
+            <View style={[styles.sheetFooterRow, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+              <Button title="Cancel" variant="outline" onPress={() => { setShowAvatarSheet(false); setSelectedAvatarUrl(null); }} />
+              <Button title={avatarSaving ? "Saving…" : "Save"} onPress={handleSaveGroupAvatar} disabled={!selectedAvatarUrl || avatarSaving} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -429,4 +606,17 @@ const styles = StyleSheet.create({
   emptySearch: { textAlign: "center", fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 32, paddingHorizontal: 16 },
   newFriendBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 100, backgroundColor: "#dbeafe" },
   newFriendBadgeText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#1d4ed8" },
+  groupHeaderRow: { flexDirection: "row", alignItems: "flex-start", gap: 14, marginBottom: 16 },
+  groupAvatarWrap: { position: "relative" },
+  groupAvatar: { width: 64, height: 64, borderRadius: 12 },
+  groupAvatarFallback: { width: 64, height: 64, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  groupAvatarText: { fontFamily: "Inter_700Bold", fontSize: 22 },
+  groupCamBadge: { position: "absolute", bottom: -4, right: -4, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  creatorText: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 4 },
+  overlaySheet: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
+  avatarSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "80%", paddingBottom: 8 },
+  presetImg: { width: 64, height: 64, borderRadius: 10, borderWidth: 2 },
+  checkBadge: { position: "absolute", top: -4, right: -4, width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  uploadBtn: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 10, borderWidth: 1 },
+  sheetFooterRow: { flexDirection: "row", gap: 10, padding: 16, borderTopWidth: StyleSheet.hairlineWidth },
 });

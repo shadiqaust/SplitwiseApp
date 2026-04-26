@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import {
@@ -18,9 +18,10 @@ import {
   useGetMe,
   useListExpenses,
   useListPayments,
+  useUpdateGroup,
   type GroupMember,
 } from "@workspace/api-client-react";
-import { Plus, UserPlus, HandCoins, Receipt, Search, Check } from "lucide-react";
+import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown } from "lucide-react";
 
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -73,14 +74,232 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
-function MemberAvatar({ name, size = 32 }: { name: string; size?: number }) {
+function MemberAvatar({ name, url, size = 32 }: { name: string; url?: string | null; size?: number }) {
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={name}
+        className="rounded-full object-cover flex-shrink-0"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   return (
     <div
-      className="flex items-center justify-center rounded-full bg-accent text-accent-foreground font-medium"
+      className="flex items-center justify-center rounded-full bg-accent text-accent-foreground font-medium flex-shrink-0"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
       {getInitials(name)}
     </div>
+  );
+}
+
+// ─── Group avatar presets ─────────────────────────────────────────────────────
+const GROUP_PRESETS = [
+  { url: "https://api.dicebear.com/9.x/bottts/png?seed=alpha&size=200", label: "Alpha" },
+  { url: "https://api.dicebear.com/9.x/bottts/png?seed=beta&size=200", label: "Beta" },
+  { url: "https://api.dicebear.com/9.x/bottts/png?seed=gamma&size=200", label: "Gamma" },
+  { url: "https://api.dicebear.com/9.x/bottts/png?seed=delta&size=200", label: "Delta" },
+  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=hike&size=200", label: "Hike" },
+  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=trip&size=200", label: "Trip" },
+  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=squad&size=200", label: "Squad" },
+  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=crew&size=200", label: "Crew" },
+  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=house&size=200", label: "House" },
+  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=flat&size=200", label: "Flat" },
+  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=family&size=200", label: "Family" },
+  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=work&size=200", label: "Work" },
+  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=voyage&size=200", label: "Voyage" },
+  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=explorer&size=200", label: "Explorer" },
+  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=nomad&size=200", label: "Nomad" },
+  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=trailblazer&size=200", label: "Trailblazer" },
+];
+
+function compressGroupImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const SIZE = 200;
+      const canvas = document.createElement("canvas");
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      const ctx = canvas.getContext("2d")!;
+      const min = Math.min(img.width, img.height);
+      const sx = (img.width - min) / 2;
+      const sy = (img.height - min) / 2;
+      ctx.drawImage(img, sx, sy, min, min, 0, 0, SIZE, SIZE);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = reject;
+    img.src = objectUrl;
+  });
+}
+
+function GroupAvatarDialog({
+  groupId,
+  currentUrl,
+  groupName,
+}: {
+  groupId: number;
+  currentUrl?: string | null;
+  groupName: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const updateGroup = useUpdateGroup();
+
+  const initials = getInitials(groupName);
+  const previewUrl = selectedUrl ?? currentUrl ?? null;
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const dataUrl = await compressGroupImage(file);
+      setSelectedUrl(dataUrl);
+    } catch {
+      toast({ title: "Could not read image", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }, [toast]);
+
+  const handleSave = useCallback(() => {
+    if (!selectedUrl) return;
+    setSaving(true);
+    updateGroup.mutate(
+      { groupId, data: { avatarUrl: selectedUrl } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
+          queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
+          toast({ title: "Group photo updated!" });
+          setOpen(false);
+          setSelectedUrl(null);
+          setSaving(false);
+        },
+        onError: () => {
+          toast({ title: "Failed to save group photo", variant: "destructive" });
+          setSaving(false);
+        },
+      },
+    );
+  }, [selectedUrl, updateGroup, groupId, toast]);
+
+  return (
+    <>
+      <div
+        className="relative group cursor-pointer flex-shrink-0"
+        onClick={() => setOpen(true)}
+        title="Change group photo"
+      >
+        {previewUrl ? (
+          <img
+            src={currentUrl ?? previewUrl}
+            alt={groupName}
+            className="w-16 h-16 rounded-2xl object-cover"
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xl">
+            {initials}
+          </div>
+        )}
+        <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <Camera className="w-5 h-5 text-white" />
+        </div>
+      </div>
+
+      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSelectedUrl(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Group photo</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex items-center gap-4 py-2">
+            {(selectedUrl ?? currentUrl) ? (
+              <img src={selectedUrl ?? currentUrl!} alt={groupName} className="w-14 h-14 rounded-xl object-cover" />
+            ) : (
+              <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                {initials}
+              </div>
+            )}
+            <p className="text-sm text-muted-foreground">
+              {selectedUrl ? "New photo selected — tap Save to apply." : "Select a preset or upload a custom image."}
+            </p>
+          </div>
+
+          <Tabs defaultValue="presets">
+            <TabsList className="w-full">
+              <TabsTrigger value="presets" className="flex-1">Preset icons</TabsTrigger>
+              <TabsTrigger value="upload" className="flex-1">Upload photo</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="presets">
+              <div className="grid grid-cols-4 gap-3 py-3 max-h-72 overflow-y-auto">
+                {GROUP_PRESETS.map((p) => {
+                  const isSelected = selectedUrl === p.url || (!selectedUrl && currentUrl === p.url);
+                  return (
+                    <button
+                      key={p.url}
+                      onClick={() => setSelectedUrl(p.url)}
+                      className={cn(
+                        "relative rounded-xl overflow-hidden border-2 transition-all hover:scale-105 focus:outline-none",
+                        isSelected ? "border-primary shadow-md" : "border-transparent",
+                      )}
+                    >
+                      <img src={p.url} alt={p.label} className="w-full aspect-square object-cover" />
+                      {isSelected && (
+                        <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="upload">
+              <div className="py-4">
+                <div
+                  className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="w-8 h-8 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground text-center">
+                    Click to upload a photo
+                    <br />
+                    <span className="text-xs">JPG, PNG — max 5 MB</span>
+                  </p>
+                  {uploading && <p className="text-xs text-primary">Processing…</p>}
+                  {selectedUrl?.startsWith("data:") && (
+                    <div className="flex items-center gap-2 text-xs text-green-600">
+                      <Check className="w-3 h-3" /> Photo ready
+                    </div>
+                  )}
+                </div>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => { setOpen(false); setSelectedUrl(null); }}>Cancel</Button>
+            <Button onClick={handleSave} disabled={!selectedUrl || saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -717,15 +936,32 @@ export function GroupDetailPage() {
     <Layout>
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {group.data.name}
-            </h1>
-            {group.data.description ? (
-              <p className="text-muted-foreground mt-1">
-                {group.data.description}
-              </p>
-            ) : null}
+          <div className="flex items-start gap-4">
+            <GroupAvatarDialog
+              groupId={groupId}
+              currentUrl={group.data.avatarUrl}
+              groupName={group.data.name}
+            />
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">
+                {group.data.name}
+              </h1>
+              {group.data.description ? (
+                <p className="text-muted-foreground mt-1">{group.data.description}</p>
+              ) : null}
+              {(() => {
+                const creator = members.find((m) => m.userId === group.data?.createdByUserId);
+                if (!creator) return null;
+                const isMe = creator.userId === myUserId;
+                return (
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <Crown className="w-3 h-3" />
+                    Created by{" "}
+                    <span className="font-medium">{isMe ? "you" : creator.user.name}</span>
+                  </p>
+                );
+              })()}
+            </div>
           </div>
           <div className="flex gap-2">
             {me.data ? (
@@ -753,9 +989,12 @@ export function GroupDetailPage() {
             <div className="flex flex-wrap items-center gap-3">
               {members.map((m) => (
                 <div key={m.id} className="flex items-center gap-2">
-                  <MemberAvatar name={m.user.name} />
+                  <MemberAvatar name={m.user.name} url={m.user.avatarUrl} />
                   <span className="text-sm">
                     {m.userId === myUserId ? "You" : m.user.name}
+                    {m.userId === group.data?.createdByUserId && (
+                      <Crown className="w-3 h-3 text-amber-500 inline ml-1" />
+                    )}
                   </span>
                 </div>
               ))}

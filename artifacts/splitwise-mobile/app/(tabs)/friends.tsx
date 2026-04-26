@@ -13,6 +13,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useColors } from "@/hooks/useColors";
@@ -48,16 +49,6 @@ async function authFetch(path: string, options: RequestInit = {}) {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
-}
-
-function Avatar({ name, size = 44 }: { name: string; size?: number }) {
-  const colors = useColors();
-  const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-  return (
-    <View style={[styles.avatar, { width: size, height: size, backgroundColor: colors.accent }]}>
-      <Text style={[styles.avatarText, { color: colors.accentForeground }]}>{initials}</Text>
-    </View>
-  );
 }
 
 function AddFriendModal({ existingIds, onClose }: { existingIds: Set<number>; onClose: () => void }) {
@@ -129,7 +120,7 @@ function AddFriendModal({ existingIds, onClose }: { existingIds: Set<number>; on
               const isPending = addMutation.isPending && addMutation.variables === user.id;
               return (
                 <View key={user.id} style={[styles.userRow, { borderBottomColor: colors.border }]}>
-                  <Avatar name={user.name} size={40} />
+                  <Avatar name={user.name} url={user.avatarUrl} size={40} />
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={[styles.userName, { color: colors.foreground }]} numberOfLines={1}>{user.name}</Text>
                     <Text style={[styles.userEmail, { color: colors.mutedForeground }]} numberOfLines={1}>{user.email}</Text>
@@ -234,7 +225,7 @@ export default function FriendsScreen() {
           const isEven = Math.abs(friend.netBalance) < 0.01;
           return (
             <Card key={friend.id} style={styles.friendRow}>
-              <Avatar name={friend.name} />
+              <Avatar name={friend.name} url={friend.avatarUrl} />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={[styles.userName, { color: colors.foreground }]} numberOfLines={1}>{friend.name}</Text>
                 <Text style={[styles.userEmail, { color: colors.mutedForeground }]} numberOfLines={1}>{friend.email}</Text>
