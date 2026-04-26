@@ -29,7 +29,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=8080 pnpm --filter @workspace/api-server run dev & PORT=18238 BASE_PATH=/ pnpm --filter @workspace/splitwise-web run dev & CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY PORT=18196 BASE_PATH=/mobile/ pnpm --filter @workspace/splitwise-mobile run dev"
+args = "PORT=8080 pnpm --filter @workspace/api-server run dev & PORT=18238 BASE_PATH=/ pnpm --filter @workspace/splitwise-web run dev"
 waitForPort = 18238
 
 [agent]
@@ -53,6 +53,10 @@ localPort = 18196
 externalPort = 3001
 
 [[ports]]
+localPort = 18197
+externalPort = 3003
+
+[[ports]]
 localPort = 18238
 externalPort = 3000
 
@@ -60,3 +64,4 @@ externalPort = 3000
 
 [userenv.shared]
 VITE_CLERK_PUBLISHABLE_KEY = "pk_test_c2Vuc2libGUtcGVuZ3Vpbi0xNC5jbGVyay5hY2NvdW50cy5kZXYk"
+CLERK_PUBLISHABLE_KEY = "pk_test_c2Vuc2ibGUtcGVuZ3Vpbi0xNC5jbGVyay5hY2NvdW50cy5kZXYk"
