@@ -27,7 +27,7 @@ interface AuthContextValue extends AuthState {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function getApiBase(): string {
-  return window.location.origin;
+  return "";
 }
 
 async function apiPost<T>(path: string, body: unknown, token?: string | null): Promise<T> {
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    setBaseUrl(window.location.origin);
+    setBaseUrl(null);
     const token = localStorage.getItem(TOKEN_KEY);
     const userStr = localStorage.getItem(USER_KEY);
     if (token && userStr) {
