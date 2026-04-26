@@ -48,10 +48,11 @@ export default function GroupDetailScreen() {
   const [addError, setAddError] = useState<string | null>(null);
 
   const me = useGetMe();
-  const group = useGetGroup(groupId);
-  const expenses = useListExpenses(groupId);
-  const payments = useListPayments(groupId);
-  const balances = useGetGroupBalances(groupId);
+  const POLL = { query: { refetchInterval: 15_000 } } as const;
+  const group = useGetGroup(groupId, POLL);
+  const expenses = useListExpenses(groupId, POLL);
+  const payments = useListPayments(groupId, POLL);
+  const balances = useGetGroupBalances(groupId, POLL);
   const addMember = useAddGroupMember();
 
   const refreshing =

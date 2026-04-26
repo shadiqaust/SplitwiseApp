@@ -597,11 +597,12 @@ export function GroupDetailPage() {
   const params = useParams<{ groupId: string }>();
   const groupId = Number(params.groupId);
 
-  const me = useGetMe();
-  const group = useGetGroup(groupId);
-  const expenses = useListExpenses(groupId);
-  const payments = useListPayments(groupId);
-  const balances = useGetGroupBalances(groupId);
+  const POLL = { query: { refetchInterval: 15_000 } } as const;
+  const me = useGetMe(POLL);
+  const group = useGetGroup(groupId, POLL);
+  const expenses = useListExpenses(groupId, POLL);
+  const payments = useListPayments(groupId, POLL);
+  const balances = useGetGroupBalances(groupId, POLL);
 
   const myUserId = me.data?.id ?? -1;
   const members = group.data?.members ?? [];

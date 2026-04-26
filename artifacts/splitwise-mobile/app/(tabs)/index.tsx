@@ -22,8 +22,9 @@ import { formatCurrency, formatDate } from "@/lib/format";
 export default function DashboardScreen() {
   const colors = useColors();
   const router = useRouter();
-  const summary = useGetDashboardSummary();
-  const activity = useGetActivity({ limit: 20 });
+  const POLL = { query: { refetchInterval: 15_000 } } as const;
+  const summary = useGetDashboardSummary(POLL);
+  const activity = useGetActivity({ limit: 20 }, POLL);
 
   const refreshing = summary.isFetching || activity.isFetching;
 

@@ -7,8 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpRight, ArrowDownRight, Activity } from "lucide-react";
 
 export function DashboardPage() {
-  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary();
-  const { data: activities, isLoading: loadingActivities } = useGetActivity({ limit: 20 });
+  const POLL = { query: { refetchInterval: 15_000 } } as const;
+  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary(POLL);
+  const { data: activities, isLoading: loadingActivities } = useGetActivity({ limit: 20 }, POLL);
 
   return (
     <Layout>
