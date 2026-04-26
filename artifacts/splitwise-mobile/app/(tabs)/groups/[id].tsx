@@ -242,10 +242,7 @@ export default function GroupDetailScreen() {
     if (filterMemberId !== "all") {
       items = items.filter((item) => {
         if (item.kind === "expense") {
-          return (
-            item.data.paidByUserId === filterMemberId ||
-            item.data.splits.some((s) => s.userId === filterMemberId)
-          );
+          return item.data.paidByUserId === filterMemberId;
         }
         return item.data.fromUserId === filterMemberId || item.data.toUserId === filterMemberId;
       });
@@ -395,7 +392,18 @@ export default function GroupDetailScreen() {
           <View style={styles.memberRow}>
             {group.data.members.map((m) => (
               <View key={m.id} style={{ alignItems: "center", width: 56 }}>
-                <Avatar name={m.user.name} url={m.user.avatarUrl} size={40} />
+                <View style={{ position: "relative" }}>
+                  <Avatar name={m.user.name} url={m.user.avatarUrl} size={40} />
+                  {m.userId === group.data?.createdByUserId && (
+                    <View style={{
+                      position: "absolute", top: -5, right: -5,
+                      backgroundColor: "#f59e0b", borderRadius: 8,
+                      padding: 2, borderWidth: 1.5, borderColor: colors.background,
+                    }}>
+                      <MaterialCommunityIcons name="crown" size={9} color="#fff" />
+                    </View>
+                  )}
+                </View>
                 <Text style={[styles.memberName, { color: colors.mutedForeground }]} numberOfLines={1}>
                   {m.user.id === myUserId ? "You" : m.user.name.split(" ")[0]}
                 </Text>

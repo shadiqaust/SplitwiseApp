@@ -989,10 +989,7 @@ export function GroupDetailPage() {
     if (filterMemberId !== "all") {
       items = items.filter((item) => {
         if (item.kind === "expense") {
-          return (
-            item.data.paidByUserId === filterMemberId ||
-            item.data.splits.some((s) => s.userId === filterMemberId)
-          );
+          return item.data.paidByUserId === filterMemberId;
         }
         return item.data.fromUserId === filterMemberId || item.data.toUserId === filterMemberId;
       });
@@ -1069,12 +1066,16 @@ export function GroupDetailPage() {
             <div className="flex flex-wrap items-center gap-3">
               {members.map((m) => (
                 <div key={m.id} className="flex items-center gap-2">
-                  <MemberAvatar name={m.user.name} url={m.user.avatarUrl} />
+                  <div className="relative">
+                    <MemberAvatar name={m.user.name} url={m.user.avatarUrl} />
+                    {m.userId === group.data?.createdByUserId && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-amber-400 rounded-full p-0.5 border-2 border-background flex items-center justify-center">
+                        <Crown className="w-2.5 h-2.5 text-white" />
+                      </span>
+                    )}
+                  </div>
                   <span className="text-sm">
                     {m.userId === myUserId ? "You" : m.user.name}
-                    {m.userId === group.data?.createdByUserId && (
-                      <Crown className="w-3 h-3 text-amber-500 inline ml-1" />
-                    )}
                   </span>
                 </div>
               ))}
