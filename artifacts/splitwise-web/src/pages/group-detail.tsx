@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import {
   getGetActivityQueryKey,
@@ -19,7 +20,7 @@ import {
   useListPayments,
   type GroupMember,
 } from "@workspace/api-client-react";
-import { Plus, UserPlus, HandCoins, Receipt } from "lucide-react";
+import { Plus, UserPlus, HandCoins, Receipt, Search, Check } from "lucide-react";
 
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -95,23 +96,56 @@ function invalidateGroupData(groupId: number) {
   queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey() });
 }
 
+interface UserResult {
+  id: number;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+}
+
+function UserAvatar({ name, size = 32 }: { name: string; size?: number }) {
+  const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  return (
+    <div
+      className="rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-xs flex-shrink-0"
+      style={{ width: size, height: size }}
+    >
+      {initials}
+    </div>
+  );
+}
+
 function AddMemberDialog({ groupId }: { groupId: number }) {
   const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState("");
+  const [search, setSearch] = useState("");
+  const [addingId, setAddingId] = useState<number | null>(null);
   const { toast } = useToast();
   const addMember = useAddGroupMember();
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
+  const { data: users = [], isFetching } = useQuery<UserResult[]>({
+    queryKey: ["user-search", search, groupId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ excludeGroupId: String(groupId) });
+      if (search.trim()) params.set("q", search.trim());
+      const res = await fetch(`/api/users/search?${params}`);
+      if (!res.ok) throw new Error("Failed to load users");
+      return res.json();
+    },
+    enabled: open,
+    staleTime: 0,
+  });
+
+  const handleAdd = useCallback((user: UserResult) => {
+    setAddingId(user.id);
     addMember.mutate(
-      { groupId, data: { email: email.trim() } },
+      { groupId, data: { email: user.email } },
       {
         onSuccess: () => {
           invalidateGroupData(groupId);
-          toast({ title: "Member added" });
+          toast({ title: `${user.name} added to group` });
           setOpen(false);
-          setEmail("");
+          setSearch("");
+          setAddingId(null);
         },
         onError: (err: unknown) => {
           toast({
@@ -119,40 +153,67 @@ function AddMemberDialog({ groupId }: { groupId: number }) {
             description: getErrorMessage(err),
             variant: "destructive",
           });
+          setAddingId(null);
         },
       },
     );
-  };
+  }, [groupId, addMember, toast]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSearch(""); }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <UserPlus className="w-4 h-4 mr-2" /> Add member
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Add member</DialogTitle>
-          <DialogDescription>Invite someone by email.</DialogDescription>
+          <DialogDescription>
+            Search by name or email to add an existing user to this group.
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="text"
-              placeholder="friend@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={addMember.isPending}>
-              {addMember.isPending ? "Adding..." : "Add"}
-            </Button>
-          </DialogFooter>
-        </form>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            autoFocus
+            className="pl-9"
+            placeholder="Search by name or email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="max-h-72 overflow-y-auto rounded-md border divide-y">
+          {isFetching && users.length === 0 && (
+            <div className="p-4 text-sm text-muted-foreground text-center">Loading…</div>
+          )}
+          {!isFetching && users.length === 0 && (
+            <div className="p-4 text-sm text-muted-foreground text-center">
+              {search
+                ? "No users found. They may need to sign up first."
+                : "No other registered users to add."}
+            </div>
+          )}
+          {users.map((user) => (
+            <div key={user.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 transition-colors">
+              <UserAvatar name={user.name} size={36} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{user.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={addingId === user.id}
+                onClick={() => handleAdd(user)}
+              >
+                {addingId === user.id ? "Adding…" : "Add"}
+              </Button>
+            </div>
+          ))}
+        </div>
       </DialogContent>
     </Dialog>
   );
