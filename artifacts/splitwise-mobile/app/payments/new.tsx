@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import {
   KeyboardAvoidingView,
@@ -48,17 +48,21 @@ export default function NewPaymentScreen() {
 
   const members = group.data?.members ?? [];
 
-  const balanceHint = fromUserId && toUserId && balances.data
-    ? (() => {
-        const owes = balances.data.find((b) => b.fromUserId === fromUserId && b.toUserId === toUserId);
-        const owed = balances.data.find((b) => b.fromUserId === toUserId && b.toUserId === fromUserId);
-        const fromName = fromUserId === me.data?.id ? "You" : members.find((m) => m.userId === fromUserId)?.user.name ?? "Payer";
-        const toName = toUserId === me.data?.id ? "you" : members.find((m) => m.userId === toUserId)?.user.name ?? "Recipient";
-        if (owes) return { text: `${fromName} ${fromUserId === me.data?.id ? "owe" : "owes"} ${toName} $${owes.amount.toFixed(2)}`, amount: owes.amount };
-        if (owed) return { text: `${owed.fromUserId === me.data?.id ? "You owe" : `${members.find((m) => m.userId === owed.fromUserId)?.user.name} owes`} ${owed.toUserId === me.data?.id ? "you" : members.find((m) => m.userId === owed.toUserId)?.user.name} $${owed.amount.toFixed(2)}`, amount: null };
-        return null;
-      })()
-    : null;
+  const balanceHint = useMemo(() => {
+    if (!fromUserId || !toUserId || fromUserId === toUserId || !balances.data) return null;
+    const myId = me.data?.id;
+    const owes = balances.data.find((b) => b.fromUserId === fromUserId && b.toUserId === toUserId);
+    const owed = balances.data.find((b) => b.fromUserId === toUserId && b.toUserId === fromUserId);
+    const fromName = fromUserId === myId ? "You" : members.find((m) => m.userId === fromUserId)?.user.name ?? "Payer";
+    const toName = toUserId === myId ? "you" : members.find((m) => m.userId === toUserId)?.user.name ?? "Recipient";
+    if (owes) return { text: `${fromName} owe${fromUserId !== myId ? "s" : ""} ${toName} $${owes.amount.toFixed(2)}`, amount: owes.amount, positive: true };
+    if (owed) {
+      const oweeName = owed.fromUserId === myId ? "You" : members.find((m) => m.userId === owed.fromUserId)?.user.name ?? "";
+      const owedToName = owed.toUserId === myId ? "you" : members.find((m) => m.userId === owed.toUserId)?.user.name ?? "";
+      return { text: `${oweeName} owe${owed.fromUserId !== myId ? "s" : ""} ${owedToName} $${owed.amount.toFixed(2)} — no payment needed`, amount: null, positive: false };
+    }
+    return { text: "All settled up between these two", amount: null, positive: false };
+  }, [fromUserId, toUserId, balances.data, me.data?.id, members]);
 
   useEffect(() => {
     if (fromUserId === null && me.data) setFromUserId(me.data.id);
@@ -160,15 +164,26 @@ export default function NewPaymentScreen() {
           </View>
 
           {balanceHint && (
-            <View style={[styles.hintCard, { backgroundColor: balanceHint.amount !== null ? "#fef9c3" : colors.muted, borderColor: balanceHint.amount !== null ? "#fde68a" : colors.border }]}>
-              <Text style={[styles.hintText, { color: balanceHint.amount !== null ? "#92400e" : colors.mutedForeground }]}>
-                {balanceHint.text}
-              </Text>
-              {balanceHint.amount !== null && (
-                <Pressable onPress={() => setAmount(String(balanceHint.amount))} style={styles.hintBtn}>
-                  <Text style={styles.hintBtnText}>Use this amount</Text>
-                </Pressable>
-              )}
+            <View style={[
+              styles.hintCard,
+              {
+                backgroundColor: balanceHint.positive ? "#fef9c3" : colors.muted,
+                borderColor: balanceHint.positive ? "#fde68a" : colors.border,
+              },
+            ]}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <Text style={[styles.hintText, { color: balanceHint.positive ? "#92400e" : colors.mutedForeground, flex: 1 }]}>
+                  {balanceHint.text}
+                </Text>
+                {balanceHint.amount !== null && (
+                  <Pressable
+                    onPress={() => setAmount(balanceHint.amount!.toFixed(2))}
+                    style={[styles.hintBtn, { borderColor: "#d97706", backgroundColor: "#fffbeb" }]}
+                  >
+                    <Text style={styles.hintBtnText}>Use amount</Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
           )}
 
@@ -224,8 +239,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipText: { fontFamily: "Inter_500Medium", fontSize: 13 },
-  hintCard: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 6 },
+  hintCard: { borderWidth: 1, borderRadius: 10, padding: 12 },
   hintText: { fontFamily: "Inter_500Medium", fontSize: 13 },
-  hintBtn: { alignSelf: "flex-start" },
-  hintBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#b45309", textDecorationLine: "underline" },
+  hintBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1 },
+  hintBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#b45309" },
 });

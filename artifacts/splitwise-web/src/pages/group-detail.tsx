@@ -21,7 +21,7 @@ import {
   useUpdateGroup,
   type GroupMember,
 } from "@workspace/api-client-react";
-import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown } from "lucide-react";
+import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight } from "lucide-react";
 
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -768,15 +768,16 @@ function SettleUpDialog({
     }
   }, [open, currentUserId, members]);
 
-  const balanceHint = toUserId
-    ? (() => {
-        const owes = balances.find((b) => b.fromUserId === fromUserId && b.toUserId === toUserId);
-        const owed = balances.find((b) => b.fromUserId === toUserId && b.toUserId === fromUserId);
-        if (owes) return { text: `${fromUserId === currentUserId ? "You owe" : `${owes.fromUser.name} owes`} ${toUserId === currentUserId ? "you" : owes.toUser.name} ${formatCurrency(owes.amount)}`, amount: owes.amount, positive: true };
-        if (owed) return { text: `${toUserId === currentUserId ? "You owe" : `${owed.fromUser.name} owes`} ${fromUserId === currentUserId ? "you" : owed.toUser.name} ${formatCurrency(owed.amount)}`, amount: null, positive: false };
-        return null;
-      })()
-    : null;
+  const balanceHint = useMemo(() => {
+    if (!toUserId || fromUserId === toUserId) return null;
+    const owes = balances.find((b) => b.fromUserId === fromUserId && b.toUserId === toUserId);
+    const owed = balances.find((b) => b.fromUserId === toUserId && b.toUserId === fromUserId);
+    const fromName = fromUserId === currentUserId ? "You" : members.find((m) => m.userId === fromUserId)?.user.name ?? "Payer";
+    const toName = toUserId === currentUserId ? "you" : members.find((m) => m.userId === toUserId)?.user.name ?? "Recipient";
+    if (owes) return { text: `${fromName} owe${fromUserId !== currentUserId ? "s" : ""} ${toName} ${formatCurrency(owes.amount)}`, amount: owes.amount, positive: true };
+    if (owed) return { text: `${toUserId === currentUserId ? "You owe" : `${owed.fromUser.name} owes`} ${fromUserId === currentUserId ? "you" : owed.toUser.name} ${formatCurrency(owed.amount)} — no payment needed`, amount: null, positive: false };
+    return { text: "All settled up between these two", amount: null, positive: false };
+  }, [fromUserId, toUserId, balances, currentUserId, members]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -834,8 +835,8 @@ function SettleUpDialog({
           <DialogTitle>Settle up</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="flex items-end gap-2">
+            <div className="flex-1 space-y-2">
               <Label>From</Label>
               <Select
                 value={String(fromUserId)}
@@ -853,7 +854,15 @@ function SettleUpDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
+            <button
+              type="button"
+              className="mb-px p-2 rounded-md border hover:bg-muted transition-colors"
+              onClick={() => { const tmp = fromUserId; setFromUserId(toUserId ?? currentUserId); setToUserId(tmp); }}
+              title="Swap"
+            >
+              <ArrowLeftRight className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <div className="flex-1 space-y-2">
               <Label>To</Label>
               <Select
                 value={toUserId !== null ? String(toUserId) : ""}
@@ -875,18 +884,22 @@ function SettleUpDialog({
 
           {balanceHint && (
             <div className={cn(
-              "flex items-center justify-between rounded-lg px-3 py-2 text-sm",
-              balanceHint.positive ? "bg-amber-50 border border-amber-200 text-amber-800" : "bg-muted text-muted-foreground"
+              "flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm",
+              balanceHint.positive
+                ? "bg-amber-50 border-amber-200 text-amber-800"
+                : "bg-muted border-border text-muted-foreground"
             )}>
-              <span>{balanceHint.text}</span>
+              <span className="flex-1">{balanceHint.text}</span>
               {balanceHint.amount !== null && (
-                <button
+                <Button
                   type="button"
-                  className="ml-3 text-xs font-semibold text-amber-700 hover:underline whitespace-nowrap"
-                  onClick={() => setAmount(String(balanceHint.amount))}
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100"
+                  onClick={() => setAmount(balanceHint.amount!.toFixed(2))}
                 >
-                  Use this amount
-                </button>
+                  Use amount
+                </Button>
               )}
             </div>
           )}
