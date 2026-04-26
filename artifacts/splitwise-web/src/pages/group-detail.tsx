@@ -101,6 +101,7 @@ interface UserResult {
   name: string;
   email: string;
   avatarUrl: string | null;
+  isFriend: boolean;
 }
 
 function UserAvatar({ name, size = 32 }: { name: string; size?: number }) {
@@ -145,7 +146,10 @@ function AddMemberDialog({ groupId }: { groupId: number }) {
       {
         onSuccess: () => {
           invalidateGroupData(groupId);
-          toast({ title: `${user.name} added to group` });
+          toast({
+            title: `${user.name} added to group`,
+            description: user.isFriend ? undefined : "Also added as a friend.",
+          });
           setOpen(false);
           setSearch("");
           setAddingId(null);
@@ -173,7 +177,7 @@ function AddMemberDialog({ groupId }: { groupId: number }) {
         <DialogHeader>
           <DialogTitle>Add member</DialogTitle>
           <DialogDescription>
-            Search your friends by name or email to add them to this group.
+            Your friends are listed below. Search by email to also find and add someone new — they'll be added as a friend automatically.
           </DialogDescription>
         </DialogHeader>
 
@@ -182,7 +186,7 @@ function AddMemberDialog({ groupId }: { groupId: number }) {
           <Input
             autoFocus
             className="pl-9"
-            placeholder="Search friends by name or email…"
+            placeholder="Search by name or email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -195,15 +199,22 @@ function AddMemberDialog({ groupId }: { groupId: number }) {
           {!isFetching && users.length === 0 && (
             <div className="p-4 text-sm text-muted-foreground text-center">
               {search
-                ? "No friends match that search."
-                : "None of your friends are available to add."}
+                ? "No match found. Try a full email address to find someone new."
+                : "All your friends are already in this group."}
             </div>
           )}
           {users.map((user) => (
             <div key={user.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 transition-colors">
               <UserAvatar name={user.name} size={36} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user.name}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium truncate">{user.name}</p>
+                  {!user.isFriend && (
+                    <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                      New friend
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               </div>
               <Button

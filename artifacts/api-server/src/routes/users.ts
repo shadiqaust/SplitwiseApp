@@ -50,7 +50,7 @@ router.get("/users/search", requireAuth, async (req, res): Promise<void> => {
   const { q, excludeGroupId } = parsed.data;
   const currentUserId = req.dbUserId!;
 
-  // Collect IDs of all friends (friendship is bidirectional)
+  // Resolve friend IDs (bidirectional)
   const friendRows = await db
     .select({ friendId: friendshipsTable.friendId, userId: friendshipsTable.userId })
     .from(friendshipsTable)
@@ -65,44 +65,67 @@ router.get("/users/search", requireAuth, async (req, res): Promise<void> => {
     r.userId === currentUserId ? r.friendId : r.userId,
   );
 
-  if (friendIds.length === 0) {
-    res.json([]);
-    return;
-  }
+  // Build exclusion subquery for group members
+  const groupExcludeSub = excludeGroupId
+    ? db.select({ userId: groupMembersTable.userId }).from(groupMembersTable).where(eq(groupMembersTable.groupId, excludeGroupId))
+    : null;
 
-  const conditions = [inArray(usersTable.id, friendIds)];
+  // --- Friends section ---
+  const friendConditions: ReturnType<typeof and>[] = [];
+  if (friendIds.length > 0) {
+    friendConditions.push(inArray(usersTable.id, friendIds) as any);
+  } else {
+    // No friends at all — still continue to non-friend email search below
+  }
 
   if (q) {
     const pattern = `%${q.replace(/[%_]/g, "\\$&")}%`;
-    conditions.push(
-      or(
-        ilike(usersTable.name, pattern),
-        ilike(usersTable.email, pattern),
-      )!,
+    friendConditions.push(
+      or(ilike(usersTable.name, pattern), ilike(usersTable.email, pattern))! as any,
     );
   }
-
-  if (excludeGroupId) {
-    const existingMemberIds = db
-      .select({ userId: groupMembersTable.userId })
-      .from(groupMembersTable)
-      .where(eq(groupMembersTable.groupId, excludeGroupId));
-    conditions.push(notInArray(usersTable.id, existingMemberIds));
+  if (groupExcludeSub) {
+    friendConditions.push(notInArray(usersTable.id, groupExcludeSub) as any);
   }
 
-  const users = await db
-    .select({
-      id: usersTable.id,
-      name: usersTable.name,
-      email: usersTable.email,
-      avatarUrl: usersTable.avatarUrl,
-    })
-    .from(usersTable)
-    .where(and(...conditions))
-    .orderBy(sql`lower(${usersTable.name})`)
-    .limit(30);
+  const friends =
+    friendIds.length > 0
+      ? await db
+          .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, avatarUrl: usersTable.avatarUrl })
+          .from(usersTable)
+          .where(and(...(friendConditions as any[])))
+          .orderBy(sql`lower(${usersTable.name})`)
+          .limit(30)
+      : [];
 
-  res.json(users);
+  // --- Non-friend email search (only when query provided) ---
+  let nonFriends: { id: number; name: string; email: string; avatarUrl: string | null }[] = [];
+  if (q && q.includes("@")) {
+    const pattern = `%${q.replace(/[%_]/g, "\\$&")}%`;
+    const nfConditions: any[] = [
+      ne(usersTable.id, currentUserId),
+      ilike(usersTable.email, pattern),
+    ];
+    if (friendIds.length > 0) {
+      nfConditions.push(notInArray(usersTable.id, friendIds));
+    }
+    if (groupExcludeSub) {
+      nfConditions.push(notInArray(usersTable.id, groupExcludeSub));
+    }
+    nonFriends = await db
+      .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, avatarUrl: usersTable.avatarUrl })
+      .from(usersTable)
+      .where(and(...nfConditions))
+      .orderBy(sql`lower(${usersTable.name})`)
+      .limit(10);
+  }
+
+  const result = [
+    ...friends.map((u) => ({ ...u, isFriend: true })),
+    ...nonFriends.map((u) => ({ ...u, isFriend: false })),
+  ];
+
+  res.json(result);
 });
 
 export default router;

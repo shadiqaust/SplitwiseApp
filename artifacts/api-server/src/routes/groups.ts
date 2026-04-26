@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql, or } from "drizzle-orm";
 import {
   db,
   groupsTable,
@@ -8,6 +8,7 @@ import {
   expensesTable,
   expenseSplitsTable,
   paymentsTable,
+  friendshipsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import {
@@ -260,6 +261,23 @@ router.post(
       .insert(groupMembersTable)
       .values({ groupId, userId: targetUser.id })
       .returning();
+
+    // Auto-create friendship if not already friends
+    const currentUserId = req.dbUserId!;
+    if (currentUserId !== targetUser.id) {
+      const [existingFriendship] = await db
+        .select()
+        .from(friendshipsTable)
+        .where(
+          or(
+            and(eq(friendshipsTable.userId, currentUserId), eq(friendshipsTable.friendId, targetUser.id)),
+            and(eq(friendshipsTable.userId, targetUser.id), eq(friendshipsTable.friendId, currentUserId)),
+          )!,
+        );
+      if (!existingFriendship) {
+        await db.insert(friendshipsTable).values({ userId: currentUserId, friendId: targetUser.id }).onConflictDoNothing();
+      }
+    }
 
     res.status(201).json({
       ...member,

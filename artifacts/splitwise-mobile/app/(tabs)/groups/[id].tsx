@@ -53,6 +53,7 @@ interface UserResult {
   name: string;
   email: string;
   avatarUrl: string | null;
+  isFriend: boolean;
 }
 
 type Tab = "expenses" | "balances";
@@ -187,7 +188,7 @@ export default function GroupDetailScreen() {
               <Feather name="search" size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
               <TextInput
                 style={[styles.searchInput, { color: colors.foreground }]}
-                placeholder="Search friends by name or email…"
+                placeholder="Search by name or email…"
                 placeholderTextColor={colors.mutedForeground}
                 value={memberSearch}
                 onChangeText={setMemberSearch}
@@ -200,7 +201,7 @@ export default function GroupDetailScreen() {
             <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
           ) : searchResults.length === 0 ? (
             <Text style={[styles.emptySearch, { color: colors.mutedForeground }]}>
-              {memberSearch ? "No friends match that search." : "None of your friends are available to add."}
+              {memberSearch ? "No match found. Try a full email address to find someone new." : "All your friends are already in this group."}
             </Text>
           ) : (
             <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
@@ -213,7 +214,14 @@ export default function GroupDetailScreen() {
                       <Text style={[styles.initialsText, { color: colors.accentForeground }]}>{initials}</Text>
                     </View>
                     <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={[styles.userName, { color: colors.foreground }]} numberOfLines={1}>{user.name}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={[styles.userName, { color: colors.foreground, flexShrink: 1 }]} numberOfLines={1}>{user.name}</Text>
+                        {!user.isFriend && (
+                          <View style={styles.newFriendBadge}>
+                            <Text style={styles.newFriendBadgeText}>New friend</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={[styles.userEmail, { color: colors.mutedForeground }]} numberOfLines={1}>{user.email}</Text>
                     </View>
                     <Pressable
@@ -419,4 +427,6 @@ const styles = StyleSheet.create({
   addBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8 },
   addBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" },
   emptySearch: { textAlign: "center", fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 32, paddingHorizontal: 16 },
+  newFriendBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 100, backgroundColor: "#dbeafe" },
+  newFriendBadgeText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#1d4ed8" },
 });
