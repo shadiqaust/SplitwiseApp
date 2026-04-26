@@ -8,144 +8,120 @@ import {
   expensesTable,
   expenseSplitsTable,
   paymentsTable,
+  friendshipsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-// GET /friends
-// Returns all people who share at least one group with the current user,
-// plus the net balance across all shared groups.
-// positive netBalance → friend owes me; negative → I owe friend
-router.get("/friends", requireAuth, async (req, res): Promise<void> => {
-  const me = req.dbUserId!;
-
-  // 1. All groups I'm in
+// Compute friend list for the current user.
+// Friends = people in shared groups OR directly added via friendships table.
+// netBalance: positive → friend owes me, negative → I owe friend.
+async function buildFriendList(me: number) {
+  // ── 1. Group-based connections ─────────────────────────────────────────────
   const myMemberships = await db
     .select({ groupId: groupMembersTable.groupId })
     .from(groupMembersTable)
     .where(eq(groupMembersTable.userId, me));
 
-  if (myMemberships.length === 0) {
-    res.json([]);
-    return;
-  }
-
   const myGroupIds = myMemberships.map((m) => m.groupId);
 
-  // 2. All other members in those groups → collect friend → sharedGroupIds map
-  const otherMembers = await db
-    .select({ userId: groupMembersTable.userId, groupId: groupMembersTable.groupId })
-    .from(groupMembersTable)
-    .where(
-      and(
-        inArray(groupMembersTable.groupId, myGroupIds),
-        ne(groupMembersTable.userId, me),
-      ),
-    );
+  const groupFriendIds = new Set<number>();
+  const friendGroupsMap = new Map<number, Set<number>>(); // friendId → groupIds
 
-  if (otherMembers.length === 0) {
-    res.json([]);
-    return;
+  if (myGroupIds.length > 0) {
+    const otherMembers = await db
+      .select({ userId: groupMembersTable.userId, groupId: groupMembersTable.groupId })
+      .from(groupMembersTable)
+      .where(and(inArray(groupMembersTable.groupId, myGroupIds), ne(groupMembersTable.userId, me)));
+
+    for (const m of otherMembers) {
+      groupFriendIds.add(m.userId);
+      if (!friendGroupsMap.has(m.userId)) friendGroupsMap.set(m.userId, new Set());
+      friendGroupsMap.get(m.userId)!.add(m.groupId);
+    }
   }
 
-  // Build friendId → Set<groupId>
-  const friendGroupsMap = new Map<number, Set<number>>();
-  for (const m of otherMembers) {
-    if (!friendGroupsMap.has(m.userId)) friendGroupsMap.set(m.userId, new Set());
-    friendGroupsMap.get(m.userId)!.add(m.groupId);
+  // ── 2. Direct friendships ──────────────────────────────────────────────────
+  const directFriendships = await db
+    .select()
+    .from(friendshipsTable)
+    .where(or(eq(friendshipsTable.userId, me), eq(friendshipsTable.friendId, me)));
+
+  const directFriendIds = new Set<number>();
+  for (const f of directFriendships) {
+    const otherId = f.userId === me ? f.friendId : f.userId;
+    directFriendIds.add(otherId);
   }
 
-  const friendIds = [...friendGroupsMap.keys()];
+  const allFriendIds = [...new Set([...groupFriendIds, ...directFriendIds])];
+  if (allFriendIds.length === 0) return [];
 
-  // 3. Bulk fetch friend user rows
+  // ── 3. Fetch user rows ─────────────────────────────────────────────────────
   const friendUsers = await db
     .select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, avatarUrl: usersTable.avatarUrl })
     .from(usersTable)
-    .where(inArray(usersTable.id, friendIds));
+    .where(inArray(usersTable.id, allFriendIds));
   const userMap = new Map(friendUsers.map((u) => [u.id, u]));
 
-  // 4. Bulk fetch expenses and splits for all my groups
-  const expenses = await db
-    .select()
-    .from(expensesTable)
-    .where(inArray(expensesTable.groupId, myGroupIds));
+  // ── 4. Balance computation ─────────────────────────────────────────────────
+  const netBalances = new Map<number, number>(allFriendIds.map((id) => [id, 0]));
 
-  const expenseIds = expenses.map((e) => e.id);
-  const splits =
-    expenseIds.length > 0
+  if (myGroupIds.length > 0) {
+    const expenses = await db.select().from(expensesTable).where(inArray(expensesTable.groupId, myGroupIds));
+    const expenseIds = expenses.map((e) => e.id);
+    const splits = expenseIds.length > 0
       ? await db.select().from(expenseSplitsTable).where(inArray(expenseSplitsTable.expenseId, expenseIds))
       : [];
 
-  // Group splits by expenseId for fast lookup
-  const splitsMap = new Map<number, typeof splits>();
-  for (const s of splits) {
-    if (!splitsMap.has(s.expenseId)) splitsMap.set(s.expenseId, []);
-    splitsMap.get(s.expenseId)!.push(s);
-  }
+    const splitsMap = new Map<number, typeof splits>();
+    for (const s of splits) {
+      if (!splitsMap.has(s.expenseId)) splitsMap.set(s.expenseId, []);
+      splitsMap.get(s.expenseId)!.push(s);
+    }
 
-  // 5. Bulk fetch all payments in my groups
-  const payments = await db
-    .select()
-    .from(paymentsTable)
-    .where(inArray(paymentsTable.groupId, myGroupIds));
-
-  // 6. Compute per-friend net balance
-  const netBalances = new Map<number, number>();
-  for (const friendId of friendIds) {
-    netBalances.set(friendId, 0);
-  }
-
-  const sharedGroupIds = myGroupIds; // expenses are already scoped to my groups
-
-  for (const expense of expenses) {
-    const expSplits = splitsMap.get(expense.id) ?? [];
-
-    if (expense.paidByUserId === me) {
-      // I paid — any friend with a split in this expense owes me their share
-      for (const s of expSplits) {
-        if (friendGroupsMap.get(s.userId)?.has(expense.groupId)) {
-          netBalances.set(s.userId, (netBalances.get(s.userId) ?? 0) + parseFloat(s.amount));
+    for (const expense of expenses) {
+      const expSplits = splitsMap.get(expense.id) ?? [];
+      if (expense.paidByUserId === me) {
+        for (const s of expSplits) {
+          if (allFriendIds.includes(s.userId)) {
+            netBalances.set(s.userId, (netBalances.get(s.userId) ?? 0) + parseFloat(s.amount));
+          }
         }
-      }
-    } else if (friendGroupsMap.has(expense.paidByUserId)) {
-      // A friend paid — I owe them my split
-      if (friendGroupsMap.get(expense.paidByUserId)?.has(expense.groupId)) {
+      } else if (allFriendIds.includes(expense.paidByUserId)) {
         const mySplit = expSplits.find((s) => s.userId === me);
         if (mySplit) {
-          const friendId = expense.paidByUserId;
-          netBalances.set(friendId, (netBalances.get(friendId) ?? 0) - parseFloat(mySplit.amount));
+          const fid = expense.paidByUserId;
+          netBalances.set(fid, (netBalances.get(fid) ?? 0) - parseFloat(mySplit.amount));
         }
+      }
+    }
+
+    const payments = await db.select().from(paymentsTable).where(inArray(paymentsTable.groupId, myGroupIds));
+    for (const p of payments) {
+      if (p.fromUserId === me && allFriendIds.includes(p.toUserId)) {
+        netBalances.set(p.toUserId, (netBalances.get(p.toUserId) ?? 0) + parseFloat(p.amount));
+      } else if (p.toUserId === me && allFriendIds.includes(p.fromUserId)) {
+        netBalances.set(p.fromUserId, (netBalances.get(p.fromUserId) ?? 0) - parseFloat(p.amount));
       }
     }
   }
 
-  for (const payment of payments) {
-    if (payment.fromUserId === me && friendGroupsMap.has(payment.toUserId)) {
-      // I sent a payment to a friend — reduces what I owe them (net goes up)
-      const friendId = payment.toUserId;
-      netBalances.set(friendId, (netBalances.get(friendId) ?? 0) + parseFloat(payment.amount));
-    } else if (payment.toUserId === me && friendGroupsMap.has(payment.fromUserId)) {
-      // A friend sent me a payment — reduces what they owe me (net goes down)
-      const friendId = payment.fromUserId;
-      netBalances.set(friendId, (netBalances.get(friendId) ?? 0) - parseFloat(payment.amount));
-    }
-  }
-
-  // 7. Build result, also include shared group names
-  const groups = await db
-    .select({ id: groupsTable.id, name: groupsTable.name })
-    .from(groupsTable)
-    .where(inArray(groupsTable.id, myGroupIds));
+  // ── 5. Groups info ─────────────────────────────────────────────────────────
+  const groups = myGroupIds.length > 0
+    ? await db.select({ id: groupsTable.id, name: groupsTable.name }).from(groupsTable).where(inArray(groupsTable.id, myGroupIds))
+    : [];
   const groupMap = new Map(groups.map((g) => [g.id, g]));
 
-  const result = friendIds
+  // ── 6. Assemble result ─────────────────────────────────────────────────────
+  const result = allFriendIds
     .map((friendId) => {
       const user = userMap.get(friendId);
       if (!user) return null;
       const sharedGroups = [...(friendGroupsMap.get(friendId) ?? [])]
         .map((gid) => groupMap.get(gid))
         .filter(Boolean) as { id: number; name: string }[];
+      const isDirect = directFriendIds.has(friendId);
       return {
         id: user.id,
         name: user.name,
@@ -153,14 +129,82 @@ router.get("/friends", requireAuth, async (req, res): Promise<void> => {
         avatarUrl: user.avatarUrl,
         netBalance: Math.round((netBalances.get(friendId) ?? 0) * 100) / 100,
         sharedGroups,
+        isDirect,
       };
     })
     .filter(Boolean);
 
-  // Sort: those who owe me first (positive), then even, then I owe them
-  result.sort((a, b) => (b!.netBalance) - (a!.netBalance));
+  result.sort((a, b) => b!.netBalance - a!.netBalance);
+  return result;
+}
 
-  res.json(result);
+// GET /friends
+router.get("/friends", requireAuth, async (req, res): Promise<void> => {
+  const me = req.dbUserId!;
+  const friends = await buildFriendList(me);
+  res.json(friends);
+});
+
+// POST /friends  { friendId }
+router.post("/friends", requireAuth, async (req, res): Promise<void> => {
+  const me = req.dbUserId!;
+  const { friendId } = req.body as { friendId?: number };
+
+  if (!friendId || typeof friendId !== "number") {
+    res.status(400).json({ error: "friendId is required" });
+    return;
+  }
+  if (friendId === me) {
+    res.status(400).json({ error: "You cannot add yourself as a friend" });
+    return;
+  }
+
+  // Verify the user exists
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, friendId));
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  // Check if already friends (either direction)
+  const [existing] = await db
+    .select()
+    .from(friendshipsTable)
+    .where(
+      or(
+        and(eq(friendshipsTable.userId, me), eq(friendshipsTable.friendId, friendId)),
+        and(eq(friendshipsTable.userId, friendId), eq(friendshipsTable.friendId, me)),
+      ),
+    );
+
+  if (existing) {
+    res.status(409).json({ error: "Already friends" });
+    return;
+  }
+
+  await db.insert(friendshipsTable).values({ userId: me, friendId });
+  res.status(201).json({ ok: true });
+});
+
+// DELETE /friends/:friendId
+router.delete("/friends/:friendId", requireAuth, async (req, res): Promise<void> => {
+  const me = req.dbUserId!;
+  const friendId = parseInt(req.params.friendId, 10);
+  if (isNaN(friendId)) {
+    res.status(400).json({ error: "Invalid friendId" });
+    return;
+  }
+
+  await db
+    .delete(friendshipsTable)
+    .where(
+      or(
+        and(eq(friendshipsTable.userId, me), eq(friendshipsTable.friendId, friendId)),
+        and(eq(friendshipsTable.userId, friendId), eq(friendshipsTable.friendId, me)),
+      ),
+    );
+
+  res.json({ ok: true });
 });
 
 export default router;
