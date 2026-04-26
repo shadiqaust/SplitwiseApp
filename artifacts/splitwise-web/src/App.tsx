@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { SignIn, SignUp, Show, useAuth, useClerk } from "@clerk/react";
+import { Show, useAuth, useClerk } from "@clerk/react";
 import { Switch, Route, Redirect, useLocation, Router as WouterRouter } from "wouter";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { configureAuth, queryClient } from "./lib/queryClient";
@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { LandingPage } from "./pages/landing";
 import { Layout } from "./components/layout";
+import { AuthPage } from "./pages/auth";
 
 import { DashboardPage } from "./pages/dashboard";
 import { GroupsPage } from "./pages/groups";
@@ -17,26 +18,12 @@ import { ProfilePage } from "./pages/profile";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function stripBase(path: string): string {
-  return basePath && path.startsWith(basePath)
-    ? path.slice(basePath.length) || "/"
-    : path;
-}
-
 function SignInPage() {
-  return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-muted/30 px-4">
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
-    </div>
-  );
+  return <AuthPage initialMode="sign-in" />;
 }
 
 function SignUpPage() {
-  return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-muted/30 px-4">
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
-    </div>
-  );
+  return <AuthPage initialMode="sign-up" />;
 }
 
 function ClerkQueryClientCacheInvalidator() {
@@ -85,8 +72,6 @@ function HomeRedirect() {
 function NotFound() { return <Layout><div>Not Found</div></Layout>; }
 
 function ClerkProviderWithRoutes() {
-  const [, setLocation] = useLocation();
-
   return (
     <QueryClientProvider client={queryClient}>
       <ClerkQueryClientCacheInvalidator />
