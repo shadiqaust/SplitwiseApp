@@ -98,6 +98,7 @@ export default function GroupDetailScreen() {
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [filterMemberId, setFilterMemberId] = useState<number | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"all" | "7d" | "30d">("all");
+  const [profileMember, setProfileMember] = useState<{ userId: number; user: { name: string; email: string; avatarUrl: string | null } } | null>(null);
 
   const me = useGetMe();
   const POLL = { query: { refetchInterval: 15_000 } } as const;
@@ -390,25 +391,34 @@ export default function GroupDetailScreen() {
           </View>
 
           <View style={styles.memberRow}>
-            {group.data.members.map((m) => (
-              <View key={m.id} style={{ alignItems: "center", width: 56 }}>
-                <View style={{ position: "relative" }}>
-                  <Avatar name={m.user.name} url={m.user.avatarUrl} size={40} />
-                  {m.userId === group.data?.createdByUserId && (
-                    <View style={{
-                      position: "absolute", top: -5, right: -5,
-                      backgroundColor: "#f59e0b", borderRadius: 8,
-                      padding: 2, borderWidth: 1.5, borderColor: colors.background,
-                    }}>
-                      <MaterialCommunityIcons name="crown" size={9} color="#fff" />
-                    </View>
-                  )}
+            {group.data.members.map((m) => {
+              const isMe = m.userId === myUserId;
+              const inner = (
+                <View key={m.id} style={{ alignItems: "center", width: 56 }}>
+                  <View style={{ position: "relative" }}>
+                    <Avatar name={m.user.name} url={m.user.avatarUrl} size={40} />
+                    {m.userId === group.data?.createdByUserId && (
+                      <View style={{
+                        position: "absolute", top: -5, right: -5,
+                        backgroundColor: "#f59e0b", borderRadius: 8,
+                        padding: 2, borderWidth: 1.5, borderColor: colors.background,
+                      }}>
+                        <MaterialCommunityIcons name="crown" size={9} color="#fff" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.memberName, { color: colors.mutedForeground }]} numberOfLines={1}>
+                    {isMe ? "You" : m.user.name.split(" ")[0]}
+                  </Text>
                 </View>
-                <Text style={[styles.memberName, { color: colors.mutedForeground }]} numberOfLines={1}>
-                  {m.user.id === myUserId ? "You" : m.user.name.split(" ")[0]}
-                </Text>
-              </View>
-            ))}
+              );
+              if (isMe) return inner;
+              return (
+                <Pressable key={m.id} onPress={() => setProfileMember(m)}>
+                  {inner}
+                </Pressable>
+              );
+            })}
           </View>
 
           <View style={styles.actionRow}>
@@ -606,6 +616,99 @@ export default function GroupDetailScreen() {
           </Card>
         )}
       </ScrollView>
+
+      {/* Member profile sheet */}
+      <Modal
+        visible={!!profileMember}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setProfileMember(null)}
+      >
+        <View style={styles.overlaySheet}>
+          <View style={[styles.avatarSheet, { backgroundColor: colors.background }]}>
+            {profileMember && (() => {
+              const pm = profileMember;
+              const isCreator = group.data?.createdByUserId === pm.userId;
+              const owesMe = balances.data?.find(b => b.fromUserId === pm.userId && b.toUserId === myUserId);
+              const iOwe = balances.data?.find(b => b.fromUserId === myUserId && b.toUserId === pm.userId);
+              const netAmount = owesMe ? owesMe.amount : iOwe ? -iOwe.amount : 0;
+              return (
+                <>
+                  <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Profile</Text>
+                    <Pressable onPress={() => setProfileMember(null)} hitSlop={12}>
+                      <Feather name="x" size={22} color={colors.mutedForeground} />
+                    </Pressable>
+                  </View>
+                  <View style={{ padding: 24, alignItems: "center", gap: 10 }}>
+                    <View style={{ position: "relative" }}>
+                      <Avatar name={pm.user.name} url={pm.user.avatarUrl} size={72} />
+                      {isCreator && (
+                        <View style={{
+                          position: "absolute", top: -6, right: -6,
+                          backgroundColor: "#f59e0b", borderRadius: 10,
+                          padding: 3, borderWidth: 2, borderColor: colors.background,
+                        }}>
+                          <MaterialCommunityIcons name="crown" size={12} color="#fff" />
+                        </View>
+                      )}
+                    </View>
+                    <Text style={{ fontFamily: "Inter_700Bold", fontSize: 20, color: colors.foreground }}>
+                      {pm.user.name}
+                    </Text>
+                    <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>
+                      {pm.user.email}
+                    </Text>
+                    {isCreator && (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <MaterialCommunityIcons name="crown" size={13} color="#f59e0b" />
+                        <Text style={{ fontFamily: "Inter_500Medium", fontSize: 12, color: "#f59e0b" }}>Group admin</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={{ marginHorizontal: 20, borderRadius: 12, padding: 16, backgroundColor: colors.muted, alignItems: "center", gap: 4 }}>
+                    {netAmount === 0 ? (
+                      <>
+                        <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 15, color: colors.foreground }}>All settled up</Text>
+                        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>No balance with {pm.user.name.split(" ")[0]}</Text>
+                      </>
+                    ) : netAmount > 0 ? (
+                      <>
+                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 22, color: "#16a34a" }}>{formatCurrency(netAmount)}</Text>
+                        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>{pm.user.name.split(" ")[0]} owes you</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 22, color: "#dc2626" }}>{formatCurrency(Math.abs(netAmount))}</Text>
+                        <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>You owe {pm.user.name.split(" ")[0]}</Text>
+                      </>
+                    )}
+                  </View>
+                  <View style={{ padding: 20, gap: 10 }}>
+                    <Button
+                      title="Settle up"
+                      icon={<Feather name="check-circle" size={16} color="#fff" />}
+                      onPress={() => {
+                        setProfileMember(null);
+                        router.push({ pathname: "/payments/new", params: { groupId: String(groupId), toUserId: String(pm.userId) } });
+                      }}
+                    />
+                    <Button
+                      title="View activity"
+                      variant="outline"
+                      onPress={() => {
+                        setProfileMember(null);
+                        setTab("expenses");
+                        setFilterMemberId(pm.userId);
+                      }}
+                    />
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
 
       {/* Group avatar sheet */}
       <Modal

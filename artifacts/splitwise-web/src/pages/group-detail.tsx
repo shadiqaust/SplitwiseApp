@@ -933,6 +933,147 @@ function SettleUpDialog({
   );
 }
 
+type ProfileMember = { userId: number; user: { name: string; email: string; avatarUrl: string | null } };
+
+function MemberProfileDialog({
+  member,
+  open,
+  onOpenChange,
+  groupId,
+  myUserId,
+  balances,
+  members,
+}: {
+  member: ProfileMember;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  groupId: number;
+  myUserId: number;
+  balances: Balance[];
+  members: GroupMember[];
+}) {
+  const owesMe = balances.find(b => b.fromUserId === member.userId && b.toUserId === myUserId);
+  const iOwe = balances.find(b => b.fromUserId === myUserId && b.toUserId === member.userId);
+  const netAmount = owesMe ? owesMe.amount : iOwe ? -iOwe.amount : 0;
+
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [settling, setSettling] = useState(false);
+  const { toast } = useToast();
+  const createPayment = useCreatePayment();
+
+  useEffect(() => {
+    if (open) { setAmount(""); setNote(""); setSettling(false); }
+  }, [open]);
+
+  const onSettle = (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = parseFloat(amount);
+    if (!value || value <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
+    const fromUserId = netAmount < 0 ? myUserId : member.userId;
+    const toUserId = netAmount < 0 ? member.userId : myUserId;
+    createPayment.mutate(
+      { groupId, data: { fromUserId, toUserId, amount: value, note: note.trim() || null, date: new Date().toISOString().slice(0, 10) } },
+      {
+        onSuccess: () => {
+          invalidateGroupData(groupId);
+          toast({ title: "Payment recorded" });
+          onOpenChange(false);
+        },
+        onError: (err: unknown) => toast({ title: "Failed", description: getErrorMessage(err), variant: "destructive" }),
+      },
+    );
+  };
+
+  const firstName = member.user.name.split(" ")[0];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Member profile</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col items-center gap-3 py-2">
+          <div className="relative">
+            <MemberAvatar name={member.user.name} url={member.user.avatarUrl} size={72} />
+          </div>
+          <div className="text-center">
+            <p className="font-semibold text-lg">{member.user.name}</p>
+            <p className="text-sm text-muted-foreground">{member.user.email}</p>
+          </div>
+          <div className={cn(
+            "w-full rounded-xl p-4 text-center",
+            netAmount === 0 ? "bg-muted" : netAmount > 0 ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"
+          )}>
+            {netAmount === 0 ? (
+              <>
+                <p className="font-semibold text-base">All settled up</p>
+                <p className="text-sm text-muted-foreground">No balance with {firstName}</p>
+              </>
+            ) : netAmount > 0 ? (
+              <>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(netAmount)}</p>
+                <p className="text-sm text-muted-foreground">{firstName} owes you</p>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold text-red-600">{formatCurrency(Math.abs(netAmount))}</p>
+                <p className="text-sm text-muted-foreground">You owe {firstName}</p>
+              </>
+            )}
+          </div>
+        </div>
+        {!settling ? (
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={() => setSettling(true)}>
+              <HandCoins className="w-4 h-4 mr-2" /> Settle up
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={onSettle} className="space-y-3 border-t pt-4">
+            <p className="text-sm font-medium">
+              {netAmount >= 0
+                ? `Record payment from ${firstName} to you`
+                : `Record payment from you to ${firstName}`}
+            </p>
+            <div className="space-y-1">
+              <Label>Amount</Label>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="0.00"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                autoFocus
+              />
+              {netAmount !== 0 && (
+                <button
+                  type="button"
+                  className="text-xs text-primary underline"
+                  onClick={() => setAmount(String(Math.abs(netAmount)))}
+                >
+                  Use balance ({formatCurrency(Math.abs(netAmount))})
+                </button>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label>Note (optional)</Label>
+              <Input placeholder="e.g. Cash payment" value={note} onChange={e => setNote(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setSettling(false)}>Cancel</Button>
+              <Button type="submit" className="flex-1" disabled={createPayment.isPending}>
+                {createPayment.isPending ? "Saving..." : "Record payment"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function GroupDetailPage() {
   const params = useParams<{ groupId: string }>();
   const groupId = Number(params.groupId);
@@ -949,6 +1090,7 @@ export function GroupDetailPage() {
 
   const [filterMemberId, setFilterMemberId] = useState<number | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"all" | "7d" | "30d">("all");
+  const [profileMember, setProfileMember] = useState<ProfileMember | null>(null);
 
   const totalGroupSpend = useMemo(
     () => (expenses.data ?? []).reduce((sum, e) => sum + e.totalAmount, 0),
@@ -1064,8 +1206,9 @@ export function GroupDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-3">
-              {members.map((m) => (
-                <div key={m.id} className="flex items-center gap-2">
+              {members.map((m) => {
+                const isMe = m.userId === myUserId;
+                const avatarEl = (
                   <div className="relative">
                     <MemberAvatar name={m.user.name} url={m.user.avatarUrl} />
                     {m.userId === group.data?.createdByUserId && (
@@ -1074,13 +1217,36 @@ export function GroupDetailPage() {
                       </span>
                     )}
                   </div>
-                  <span className="text-sm">
-                    {m.userId === myUserId ? "You" : m.user.name}
-                  </span>
-                </div>
-              ))}
+                );
+                return (
+                  <div key={m.id} className="flex items-center gap-2">
+                    {isMe ? avatarEl : (
+                      <button
+                        type="button"
+                        onClick={() => setProfileMember(m)}
+                        className="rounded-full ring-2 ring-transparent hover:ring-primary transition-all"
+                        title={`View ${m.user.name}'s profile`}
+                      >
+                        {avatarEl}
+                      </button>
+                    )}
+                    <span className="text-sm">{isMe ? "You" : m.user.name}</span>
+                  </div>
+                );
+              })}
               <AddMemberDialog groupId={groupId} />
             </div>
+            {profileMember && (
+              <MemberProfileDialog
+                member={profileMember}
+                open={!!profileMember}
+                onOpenChange={(v) => { if (!v) setProfileMember(null); }}
+                groupId={groupId}
+                myUserId={myUserId}
+                balances={balances.data ?? []}
+                members={members}
+              />
+            )}
           </CardContent>
         </Card>
 

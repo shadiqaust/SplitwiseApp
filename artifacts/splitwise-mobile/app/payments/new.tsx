@@ -32,8 +32,9 @@ import { useColors } from "@/hooks/useColors";
 export default function NewPaymentScreen() {
   const colors = useColors();
   const router = useRouter();
-  const params = useLocalSearchParams<{ groupId: string }>();
+  const params = useLocalSearchParams<{ groupId: string; toUserId?: string }>();
   const groupId = Number(params.groupId);
+  const initialToUserId = params.toUserId ? Number(params.toUserId) : null;
   const queryClient = useQueryClient();
 
   const me = useGetMe();
@@ -42,7 +43,7 @@ export default function NewPaymentScreen() {
   const createPayment = useCreatePayment();
 
   const [fromUserId, setFromUserId] = useState<number | null>(null);
-  const [toUserId, setToUserId] = useState<number | null>(null);
+  const [toUserId, setToUserId] = useState<number | null>(initialToUserId);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
