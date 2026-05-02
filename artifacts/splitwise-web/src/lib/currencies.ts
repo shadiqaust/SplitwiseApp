@@ -16,4 +16,5 @@ export const COMMON_CURRENCIES: CurrencyOption[] = [
   { code: "CNY", symbol: "¥", name: "Chinese Yuan" },
   { code: "SGD", symbol: "S$", name: "Singapore Dollar" },
   { code: "AED", symbol: "د.إ", name: "UAE Dirham" },
+  { code: "BDT", symbol: "৳", name: "Bangladeshi Taka" },
 ];
