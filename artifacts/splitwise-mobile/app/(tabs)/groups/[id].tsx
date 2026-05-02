@@ -91,12 +91,13 @@ export default function GroupDetailScreen() {
   const [filterPeriod, setFilterPeriod] = useState<"all" | "7d" | "30d">("all");
   const [profileMember, setProfileMember] = useState<{ userId: string; user: { name: string; email: string; avatarUrl: string | null } } | null>(null);
 
+  // Polling cadence + background-polling are configured globally on the
+  // QueryClient (5s, runs in background).
   const me = useGetMe();
-  const POLL = { query: { refetchInterval: 5_000, staleTime: 4_000, refetchIntervalInBackground: true } } as const;
-  const group = useGetGroup(groupId, POLL);
-  const expenses = useListExpenses(groupId, POLL);
-  const payments = useListPayments(groupId, POLL);
-  const balances = useGetGroupBalances(groupId, POLL);
+  const group = useGetGroup(groupId);
+  const expenses = useListExpenses(groupId);
+  const payments = useListPayments(groupId);
+  const balances = useGetGroupBalances(groupId);
   const addMember = useAddGroupMember();
   const updateGroup = useUpdateGroup();
 
@@ -119,6 +120,7 @@ export default function GroupDetailScreen() {
     },
     enabled: showAddModal,
     staleTime: 0,
+    refetchInterval: false, // search input — don't poll
   });
 
   const onAddMember = (user: UserResult) => {

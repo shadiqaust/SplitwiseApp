@@ -77,6 +77,7 @@ function AddFriendDialog({ existingFriendIds }: { existingFriendIds: Set<number>
     },
     enabled: open,
     staleTime: 0,
+    refetchInterval: false, // search dialog — don't poll
   });
 
   const addMutation = useMutation({
@@ -172,9 +173,9 @@ export function FriendsPage() {
       if (!res.ok) throw new Error("Failed to load friends");
       return res.json();
     },
-    refetchInterval: 15_000,
-    refetchIntervalInBackground: true,
     staleTime: 30_000,
+    // refetchInterval / refetchIntervalInBackground are inherited from
+    // QueryClient defaults (5s polling, runs in background).
   });
 
   const filtered = useMemo(() => {

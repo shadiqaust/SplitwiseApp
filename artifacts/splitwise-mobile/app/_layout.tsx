@@ -25,7 +25,13 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 30,
+      staleTime: 4_000,
+      // Poll every 5s on every query by default so updates from other devices
+      // or other users become visible without manual refresh. Per-query
+      // callsites can still override (e.g. `refetchInterval: false`).
+      refetchInterval: 5_000,
+      // Keep polling even when the app/iframe is not focused.
+      refetchIntervalInBackground: true,
     },
   },
 });

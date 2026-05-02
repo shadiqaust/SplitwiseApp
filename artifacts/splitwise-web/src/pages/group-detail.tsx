@@ -356,6 +356,7 @@ function AddMemberDialog({ groupId }: { groupId: string }) {
       return res.json();
     },
     enabled: open,
+    refetchInterval: false, // search dialog — don't poll
     staleTime: 0,
   });
 
@@ -1079,12 +1080,13 @@ export function GroupDetailPage() {
   const params = useParams<{ groupId: string }>();
   const groupId = params.groupId!;
 
-  const POLL = { query: { refetchInterval: 15_000, refetchIntervalInBackground: true } } as const;
-  const me = useGetMe(POLL);
-  const group = useGetGroup(groupId, POLL);
-  const expenses = useListExpenses(groupId, POLL);
-  const payments = useListPayments(groupId, POLL);
-  const balances = useGetGroupBalances(groupId, POLL);
+  // Polling cadence + background-polling are configured globally on the
+  // QueryClient (5s, even when the tab is unfocused).
+  const me = useGetMe();
+  const group = useGetGroup(groupId);
+  const expenses = useListExpenses(groupId);
+  const payments = useListPayments(groupId);
+  const balances = useGetGroupBalances(groupId);
 
   const myUserId = me.data?.id ?? "";
   const members = group.data?.members ?? [];

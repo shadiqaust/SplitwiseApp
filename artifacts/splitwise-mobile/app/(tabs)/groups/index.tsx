@@ -23,7 +23,8 @@ export default function GroupsScreen() {
   const colors = useColors();
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { data, isLoading, refetch } = useListGroups({ query: { refetchInterval: 5_000, staleTime: 4_000, refetchIntervalInBackground: true } });
+  // Polling is configured globally on the QueryClient (5s, runs in background).
+  const { data, isLoading, refetch } = useListGroups();
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);

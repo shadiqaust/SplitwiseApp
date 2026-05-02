@@ -57,6 +57,7 @@ function AddFriendModal({ existingIds, onClose }: { existingIds: Set<number>; on
       return res.json();
     },
     staleTime: 0,
+    refetchInterval: false, // search input — don't poll
   });
 
   const addMutation = useMutation({
@@ -150,9 +151,9 @@ export default function FriendsScreen() {
       if (!res.ok) throw new Error("Failed to load friends");
       return res.json();
     },
-    refetchInterval: 5_000,
     staleTime: 4_000,
-    refetchIntervalInBackground: true,
+    // refetchInterval / refetchIntervalInBackground inherited from QueryClient
+    // defaults (5s polling, runs in background).
   });
 
   const onRefreshFriends = useCallback(async () => {

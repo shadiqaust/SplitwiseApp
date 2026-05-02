@@ -24,9 +24,10 @@ import { formatCurrency, formatDate } from "@/lib/format";
 export default function DashboardScreen() {
   const colors = useColors();
   const router = useRouter();
-  const POLL = { query: { refetchInterval: 5_000, staleTime: 4_000, refetchIntervalInBackground: true } } as const;
-  const summary = useGetDashboardSummary(POLL);
-  const activity = useGetActivity({ limit: 20 }, POLL);
+  // Polling cadence + background-polling are configured globally on the
+  // QueryClient (5s, runs in background).
+  const summary = useGetDashboardSummary();
+  const activity = useGetActivity({ limit: 20 });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 

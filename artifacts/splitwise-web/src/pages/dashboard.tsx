@@ -7,9 +7,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpRight, ArrowDownRight, Activity } from "lucide-react";
 
 export function DashboardPage() {
-  const POLL = { query: { refetchInterval: 15_000, refetchIntervalInBackground: true } } as const;
-  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary(POLL);
-  const { data: activities, isLoading: loadingActivities } = useGetActivity({ limit: 20 }, POLL);
+  // Polling cadence + background-polling are configured globally on the
+  // QueryClient (5s, even when the tab is unfocused). No per-call override
+  // needed here.
+  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary();
+  const { data: activities, isLoading: loadingActivities } = useGetActivity({ limit: 20 });
 
   return (
     <Layout>
