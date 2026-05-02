@@ -295,6 +295,7 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, gap: 24, paddingBottom: 80 },
   ctaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   addGroupBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
