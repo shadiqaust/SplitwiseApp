@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -118,49 +119,56 @@ export default function DashboardScreen() {
         {data?.groupSummaries && data.groupSummaries.length > 0 ? (
           <View style={{ gap: 8 }}>
             {data.groupSummaries.map((g) => (
-              <Card
+              // Use Pressable instead of onTouchEnd so a pull-to-refresh swipe
+              // that starts on this row does NOT navigate. Pressable cancels
+              // the press when the touch moves beyond a threshold (e.g. when
+              // the user is actually scrolling/refreshing).
+              <Pressable
                 key={g.groupId}
-                style={styles.groupRow}
-                onTouchEnd={() => router.push(`/groups/${g.groupId}`)}
+                onPress={() => router.push(`/groups/${g.groupId}`)}
+                android_ripple={{ color: colors.accent }}
+                style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
               >
-                {g.avatarUrl ? (
-                  <Image source={{ uri: g.avatarUrl }} style={styles.groupAvatar} />
-                ) : (
-                  <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
-                    <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>
-                      {g.groupName.charAt(0).toUpperCase()}
+                <Card style={styles.groupRow}>
+                  {g.avatarUrl ? (
+                    <Image source={{ uri: g.avatarUrl }} style={styles.groupAvatar} />
+                  ) : (
+                    <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
+                      <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>
+                        {g.groupName.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[styles.groupName, { color: colors.foreground }]}
+                      numberOfLines={1}
+                    >
+                      {g.groupName}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.groupBalance,
+                        {
+                          color:
+                            g.myNetBalance > 0
+                              ? colors.positive
+                              : g.myNetBalance < 0
+                                ? colors.negative
+                                : colors.mutedForeground,
+                        },
+                      ]}
+                    >
+                      {g.myNetBalance > 0
+                        ? `you are owed ${formatCurrency(g.myNetBalance)}`
+                        : g.myNetBalance < 0
+                          ? `you owe ${formatCurrency(Math.abs(g.myNetBalance))}`
+                          : "settled up"}
                     </Text>
                   </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[styles.groupName, { color: colors.foreground }]}
-                    numberOfLines={1}
-                  >
-                    {g.groupName}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.groupBalance,
-                      {
-                        color:
-                          g.myNetBalance > 0
-                            ? colors.positive
-                            : g.myNetBalance < 0
-                              ? colors.negative
-                              : colors.mutedForeground,
-                      },
-                    ]}
-                  >
-                    {g.myNetBalance > 0
-                      ? `you are owed ${formatCurrency(g.myNetBalance)}`
-                      : g.myNetBalance < 0
-                        ? `you owe ${formatCurrency(Math.abs(g.myNetBalance))}`
-                        : "settled up"}
-                  </Text>
-                </View>
-                <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-              </Card>
+                  <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+                </Card>
+              </Pressable>
             ))}
           </View>
         ) : (
