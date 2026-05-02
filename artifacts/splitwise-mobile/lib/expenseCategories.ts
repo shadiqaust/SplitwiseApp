@@ -16,7 +16,7 @@ export function getCategoryIcon(category: string | null | undefined): CategoryIc
     case "Utilities":
       return "lightbulb-outline";
     case "Entertainment":
-      return "movie-open-outline";
+      return "filmstrip";
     case "Travel":
       return "airplane";
     case "Shopping":
@@ -25,6 +25,6 @@ export function getCategoryIcon(category: string | null | undefined): CategoryIc
       return "dots-horizontal";
     case "General":
     default:
-      return "receipt";
+      return "receipt-text-outline";
   }
 }
