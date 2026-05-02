@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-client-react";
 
 import { Layout } from "@/components/layout";
+import { AddExpenseCTA } from "@/components/add-expense-cta";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -143,6 +144,7 @@ export function NonGroupExpensesPage() {
               Non-group expenses
             </h1>
           </div>
+          <AddExpenseCTA />
         </div>
 
         <Card>

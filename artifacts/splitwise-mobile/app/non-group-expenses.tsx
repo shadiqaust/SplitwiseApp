@@ -19,6 +19,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Avatar } from "@/components/ui/Avatar";
+import { AddExpenseCTA } from "@/components/AddExpenseCTA";
 import {
   SettleUpWithFriendModal,
   type SettleFriend,
@@ -189,6 +190,10 @@ export default function NonGroupExpensesScreen() {
             {(data?.count ?? 0) === 1 ? "expense" : "expenses"} not in any group
           </Text>
         </Card>
+
+        <View>
+          <AddExpenseCTA />
+        </View>
 
         {expenses.length === 0 ? (
           <Card>
