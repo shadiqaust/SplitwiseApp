@@ -74,7 +74,7 @@ export function Button({
 
 const styles = StyleSheet.create({
   btn: {
-    paddingVertical: 14,
+    height: 48,
     paddingHorizontal: 20,
     alignItems: "center",
     justifyContent: "center",

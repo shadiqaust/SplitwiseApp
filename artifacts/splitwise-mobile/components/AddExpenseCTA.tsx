@@ -196,11 +196,11 @@ export function AddExpenseCTA() {
 
 const styles = StyleSheet.create({
   ctaBtn: {
+    height: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 20,
-    paddingVertical: 14,
     borderRadius: 10,
     gap: 8,
   },
