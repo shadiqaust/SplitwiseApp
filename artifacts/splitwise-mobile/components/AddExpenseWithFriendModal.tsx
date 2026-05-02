@@ -18,9 +18,25 @@ import {
   getGetActivityQueryKey,
 } from "@workspace/api-client-react";
 
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency } from "@/lib/format";
 import { getErrorMessage } from "@/lib/error";
+import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
+
+const EXPENSE_CATEGORIES = [
+  "General",
+  "Food",
+  "Groceries",
+  "Transport",
+  "Rent",
+  "Utilities",
+  "Entertainment",
+  "Travel",
+  "Shopping",
+  "Other",
+];
 
 export interface FriendLike {
   id: string | number;
@@ -57,6 +73,7 @@ export function AddExpenseWithFriendModal({
   type Mode = "equal" | "exact" | "loan";
 
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<string>("General");
   const [amount, setAmount] = useState("");
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
   const [mode, setMode] = useState<Mode>("equal");
@@ -125,6 +142,7 @@ export function AddExpenseWithFriendModal({
         data: {
           friendUserIds: friendIds,
           description: description.trim(),
+          category: category && category !== "General" ? category : null,
           totalAmount: total,
           currency: "USD",
           splitType: splitTypeForApi,
@@ -205,9 +223,56 @@ export function AddExpenseWithFriendModal({
               placeholder="Dinner, Cab, Movie…"
               placeholderTextColor={colors.mutedForeground}
               value={description}
-              onChangeText={setDescription}
+              onChangeText={(v) => {
+                setDescription(v);
+                if (category === "General") {
+                  const guess = guessCategory(v);
+                  if (guess) setCategory(guess);
+                }
+              }}
               autoFocus
             />
+          </View>
+
+          <View style={{ gap: 6 }}>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Category</Text>
+            <View style={styles.chipsWrap}>
+              {EXPENSE_CATEGORIES.map((c) => {
+                const selected = category === c;
+                const Icon = getCategoryIcon(c);
+                return (
+                  <Pressable
+                    key={c}
+                    onPress={() => setCategory(c)}
+                    style={[
+                      styles.chip,
+                      {
+                        borderColor: selected ? colors.primary : colors.border,
+                        backgroundColor: selected ? colors.primary : "transparent",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={Icon as never}
+                      size={14}
+                      color={selected ? "#fff" : colors.foreground}
+                    />
+                    <Text
+                      style={[
+                        styles.chipText,
+                        { color: selected ? "#fff" : colors.foreground },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {c}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
 
           <View style={{ gap: 6 }}>

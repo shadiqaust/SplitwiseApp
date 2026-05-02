@@ -28,6 +28,20 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error";
 import { formatCurrency } from "@/lib/format";
+import { getCategoryIcon, guessCategory } from "@/lib/expense-categories";
+
+const EXPENSE_CATEGORIES = [
+  "General",
+  "Food",
+  "Groceries",
+  "Transport",
+  "Rent",
+  "Utilities",
+  "Entertainment",
+  "Travel",
+  "Shopping",
+  "Other",
+];
 
 export interface FriendLike {
   id: string | number;
@@ -65,6 +79,7 @@ export function AddExpenseWithFriendDialog({
   type Mode = "equal" | "exact" | "loan";
 
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<string>("General");
   const [amount, setAmount] = useState("");
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
   const [mode, setMode] = useState<Mode>("equal");
@@ -73,6 +88,7 @@ export function AddExpenseWithFriendDialog({
   useEffect(() => {
     if (open) {
       setDescription("");
+      setCategory("General");
       setAmount("");
       setPaidByUserId(currentUserId);
       setMode("equal");
@@ -160,6 +176,7 @@ export function AddExpenseWithFriendDialog({
         data: {
           friendUserIds: friendIds,
           description: description.trim(),
+          category: category && category !== "General" ? category : null,
           totalAmount: total,
           currency: "USD",
           splitType: splitTypeForApi,
@@ -212,20 +229,50 @@ export function AddExpenseWithFriendDialog({
             <Input
               placeholder="Dinner, Movie, Cab…"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDescription(v);
+                if (category === "General") {
+                  const guess = guessCategory(v);
+                  if (guess) setCategory(guess);
+                }
+              }}
               autoFocus
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Amount</Label>
-            <Input
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Amount</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CATEGORIES.map((c) => {
+                    const Icon = getCategoryIcon(c);
+                    return (
+                      <SelectItem key={c} value={c}>
+                        <span className="inline-flex items-center gap-2">
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                          {c}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
