@@ -59,7 +59,6 @@
     "@clerk/clerk-expo": "^2.19.31",
     "@hookform/resolvers": "^3.10.0",
     "expo-auth-session": "~7.0.10",
-    "expo-camera": "^17.0.10",
     "expo-crypto": "~15.0.8",
     "expo-image-manipulator": "^55.0.15",
     "expo-secure-store": "~15.0.8",

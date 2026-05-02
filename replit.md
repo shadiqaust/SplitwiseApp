@@ -225,7 +225,3 @@ Full expense edit (group + non-group) and optional receipt photo upload per expe
 - New deep-link screen `app/groups/join/[code].tsx` mirrors the web join page (preview + Join button).
 - Both QR codes encode the **web** URL (`https://${EXPO_PUBLIC_DOMAIN}/groups/join/<code>`) so any standard camera/QR scanner can resolve it.
 
-### Mobile invite QR scanner
-- Camera scanner powered by `expo-camera` (`CameraView` + `useCameraPermissions`). Camera permission string declared in `app.json` under the `expo-camera` plugin.
-- Route: `app/groups/scan.tsx`. Launched from a new "scan" icon in the Groups tab `headerRight` (sibling to the list/grid toggles).
-- Accepts QR codes that encode `…/groups/join/<CODE>` (extracted via regex). On a successful scan, `router.replace`s to `/groups/join/<CODE>`, which reuses the existing preview/join screen. Falsy / unparseable scans show a recoverable error banner with a "scan again" button.

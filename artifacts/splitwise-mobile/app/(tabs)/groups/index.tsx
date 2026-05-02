@@ -127,24 +127,7 @@ export default function GroupsScreen() {
         options={{
           title: "Groups",
           headerRight: () => (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginRight: 8 }}>
-              <Pressable
-                onPress={() => router.push("/groups/scan")}
-                hitSlop={8}
-                accessibilityLabel="Scan group invite QR code"
-                style={{
-                  width: 30,
-                  height: 30,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 8,
-                  backgroundColor: colors.muted,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                }}
-              >
-                <Feather name="maximize" size={15} color={colors.foreground} />
-              </Pressable>
+            <View style={{ flexDirection: "row", gap: 6, marginRight: 8 }}>
               <ToggleBtn value="list" icon="list" />
               <ToggleBtn value="card" icon="grid" />
             </View>
