@@ -28,6 +28,7 @@ import {
   type ExpenseComment,
 } from "@workspace/api-client-react";
 
+import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { useColors } from "@/hooks/useColors";
 import { getErrorMessage } from "@/lib/error";
@@ -417,20 +418,13 @@ function CommentItem({
   deleting: boolean;
   colors: ReturnType<typeof useColors>;
 }) {
-  const initial = (comment.user?.name ?? "?").slice(0, 1).toUpperCase();
   return (
     <View style={styles.commentRow}>
-      <View style={[styles.commentAvatar, { backgroundColor: colors.accent }]}>
-        <Text
-          style={{
-            color: colors.accentForeground,
-            fontFamily: "Inter_700Bold",
-            fontSize: 12,
-          }}
-        >
-          {initial}
-        </Text>
-      </View>
+      <Avatar
+        name={comment.user?.name ?? "?"}
+        url={comment.user?.avatarUrl ?? null}
+        size={28}
+      />
       <View style={{ flex: 1 }}>
         <View style={styles.commentNameRow}>
           <Text
@@ -532,13 +526,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   commentRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  commentAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   commentNameRow: {
     flexDirection: "row",
     alignItems: "baseline",
