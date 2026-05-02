@@ -10,6 +10,7 @@ export const usersTable = pgTable("users", {
   avatarUrl: text("avatar_url"),
   country: text("country"),
   location: text("location"),
+  defaultCurrency: text("default_currency").notNull().default("USD"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

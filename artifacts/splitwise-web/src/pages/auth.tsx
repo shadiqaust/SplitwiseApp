@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { COMMON_CURRENCIES } from "@/lib/currencies";
 
 type AuthMode = "sign-in" | "sign-up";
 
@@ -26,6 +28,7 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [defaultCurrency, setDefaultCurrency] = useState("USD");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,7 +57,7 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
     setError(null);
     setLoading(true);
     try {
-      await signUp(name.trim(), email.trim(), password);
+      await signUp(name.trim(), email.trim(), password, defaultCurrency);
       setLocation(nextPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign up failed");
@@ -164,6 +167,24 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signup-currency">Default currency</Label>
+                <Select value={defaultCurrency} onValueChange={setDefaultCurrency}>
+                  <SelectTrigger id="signup-currency">
+                    <SelectValue placeholder="Select a currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COMMON_CURRENCIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.symbol} {c.code} — {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Used as the default when you create new groups. You can change it later.
+                </p>
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>

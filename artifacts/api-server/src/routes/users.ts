@@ -4,6 +4,7 @@ import { db, usersTable, groupMembersTable, friendshipsTable } from "@workspace/
 import { requireAuth } from "../middlewares/requireAuth";
 import { UpdateMeBody, GetMeResponse, UpdateMeResponse } from "@workspace/api-zod";
 import { z } from "zod";
+import { isSupportedCurrency } from "../lib/currencies.js";
 
 const router: IRouter = Router();
 
@@ -28,6 +29,13 @@ router.put("/users/me", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.avatarUrl !== undefined) updateData.avatarUrl = parsed.data.avatarUrl;
   if (parsed.data.country !== undefined) updateData.country = parsed.data.country ?? null;
   if (parsed.data.location !== undefined) updateData.location = parsed.data.location ?? null;
+  if (parsed.data.defaultCurrency !== undefined) {
+    if (!isSupportedCurrency(parsed.data.defaultCurrency)) {
+      res.status(400).json({ error: "Unsupported currency code" });
+      return;
+    }
+    updateData.defaultCurrency = parsed.data.defaultCurrency;
+  }
 
   const [user] = await db.update(usersTable)
     .set(updateData)

@@ -13,5 +13,6 @@ export interface User {
   avatarUrl?: string | null;
   country?: string | null;
   location?: string | null;
+  defaultCurrency: string;
   createdAt: Date;
 }

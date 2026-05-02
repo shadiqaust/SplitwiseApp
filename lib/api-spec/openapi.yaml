@@ -920,10 +920,12 @@ components:
         location:
           type: string
           nullable: true
+        defaultCurrency:
+          type: string
         createdAt:
           type: string
           format: date-time
-      required: [id, name, email, createdAt]
+      required: [id, name, email, defaultCurrency, createdAt]
 
     UpdateUserBody:
       type: object
@@ -939,6 +941,8 @@ components:
         location:
           type: string
           nullable: true
+        defaultCurrency:
+          type: string
 
     # ─── Group ────────────────────────────────────────────────────────────
     Group:

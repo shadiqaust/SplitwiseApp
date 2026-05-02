@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/lib/auth";
+import { COMMON_CURRENCIES } from "@/lib/currencies";
 
 type Mode = "sign-in" | "sign-up";
 
@@ -24,8 +26,12 @@ export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [defaultCurrency, setDefaultCurrency] = useState("USD");
+  const [showCurrency, setShowCurrency] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedCurrency = COMMON_CURRENCIES.find((c) => c.code === defaultCurrency) ?? COMMON_CURRENCIES[0];
 
   const handleSignIn = async () => {
     setError(null);
@@ -51,7 +57,7 @@ export default function SignInScreen() {
     setError(null);
     setLoading(true);
     try {
-      await signUp(name.trim(), email, password);
+      await signUp(name.trim(), email, password, defaultCurrency);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to sign up");
     } finally {
@@ -114,6 +120,76 @@ export default function SignInScreen() {
             secureTextEntry
             autoCapitalize="none"
           />
+
+          {mode === "sign-up" ? (
+            <View style={{ gap: 6 }}>
+              <Text style={{ fontFamily: "Inter_500Medium", fontSize: 13, color: colors.foreground }}>
+                Default currency
+              </Text>
+              <Pressable
+                onPress={() => setShowCurrency((v) => !v)}
+                style={{
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  height: 44,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  backgroundColor: colors.card,
+                }}
+              >
+                <Text style={{ fontFamily: "Inter_400Regular", color: colors.foreground }}>
+                  {selectedCurrency.symbol} {selectedCurrency.code} — {selectedCurrency.name}
+                </Text>
+                <Feather name={showCurrency ? "chevron-up" : "chevron-down"} size={18} color={colors.mutedForeground} />
+              </Pressable>
+              {showCurrency ? (
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 8,
+                    backgroundColor: colors.card,
+                    overflow: "hidden",
+                    maxHeight: 240,
+                  }}
+                >
+                  <ScrollView nestedScrollEnabled>
+                    {COMMON_CURRENCIES.map((c) => {
+                      const active = c.code === defaultCurrency;
+                      return (
+                        <Pressable
+                          key={c.code}
+                          onPress={() => {
+                            setDefaultCurrency(c.code);
+                            setShowCurrency(false);
+                          }}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                            backgroundColor: active ? colors.accent : "transparent",
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <Text style={{ fontFamily: "Inter_400Regular", color: colors.foreground }}>
+                            {c.symbol} {c.code} — {c.name}
+                          </Text>
+                          {active ? <Feather name="check" size={16} color={colors.primary} /> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ) : null}
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+                Used as the default when you create new groups.
+              </Text>
+            </View>
+          ) : null}
 
           {error ? (
             <Text style={{ color: colors.destructive, fontSize: 14 }}>

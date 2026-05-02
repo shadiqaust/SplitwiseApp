@@ -1,7 +1,8 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useCreateGroup, getListGroupsQueryKey } from "@workspace/api-client-react";
+import { useCreateGroup, getListGroupsQueryKey, useGetMe } from "@workspace/api-client-react";
+import { useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -23,15 +24,25 @@ export function NewGroupPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createGroup = useCreateGroup();
+  const me = useGetMe();
+  const userDefaultCurrency = me.data?.defaultCurrency ?? "USD";
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       description: "",
-      currency: "USD",
+      currency: userDefaultCurrency,
     },
   });
+
+  // Once /me resolves, set the form's currency to the user's default if the
+  // user hasn't manually changed it yet.
+  useEffect(() => {
+    if (me.data?.defaultCurrency && !form.formState.dirtyFields.currency) {
+      form.setValue("currency", me.data.defaultCurrency);
+    }
+  }, [me.data?.defaultCurrency, form]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     createGroup.mutate({ data: values }, {

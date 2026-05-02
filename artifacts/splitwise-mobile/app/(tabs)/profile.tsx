@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/lib/auth";
+import { COMMON_CURRENCIES } from "@/lib/currencies";
 
 // ─── Predefined avatar presets ────────────────────────────────────────────────
 const PRESETS = [
@@ -62,6 +63,8 @@ export default function ProfileScreen() {
   const [name, setName] = useState("");
   const [country, setCountry] = useState("");
   const [location, setLocation] = useState("");
+  const [defaultCurrency, setDefaultCurrency] = useState("USD");
+  const [showCurrency, setShowCurrency] = useState(false);
   const [formSaving, setFormSaving] = useState(false);
   const initialized = useRef(false);
 
@@ -70,9 +73,12 @@ export default function ProfileScreen() {
       setName(me.name);
       setCountry(me.country ?? "");
       setLocation(me.location ?? "");
+      setDefaultCurrency(me.defaultCurrency ?? "USD");
       initialized.current = true;
     }
   }, [me]);
+
+  const selectedCurrency = COMMON_CURRENCIES.find((c) => c.code === defaultCurrency) ?? COMMON_CURRENCIES[0];
 
   const handleSignOut = async () => {
     await signOut();
@@ -91,6 +97,7 @@ export default function ProfileScreen() {
           name: name.trim(),
           country: country.trim() || null,
           location: location.trim() || null,
+          defaultCurrency,
         },
       },
       {
@@ -289,6 +296,62 @@ export default function ProfileScreen() {
                   onSubmitEditing={handleSaveProfile}
                 />
               </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={[styles.label, { color: colors.foreground }]}>Default currency</Text>
+              <Pressable
+                onPress={() => setShowCurrency((v) => !v)}
+                style={[styles.inputWrap, { backgroundColor: colors.muted, borderColor: colors.border, justifyContent: "space-between" }]}
+              >
+                <Text style={[styles.input, { color: colors.foreground }]}>
+                  {selectedCurrency.symbol} {selectedCurrency.code} — {selectedCurrency.name}
+                </Text>
+                <Feather name={showCurrency ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+              </Pressable>
+              {showCurrency ? (
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 10,
+                    backgroundColor: colors.muted,
+                    overflow: "hidden",
+                    maxHeight: 240,
+                  }}
+                >
+                  <ScrollView nestedScrollEnabled>
+                    {COMMON_CURRENCIES.map((c) => {
+                      const active = c.code === defaultCurrency;
+                      return (
+                        <Pressable
+                          key={c.code}
+                          onPress={() => {
+                            setDefaultCurrency(c.code);
+                            setShowCurrency(false);
+                          }}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                            backgroundColor: active ? colors.accent : "transparent",
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <Text style={{ fontFamily: "Inter_400Regular", color: colors.foreground }}>
+                            {c.symbol} {c.code} — {c.name}
+                          </Text>
+                          {active ? <Feather name="check" size={16} color={colors.primary} /> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ) : null}
+              <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: colors.mutedForeground }}>
+                Used as the default when you create new groups.
+              </Text>
             </View>
 
             <Button

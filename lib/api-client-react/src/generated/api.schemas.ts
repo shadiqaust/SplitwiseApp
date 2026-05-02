@@ -20,6 +20,7 @@ export interface User {
   avatarUrl?: string | null;
   country?: string | null;
   location?: string | null;
+  defaultCurrency: string;
   createdAt: string;
 }
 
@@ -28,6 +29,7 @@ export interface UpdateUserBody {
   avatarUrl?: string | null;
   country?: string | null;
   location?: string | null;
+  defaultCurrency?: string;
 }
 
 export interface Group {

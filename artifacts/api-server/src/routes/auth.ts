@@ -4,6 +4,7 @@ import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { signToken } from "../lib/jwt";
 import { z } from "zod";
+import { SUPPORTED_CURRENCY_CODES } from "../lib/currencies.js";
 
 const router: IRouter = Router();
 
@@ -11,6 +12,7 @@ const RegisterBody = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(8),
+  defaultCurrency: z.enum(SUPPORTED_CURRENCY_CODES).optional(),
 });
 
 const LoginBody = z.object({
@@ -25,7 +27,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  const { name, email, password } = parsed.data;
+  const { name, email, password, defaultCurrency } = parsed.data;
 
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email));
   if (existing) {
@@ -34,12 +36,26 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  const [user] = await db.insert(usersTable).values({ name, email, passwordHash }).returning();
+  const [user] = await db
+    .insert(usersTable)
+    .values({
+      name,
+      email,
+      passwordHash,
+      ...(defaultCurrency ? { defaultCurrency } : {}),
+    })
+    .returning();
 
   const token = signToken({ userId: user.id });
   res.status(201).json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl },
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      defaultCurrency: user.defaultCurrency,
+    },
   });
 });
 
@@ -67,7 +83,13 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   const token = signToken({ userId: user.id });
   res.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl },
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      defaultCurrency: user.defaultCurrency,
+    },
   });
 });
 

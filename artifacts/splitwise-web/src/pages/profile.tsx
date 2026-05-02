@@ -16,6 +16,8 @@ import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Camera, Upload, Check, MapPin, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { COMMON_CURRENCIES } from "@/lib/currencies";
 
 // ─── Predefined avatar presets ────────────────────────────────────────────────
 const PRESETS = [
@@ -63,6 +65,7 @@ const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   country: z.string().optional(),
   location: z.string().optional(),
+  defaultCurrency: z.string().min(1, "Currency is required"),
 });
 
 function UserAvatar({ name, url, size = 80 }: { name?: string; url?: string | null; size?: number }) {
@@ -107,7 +110,7 @@ export function ProfilePage() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", country: "", location: "" },
+    defaultValues: { name: "", country: "", location: "", defaultCurrency: "USD" },
   });
 
   const initialized = useRef(false);
@@ -117,6 +120,7 @@ export function ProfilePage() {
         name: userProfile.name,
         country: userProfile.country ?? "",
         location: userProfile.location ?? "",
+        defaultCurrency: userProfile.defaultCurrency ?? "USD",
       });
       initialized.current = true;
     }
@@ -127,6 +131,7 @@ export function ProfilePage() {
       name: values.name,
       country: values.country || null,
       location: values.location || null,
+      defaultCurrency: values.defaultCurrency,
     };
     updateMe.mutate(
       { data: payload },
@@ -311,6 +316,34 @@ export function ProfilePage() {
                       <Input {...field} className="pl-9" placeholder="e.g. Paris, Île-de-France" />
                     </div>
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="defaultCurrency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Default currency</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a currency" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {COMMON_CURRENCIES.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.symbol} {c.code} — {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Used as the default when you create new groups.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

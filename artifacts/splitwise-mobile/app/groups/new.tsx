@@ -14,7 +14,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   getListGroupsQueryKey,
   useCreateGroup,
+  useGetMe,
 } from "@workspace/api-client-react";
+import { useEffect } from "react";
 import { Feather } from "@expo/vector-icons";
 
 import { Button } from "@/components/ui/Button";
@@ -27,12 +29,20 @@ export default function NewGroupScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const createGroup = useCreateGroup();
+  const me = useGetMe();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [currency, setCurrency] = useState("USD");
+  const [currencyTouched, setCurrencyTouched] = useState(false);
   const [showCurrency, setShowCurrency] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (me.data?.defaultCurrency && !currencyTouched) {
+      setCurrency(me.data.defaultCurrency);
+    }
+  }, [me.data?.defaultCurrency, currencyTouched]);
 
   const selectedCurrency = COMMON_CURRENCIES.find((c) => c.code === currency) ?? COMMON_CURRENCIES[0];
 
@@ -127,6 +137,7 @@ export default function NewGroupScreen() {
                         key={c.code}
                         onPress={() => {
                           setCurrency(c.code);
+                          setCurrencyTouched(true);
                           setShowCurrency(false);
                         }}
                         style={{

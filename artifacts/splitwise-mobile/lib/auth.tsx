@@ -10,6 +10,7 @@ export interface AuthUser {
   name: string;
   email: string;
   avatarUrl: string | null;
+  defaultCurrency?: string;
 }
 
 interface AuthState {
@@ -21,7 +22,7 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signUp: (name: string, email: string, password: string, defaultCurrency?: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -102,8 +103,8 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
     setState({ isLoaded: true, isSignedIn: true, user, token });
   }, [callApi]);
 
-  const signUp = useCallback(async (name: string, email: string, password: string) => {
-    const { token, user } = await callApi("/api/auth/register", { name, email, password });
+  const signUp = useCallback(async (name: string, email: string, password: string, defaultCurrency?: string) => {
+    const { token, user } = await callApi("/api/auth/register", { name, email, password, defaultCurrency });
     await storeItem(TOKEN_KEY, token);
     await storeItem(USER_KEY, JSON.stringify(user));
     setState({ isLoaded: true, isSignedIn: true, user, token });
