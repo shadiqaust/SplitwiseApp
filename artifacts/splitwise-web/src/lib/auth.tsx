@@ -10,6 +10,8 @@ export interface AuthUser {
   name: string;
   email: string;
   avatarUrl: string | null;
+  country?: string | null;
+  location?: string | null;
 }
 
 interface AuthState {
@@ -23,6 +25,13 @@ interface AuthContextValue extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   signOut: () => void;
+  /**
+   * Merge a partial update into the cached auth user (in-memory + localStorage).
+   * Call this whenever the user's profile is updated server-side so UI bound to
+   * `useAuth().user` (sidebar avatar, header name, etc.) reflects the change
+   * immediately without waiting for a full re-fetch.
+   */
+  updateUser: (patch: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -124,8 +133,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ isLoaded: true, isSignedIn: false, user: null, token: null });
   }, []);
 
+  const updateUser = useCallback((patch: Partial<AuthUser>) => {
+    setState((prev) => {
+      if (!prev.user) return prev;
+      const nextUser = { ...prev.user, ...patch };
+      try {
+        localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+      } catch {
+        // localStorage may throw if quota is exceeded (e.g., huge avatar
+        // data URL). The in-memory state is still updated, so the UI
+        // refreshes; the change just won't survive a page reload.
+      }
+      return { ...prev, user: nextUser };
+    });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

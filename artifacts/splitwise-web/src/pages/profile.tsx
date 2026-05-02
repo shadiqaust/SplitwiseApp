@@ -96,7 +96,7 @@ export function ProfilePage() {
   const { data: userProfile, isLoading } = useGetMe();
   const updateMe = useUpdateMe();
   const { toast } = useToast();
-  const { signOut } = useAuth();
+  const { signOut, updateUser } = useAuth();
   const [, setLocation] = useLocation();
 
   const [avatarOpen, setAvatarOpen] = useState(false);
@@ -123,17 +123,20 @@ export function ProfilePage() {
   }, [userProfile, form]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
+    const payload = {
+      name: values.name,
+      country: values.country || null,
+      location: values.location || null,
+    };
     updateMe.mutate(
-      {
-        data: {
-          name: values.name,
-          country: values.country || null,
-          location: values.location || null,
-        },
-      },
+      { data: payload },
       {
         onSuccess: () => {
+          // Refresh the TanStack cache for any component reading useGetMe(),
+          // and patch the auth context so the sidebar (which reads
+          // useAuth().user) updates immediately.
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          updateUser(payload);
           toast({ title: "Profile updated" });
         },
         onError: () => {
@@ -169,6 +172,8 @@ export function ProfilePage() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          // Patch the auth context so the sidebar avatar updates immediately.
+          updateUser({ avatarUrl: selectedUrl });
           toast({ title: "Avatar updated!" });
           setAvatarOpen(false);
           setSelectedUrl(null);
@@ -180,7 +185,7 @@ export function ProfilePage() {
         },
       },
     );
-  }, [selectedUrl, updateMe, toast]);
+  }, [selectedUrl, updateMe, toast, updateUser]);
 
   const handleSignOut = () => {
     signOut();
