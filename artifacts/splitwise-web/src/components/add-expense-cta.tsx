@@ -60,7 +60,7 @@ export function AddExpenseCTA() {
   }, [friendsQuery.data, search]);
 
   const pickFriend = (f: ApiFriend) => {
-    setChosenFriend({ id: f.id, name: f.name });
+    setChosenFriend({ id: f.id, name: f.name, avatarUrl: f.avatarUrl ?? null });
     setPickerOpen(false);
   };
 

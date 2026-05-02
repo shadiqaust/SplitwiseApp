@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error";
 import { formatCurrency } from "@/lib/format";
 import { getCategoryIcon, guessCategory } from "@/lib/expense-categories";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 const EXPENSE_CATEGORIES = [
   "General",
@@ -46,6 +47,7 @@ const EXPENSE_CATEGORIES = [
 export interface FriendLike {
   id: string | number;
   name: string;
+  avatarUrl?: string | null;
 }
 
 export function AddExpenseWithFriendDialog({
@@ -64,10 +66,10 @@ export function AddExpenseWithFriendDialog({
   // Participants: me + the single friend. "You" is always first.
   const participants = useMemo(
     () => [
-      { id: currentUserId, name: "You", isMe: true },
-      { id: friendId, name: friend.name, isMe: false },
+      { id: currentUserId, name: "You", isMe: true, avatarUrl: null as string | null },
+      { id: friendId, name: friend.name, isMe: false, avatarUrl: friend.avatarUrl ?? null },
     ],
-    [currentUserId, friendId, friend.name],
+    [currentUserId, friendId, friend.name, friend.avatarUrl],
   );
 
   const { toast } = useToast();
@@ -279,7 +281,10 @@ export function AddExpenseWithFriendDialog({
                 <SelectContent>
                   {participants.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name}
+                      <span className="inline-flex items-center gap-2">
+                        <UserAvatar name={p.name} url={p.avatarUrl} size={20} />
+                        {p.name}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -319,6 +324,7 @@ export function AddExpenseWithFriendDialog({
               <div className="border rounded-md divide-y">
                 {participants.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 p-3">
+                    <UserAvatar name={p.name} url={p.avatarUrl} size={28} />
                     <span className="flex-1 text-sm truncate">{p.name}</span>
                     <Input
                       className="w-28"

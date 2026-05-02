@@ -24,6 +24,7 @@ import { useColors } from "@/hooks/useColors";
 import { formatCurrency } from "@/lib/format";
 import { getErrorMessage } from "@/lib/error";
 import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
+import { Avatar } from "@/components/ui/Avatar";
 
 const EXPENSE_CATEGORIES = [
   "General",
@@ -41,6 +42,7 @@ const EXPENSE_CATEGORIES = [
 export interface FriendLike {
   id: string | number;
   name: string;
+  avatarUrl?: string | null;
 }
 
 export function AddExpenseWithFriendModal({
@@ -62,10 +64,10 @@ export function AddExpenseWithFriendModal({
   // Participants (me + the single friend). "You" is always first.
   const participants = useMemo(
     () => [
-      { id: currentUserId, name: "You", isMe: true },
-      { id: friendId, name: friend.name, isMe: false },
+      { id: currentUserId, name: "You", isMe: true, avatarUrl: null as string | null },
+      { id: friendId, name: friend.name, isMe: false, avatarUrl: friend.avatarUrl ?? null },
     ],
-    [currentUserId, friendId, friend.name],
+    [currentUserId, friendId, friend.name, friend.avatarUrl],
   );
 
   // UI-only split mode. "loan" = the payer lent the full amount to the other.
@@ -307,11 +309,15 @@ export function AddExpenseWithFriendModal({
                     style={[
                       styles.chip,
                       {
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
                         borderColor: selected ? colors.primary : colors.border,
                         backgroundColor: selected ? colors.primary : "transparent",
                       },
                     ]}
                   >
+                    <Avatar name={p.name} url={p.avatarUrl} size={20} />
                     <Text
                       style={[
                         styles.chipText,

@@ -312,7 +312,14 @@ function ExpenseRow({
       android_ripple={{ color: colors.accent }}
       style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
     >
-    <Card style={styles.row}>
+    <Card style={[styles.row, { flexDirection: "row", alignItems: "center", gap: 12 }]}>
+      {expense.paidByUser && (
+        <Avatar
+          name={expense.paidByUser.name}
+          url={expense.paidByUser.avatarUrl}
+          size={40}
+        />
+      )}
       <View style={{ flex: 1 }}>
         <Text style={[styles.itemTitle, { color: colors.foreground }]} numberOfLines={1}>
           {expense.description}
@@ -365,7 +372,14 @@ function PaymentRow({
       android_ripple={{ color: colors.accent }}
       style={({ pressed }) => [{ opacity: pressed && onPress ? 0.7 : 1 }]}
     >
-    <Card style={styles.row}>
+    <Card style={[styles.row, { flexDirection: "row", alignItems: "center", gap: 12 }]}>
+      {(iPaid ? payment.toUser : payment.fromUser) && (
+        <Avatar
+          name={(iPaid ? payment.toUser?.name : payment.fromUser?.name) ?? ""}
+          url={iPaid ? payment.toUser?.avatarUrl : payment.fromUser?.avatarUrl}
+          size={40}
+        />
+      )}
       <View style={{ flex: 1 }}>
         <Text style={[styles.itemTitle, { color: colors.foreground }]} numberOfLines={1}>
           {iPaid

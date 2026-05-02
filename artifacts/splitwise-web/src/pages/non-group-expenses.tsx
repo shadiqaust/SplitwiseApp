@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { ChevronLeft, DollarSign, HandCoins, Receipt, Users } from "lucide-react";
 import {
   type ExpenseWithSplits,
@@ -529,8 +530,19 @@ function ExpenseRow({
       className="cursor-pointer hover:bg-accent/40 transition-colors"
     >
       <CardContent className="p-4 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-          <Icon className="w-5 h-5 text-muted-foreground" />
+        <div className="relative shrink-0">
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+            <Icon className="w-5 h-5 text-muted-foreground" />
+          </div>
+          {expense.paidByUser && (
+            <div className="absolute -bottom-1 -right-1 ring-2 ring-background rounded-full">
+              <UserAvatar
+                name={expense.paidByUser.name}
+                url={expense.paidByUser.avatarUrl}
+                size={18}
+              />
+            </div>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold truncate">{expense.description}</p>

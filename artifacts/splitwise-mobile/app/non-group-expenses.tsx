@@ -573,12 +573,32 @@ function ExpenseRow({
       style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
     >
     <Card style={styles.row}>
-      <View style={[styles.bubble, { backgroundColor: colors.muted }]}>
-        <MaterialCommunityIcons
-          name={getCategoryIcon(expense.category)}
-          size={18}
-          color={colors.mutedForeground}
-        />
+      <View style={{ position: "relative" }}>
+        <View style={[styles.bubble, { backgroundColor: colors.muted }]}>
+          <MaterialCommunityIcons
+            name={getCategoryIcon(expense.category)}
+            size={18}
+            color={colors.mutedForeground}
+          />
+        </View>
+        {expense.paidByUser && (
+          <View
+            style={{
+              position: "absolute",
+              right: -4,
+              bottom: -4,
+              borderWidth: 2,
+              borderColor: colors.background,
+              borderRadius: 999,
+            }}
+          >
+            <Avatar
+              name={expense.paidByUser.name}
+              url={expense.paidByUser.avatarUrl}
+              size={18}
+            />
+          </View>
+        )}
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.desc, { color: colors.foreground }]} numberOfLines={1}>
