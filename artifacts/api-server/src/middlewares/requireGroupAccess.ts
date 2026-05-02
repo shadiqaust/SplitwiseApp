@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import {
   db,
   expensesTable,
+  expenseSplitsTable,
   groupMembersTable,
   paymentsTable,
 } from "@workspace/db";
@@ -71,18 +72,44 @@ export function requireExpenseAccess(paramName = "expenseId") {
       return;
     }
     const [expense] = await db
-      .select({ id: expensesTable.id, groupId: expensesTable.groupId })
+      .select({
+        id: expensesTable.id,
+        groupId: expensesTable.groupId,
+        paidByUserId: expensesTable.paidByUserId,
+      })
       .from(expensesTable)
       .where(eq(expensesTable.id, expenseId));
     if (!expense) {
       res.status(404).json({ error: "Expense not found" });
       return;
     }
-    if (!(await isMember(expense.groupId, userId))) {
-      res.status(404).json({ error: "Expense not found" });
-      return;
+
+    if (expense.groupId !== null) {
+      // Group expense: must be a member of the group.
+      if (!(await isMember(expense.groupId, userId))) {
+        res.status(404).json({ error: "Expense not found" });
+        return;
+      }
+      req.authorizedGroupId = expense.groupId;
+    } else {
+      // Non-group (friend) expense: must be the payer or appear in the splits.
+      if (expense.paidByUserId !== userId) {
+        const [mySplit] = await db
+          .select({ id: expenseSplitsTable.id })
+          .from(expenseSplitsTable)
+          .where(
+            and(
+              eq(expenseSplitsTable.expenseId, expenseId),
+              eq(expenseSplitsTable.userId, userId),
+            ),
+          );
+        if (!mySplit) {
+          res.status(404).json({ error: "Expense not found" });
+          return;
+        }
+      }
+      // No authorizedGroupId for non-group expenses.
     }
-    req.authorizedGroupId = expense.groupId;
     next();
   };
 }

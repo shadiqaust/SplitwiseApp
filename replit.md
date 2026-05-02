@@ -112,4 +112,13 @@ If the user confirms, they call `POST /api/groups/:groupId/expenses/include-memb
 
 After success, both clients invalidate group + balances queries so the recalculated balances appear immediately.
 
+### Non-group friend expenses (no group required)
+
+`expenses.groupId` is **nullable**. Users can add a 1-on-1 expense directly with a friend from the Friends tab on web (`AddExpenseWithFriendDialog` in `artifacts/splitwise-web/src/pages/friends.tsx`) and mobile (`AddExpenseWithFriendModal` in `artifacts/splitwise-mobile/app/(tabs)/friends.tsx`).
+
+- Endpoint: `POST /api/expenses` (handler in `artifacts/api-server/src/routes/expenses.ts`) with body `CreateFriendExpenseBody { friendUserId, description, totalAmount, currency, splitType, paidByUserId, splits, date }`. It validates friendship, that the payer is `{me, friend}`, and that splits contain exactly both participants once. Inserts with `groupId: null`.
+- `requireExpenseAccess` allows non-group expense access if the user is `paidByUserId` or appears in `expenseSplits`; `req.authorizedGroupId` is left unset for null-group expenses.
+- `PUT /api/expenses/:id` rejects edits to non-group expenses with `400` (editing not yet supported); `payments.groupId` is still `notNull`, so settle-up for non-group expenses is also not yet supported.
+- Friend balances (`/api/friends`) and dashboard summary (`/api/dashboard/summary`) both aggregate non-group expenses (`groupId IS NULL`) in addition to group expenses; the dashboard correctly handles users with zero group memberships but existing friend expenses.
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

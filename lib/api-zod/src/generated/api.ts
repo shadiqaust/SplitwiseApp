@@ -234,6 +234,32 @@ export const GetGroupBalancesResponseItem = zod
 export const GetGroupBalancesResponse = zod.array(GetGroupBalancesResponseItem);
 
 /**
+ * @summary Create a non-group expense with a friend
+ */
+export const createFriendExpenseBodyCurrencyDefault = `USD`;
+
+export const CreateFriendExpenseBody = zod
+  .object({
+    friendUserId: zod.string().uuid(),
+    description: zod.string(),
+    totalAmount: zod.number(),
+    currency: zod.string().default(createFriendExpenseBodyCurrencyDefault),
+    splitType: zod.enum(["equal", "exact", "percentage"]),
+    paidByUserId: zod.string().uuid(),
+    date: zod.coerce.date(),
+    splits: zod.array(
+      zod.object({
+        userId: zod.string().uuid(),
+        amount: zod.number().nullish(),
+        percentage: zod.number().nullish(),
+      }),
+    ),
+  })
+  .describe(
+    "Create a non-group expense between the current user and a friend.\nSplits must reference exactly the current user and the selected friend.\n",
+  );
+
+/**
  * @summary List expenses in a group
  */
 export const ListExpensesParams = zod.object({
@@ -253,7 +279,11 @@ export const listExpensesResponseOneCurrencyDefault = `USD`;
 export const ListExpensesResponseItem = zod
   .object({
     id: zod.string().uuid(),
-    groupId: zod.string().uuid(),
+    groupId: zod
+      .string()
+      .uuid()
+      .nullish()
+      .describe("Null for non-group (friend-only) expenses."),
     description: zod.string(),
     totalAmount: zod.number(),
     currency: zod.string().default(listExpensesResponseOneCurrencyDefault),
@@ -332,7 +362,11 @@ export const getExpenseResponseOneCurrencyDefault = `USD`;
 export const GetExpenseResponse = zod
   .object({
     id: zod.string().uuid(),
-    groupId: zod.string().uuid(),
+    groupId: zod
+      .string()
+      .uuid()
+      .nullish()
+      .describe("Null for non-group (friend-only) expenses."),
     description: zod.string(),
     totalAmount: zod.number(),
     currency: zod.string().default(getExpenseResponseOneCurrencyDefault),
@@ -403,7 +437,11 @@ export const updateExpenseResponseOneCurrencyDefault = `USD`;
 export const UpdateExpenseResponse = zod
   .object({
     id: zod.string().uuid(),
-    groupId: zod.string().uuid(),
+    groupId: zod
+      .string()
+      .uuid()
+      .nullish()
+      .describe("Null for non-group (friend-only) expenses."),
     description: zod.string(),
     totalAmount: zod.number(),
     currency: zod.string().default(updateExpenseResponseOneCurrencyDefault),

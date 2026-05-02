@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, isNull, or } from "drizzle-orm";
 import { db, groupMembersTable, groupsTable, expensesTable, expenseSplitsTable, paymentsTable, usersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { GetActivityQueryParams } from "@workspace/api-zod";
@@ -18,19 +18,10 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
   // Get all groups the user belongs to
   const memberships = await db.select().from(groupMembersTable).where(eq(groupMembersTable.userId, userId));
 
-  if (memberships.length === 0) {
-    res.json({
-      totalOwed: 0,
-      totalIOwe: 0,
-      netBalance: 0,
-      groupCount: 0,
-      groupSummaries: [],
-    });
-    return;
-  }
-
   const groupIds = memberships.map(m => m.groupId);
-  const groups = await db.select().from(groupsTable).where(inArray(groupsTable.id, groupIds));
+  const groups = groupIds.length === 0
+    ? []
+    : await db.select().from(groupsTable).where(inArray(groupsTable.id, groupIds));
 
   let totalOwed = 0;
   let totalIOwe = 0;
@@ -78,6 +69,62 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     };
   }));
 
+  // ── Non-group (friend-only) expenses ────────────────────────────────────
+  // Aggregate balances from expenses with groupId = NULL where the user is the
+  // payer or appears in a split.
+  const nonGroupAsPayer = await db
+    .select()
+    .from(expensesTable)
+    .where(and(isNull(expensesTable.groupId), eq(expensesTable.paidByUserId, userId)));
+
+  const myNonGroupSplitRows = await db
+    .select({ expenseId: expenseSplitsTable.expenseId })
+    .from(expenseSplitsTable)
+    .innerJoin(expensesTable, eq(expensesTable.id, expenseSplitsTable.expenseId))
+    .where(and(isNull(expensesTable.groupId), eq(expenseSplitsTable.userId, userId)));
+
+  const nonGroupExpenseIds = Array.from(
+    new Set<string>([
+      ...nonGroupAsPayer.map((e) => e.id),
+      ...myNonGroupSplitRows.map((r) => r.expenseId),
+    ]),
+  );
+
+  let nonGroupOwed = 0;
+  let nonGroupIOwe = 0;
+
+  if (nonGroupExpenseIds.length > 0) {
+    const expenses = await db
+      .select()
+      .from(expensesTable)
+      .where(inArray(expensesTable.id, nonGroupExpenseIds));
+    const splits = await db
+      .select()
+      .from(expenseSplitsTable)
+      .where(inArray(expenseSplitsTable.expenseId, nonGroupExpenseIds));
+
+    const splitsByExpense = new Map<string, typeof splits>();
+    for (const s of splits) {
+      if (!splitsByExpense.has(s.expenseId)) splitsByExpense.set(s.expenseId, []);
+      splitsByExpense.get(s.expenseId)!.push(s);
+    }
+
+    for (const expense of expenses) {
+      const expSplits = splitsByExpense.get(expense.id) ?? [];
+      if (expense.paidByUserId === userId) {
+        for (const s of expSplits) {
+          if (s.userId !== userId) nonGroupOwed += parseFloat(s.amount);
+        }
+      } else {
+        const mine = expSplits.find((s) => s.userId === userId);
+        if (mine) nonGroupIOwe += parseFloat(mine.amount);
+      }
+    }
+  }
+
+  totalOwed += nonGroupOwed;
+  totalIOwe += nonGroupIOwe;
+
   res.json({
     totalOwed: Math.round(totalOwed * 100) / 100,
     totalIOwe: Math.round(totalIOwe * 100) / 100,
@@ -120,12 +167,14 @@ router.get("/dashboard/activity", requireAuth, async (req, res): Promise<void> =
   const activityItems = [];
 
   for (const expense of expenses) {
+    // The query above filters by inArray(groupId, groupIds), so groupId is non-null here.
+    const expenseGroupId = expense.groupId!;
     const paidByUser = await getUserById(expense.paidByUserId);
-    const group = groupMap.get(expense.groupId);
+    const group = groupMap.get(expenseGroupId);
     activityItems.push({
       id: `expense-${expense.id}`,
       type: "expense" as const,
-      groupId: expense.groupId,
+      groupId: expenseGroupId,
       groupName: group?.name ?? "Unknown",
       description: expense.description,
       amount: parseFloat(expense.totalAmount),

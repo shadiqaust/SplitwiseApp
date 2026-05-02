@@ -8,9 +8,11 @@ export const splitTypeEnum = ["equal", "exact", "percentage"] as const;
 
 export const expensesTable = pgTable("expenses", {
   id: uuid("id").defaultRandom().primaryKey(),
-  groupId: uuid("group_id")
-    .notNull()
-    .references(() => groupsTable.id, { onDelete: "cascade" }),
+  // Nullable: when null, the expense is a non-group expense between two friends
+  // (validated at the API layer). When set, it belongs to the referenced group.
+  groupId: uuid("group_id").references(() => groupsTable.id, {
+    onDelete: "cascade",
+  }),
   description: text("description").notNull(),
   totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(),
   currency: text("currency").notNull().default("USD"),

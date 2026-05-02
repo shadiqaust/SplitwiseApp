@@ -1,11 +1,12 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, and, or } from "drizzle-orm";
 import {
   db,
   expensesTable,
   expenseSplitsTable,
   usersTable,
   groupMembersTable,
+  friendshipsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import {
@@ -14,6 +15,7 @@ import {
 } from "../middlewares/requireGroupAccess";
 import {
   CreateExpenseBody,
+  CreateFriendExpenseBody,
   UpdateExpenseBody,
   ListExpensesQueryParams,
 } from "@workspace/api-zod";
@@ -141,6 +143,140 @@ function computeFinalSplits(
   return { ok: true, rows };
 }
 
+// Helper: are these two users friends? (direct friendship OR shared group member)
+async function areFriends(userA: string, userB: string): Promise<boolean> {
+  // Direct friendship?
+  const [direct] = await db
+    .select({ id: friendshipsTable.id })
+    .from(friendshipsTable)
+    .where(
+      or(
+        and(
+          eq(friendshipsTable.userId, userA),
+          eq(friendshipsTable.friendId, userB),
+        ),
+        and(
+          eq(friendshipsTable.userId, userB),
+          eq(friendshipsTable.friendId, userA),
+        ),
+      ),
+    );
+  if (direct) return true;
+
+  // Shared group?
+  const aGroups = await db
+    .select({ groupId: groupMembersTable.groupId })
+    .from(groupMembersTable)
+    .where(eq(groupMembersTable.userId, userA));
+  if (aGroups.length === 0) return false;
+  const aGroupIds = aGroups.map((g) => g.groupId);
+  const [sharedRow] = await db
+    .select({ id: groupMembersTable.id })
+    .from(groupMembersTable)
+    .where(
+      and(
+        eq(groupMembersTable.userId, userB),
+        inArray(groupMembersTable.groupId, aGroupIds),
+      ),
+    );
+  return Boolean(sharedRow);
+}
+
+// POST /expenses — create a non-group expense between current user and a friend.
+router.post(
+  "/expenses",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const me = req.dbUserId!;
+    const parsed = CreateFriendExpenseBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const {
+      friendUserId,
+      description,
+      totalAmount,
+      currency,
+      splitType,
+      paidByUserId,
+      date,
+      splits,
+    } = parsed.data;
+
+    if (totalAmount <= 0) {
+      res.status(400).json({ error: "Total amount must be positive" });
+      return;
+    }
+    if (friendUserId === me) {
+      res
+        .status(400)
+        .json({ error: "Cannot create an expense with yourself" });
+      return;
+    }
+    if (!(await areFriends(me, friendUserId))) {
+      res
+        .status(403)
+        .json({ error: "You can only add expenses with your friends" });
+      return;
+    }
+
+    const allowed = new Set([me, friendUserId]);
+    if (!allowed.has(paidByUserId)) {
+      res
+        .status(400)
+        .json({ error: "Payer must be you or the selected friend" });
+      return;
+    }
+    // Splits must reference exactly both participants exactly once.
+    const splitUserIds = splits.map((s) => s.userId);
+    const uniqueSplitUserIds = new Set(splitUserIds);
+    if (
+      splitUserIds.length !== 2 ||
+      uniqueSplitUserIds.size !== 2 ||
+      !uniqueSplitUserIds.has(me) ||
+      !uniqueSplitUserIds.has(friendUserId)
+    ) {
+      res.status(400).json({
+        error:
+          "Splits must include exactly you and the selected friend, each once",
+      });
+      return;
+    }
+
+    const computed = computeFinalSplits(splitType, totalAmount, splits);
+    if (!computed.ok) {
+      res.status(400).json({ error: computed.error });
+      return;
+    }
+
+    const [expense] = await db
+      .insert(expensesTable)
+      .values({
+        groupId: null,
+        description,
+        totalAmount: totalAmount.toFixed(2),
+        currency: currency ?? "USD",
+        splitType,
+        paidByUserId,
+        date: toDateString(String(date)),
+      })
+      .returning();
+
+    for (const row of computed.rows) {
+      await db.insert(expenseSplitsTable).values({
+        expenseId: expense.id,
+        userId: row.userId,
+        amount: row.amount,
+        percentage: row.percentage,
+      });
+    }
+
+    res.status(201).json(await buildExpenseWithSplits(expense));
+  },
+);
+
 router.get(
   "/groups/:groupId/expenses",
   requireAuth,
@@ -258,7 +394,6 @@ router.put(
       ? req.params.expenseId[0]
       : req.params.expenseId;
     const expenseId = raw;
-    const groupId = req.authorizedGroupId!;
 
     const parsed = UpdateExpenseBody.safeParse(req.body);
     if (!parsed.success) {
@@ -275,6 +410,15 @@ router.put(
       return;
     }
 
+    // Editing non-group (friend-only) expenses is not yet supported.
+    if (current.groupId === null) {
+      res.status(400).json({
+        error: "Editing non-group friend expenses is not supported yet",
+      });
+      return;
+    }
+
+    const groupId = current.groupId;
     const memberIds = await getMemberIds(groupId);
 
     const newSplitType = (parsed.data.splitType ?? current.splitType) as

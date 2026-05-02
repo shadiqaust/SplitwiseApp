@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, inArray, or, ne } from "drizzle-orm";
+import { eq, and, inArray, or, ne, isNull } from "drizzle-orm";
 import {
   db,
   groupMembersTable,
@@ -68,7 +68,32 @@ async function buildFriendList(me: string) {
 
   // ── 4. Balance computation ─────────────────────────────────────────────────
   const netBalances = new Map<string, number>(allFriendIds.map((id) => [id, 0]));
+  const friendIdSet = new Set(allFriendIds);
 
+  // Helper to apply expense splits to net balances.
+  function applyExpenses(
+    expenses: Array<typeof expensesTable.$inferSelect>,
+    splitsByExpense: Map<string, Array<typeof expenseSplitsTable.$inferSelect>>,
+  ) {
+    for (const expense of expenses) {
+      const expSplits = splitsByExpense.get(expense.id) ?? [];
+      if (expense.paidByUserId === me) {
+        for (const s of expSplits) {
+          if (friendIdSet.has(s.userId)) {
+            netBalances.set(s.userId, (netBalances.get(s.userId) ?? 0) + parseFloat(s.amount));
+          }
+        }
+      } else if (friendIdSet.has(expense.paidByUserId)) {
+        const mySplit = expSplits.find((s) => s.userId === me);
+        if (mySplit) {
+          const fid = expense.paidByUserId;
+          netBalances.set(fid, (netBalances.get(fid) ?? 0) - parseFloat(mySplit.amount));
+        }
+      }
+    }
+  }
+
+  // ── 4a. Group-based expenses & payments ───────────────────────────────────
   if (myGroupIds.length > 0) {
     const expenses = await db.select().from(expensesTable).where(inArray(expensesTable.groupId, myGroupIds));
     const expenseIds = expenses.map((e) => e.id);
@@ -82,31 +107,54 @@ async function buildFriendList(me: string) {
       splitsMap.get(s.expenseId)!.push(s);
     }
 
-    for (const expense of expenses) {
-      const expSplits = splitsMap.get(expense.id) ?? [];
-      if (expense.paidByUserId === me) {
-        for (const s of expSplits) {
-          if (allFriendIds.includes(s.userId)) {
-            netBalances.set(s.userId, (netBalances.get(s.userId) ?? 0) + parseFloat(s.amount));
-          }
-        }
-      } else if (allFriendIds.includes(expense.paidByUserId)) {
-        const mySplit = expSplits.find((s) => s.userId === me);
-        if (mySplit) {
-          const fid = expense.paidByUserId;
-          netBalances.set(fid, (netBalances.get(fid) ?? 0) - parseFloat(mySplit.amount));
-        }
-      }
-    }
+    applyExpenses(expenses, splitsMap);
 
     const payments = await db.select().from(paymentsTable).where(inArray(paymentsTable.groupId, myGroupIds));
     for (const p of payments) {
-      if (p.fromUserId === me && allFriendIds.includes(p.toUserId)) {
+      if (p.fromUserId === me && friendIdSet.has(p.toUserId)) {
         netBalances.set(p.toUserId, (netBalances.get(p.toUserId) ?? 0) + parseFloat(p.amount));
-      } else if (p.toUserId === me && allFriendIds.includes(p.fromUserId)) {
+      } else if (p.toUserId === me && friendIdSet.has(p.fromUserId)) {
         netBalances.set(p.fromUserId, (netBalances.get(p.fromUserId) ?? 0) - parseFloat(p.amount));
       }
     }
+  }
+
+  // ── 4b. Non-group (friend-only) expenses ──────────────────────────────────
+  // An expense is relevant if groupId IS NULL AND I am either paidBy or in splits.
+  const nonGroupAsPayer = await db
+    .select()
+    .from(expensesTable)
+    .where(and(isNull(expensesTable.groupId), eq(expensesTable.paidByUserId, me)));
+
+  const myNonGroupSplitRows = await db
+    .select({ expenseId: expenseSplitsTable.expenseId })
+    .from(expenseSplitsTable)
+    .innerJoin(expensesTable, eq(expensesTable.id, expenseSplitsTable.expenseId))
+    .where(and(isNull(expensesTable.groupId), eq(expenseSplitsTable.userId, me)));
+
+  const nonGroupExpenseIds = new Set<string>([
+    ...nonGroupAsPayer.map((e) => e.id),
+    ...myNonGroupSplitRows.map((r) => r.expenseId),
+  ]);
+
+  if (nonGroupExpenseIds.size > 0) {
+    const ids = [...nonGroupExpenseIds];
+    const expenses = await db
+      .select()
+      .from(expensesTable)
+      .where(inArray(expensesTable.id, ids));
+    const splits = await db
+      .select()
+      .from(expenseSplitsTable)
+      .where(inArray(expenseSplitsTable.expenseId, ids));
+
+    const splitsMap = new Map<string, typeof splits>();
+    for (const s of splits) {
+      if (!splitsMap.has(s.expenseId)) splitsMap.set(s.expenseId, []);
+      splitsMap.get(s.expenseId)!.push(s);
+    }
+
+    applyExpenses(expenses, splitsMap);
   }
 
   // ── 5. Groups info ─────────────────────────────────────────────────────────

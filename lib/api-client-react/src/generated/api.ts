@@ -22,9 +22,11 @@ import type {
   BadRequestResponse,
   Balance,
   CreateExpenseBody,
+  CreateFriendExpenseBody,
   CreateGroupBody,
   CreatePaymentBody,
   DashboardSummary,
+  ErrorResponse,
   ExpenseWithSplits,
   GetActivityParams,
   Group,
@@ -1063,6 +1065,94 @@ export function useGetGroupBalances<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Create a non-group expense with a friend
+ */
+export const getCreateFriendExpenseUrl = () => {
+  return `/api/expenses`;
+};
+
+export const createFriendExpense = async (
+  createFriendExpenseBody: CreateFriendExpenseBody,
+  options?: RequestInit,
+): Promise<ExpenseWithSplits> => {
+  return customFetch<ExpenseWithSplits>(getCreateFriendExpenseUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createFriendExpenseBody),
+  });
+};
+
+export const getCreateFriendExpenseMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFriendExpense>>,
+    TError,
+    { data: BodyType<CreateFriendExpenseBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createFriendExpense>>,
+  TError,
+  { data: BodyType<CreateFriendExpenseBody> },
+  TContext
+> => {
+  const mutationKey = ["createFriendExpense"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createFriendExpense>>,
+    { data: BodyType<CreateFriendExpenseBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createFriendExpense(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateFriendExpenseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createFriendExpense>>
+>;
+export type CreateFriendExpenseMutationBody = BodyType<CreateFriendExpenseBody>;
+export type CreateFriendExpenseMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | ErrorResponse
+>;
+
+/**
+ * @summary Create a non-group expense with a friend
+ */
+export const useCreateFriendExpense = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createFriendExpense>>,
+    TError,
+    { data: BodyType<CreateFriendExpenseBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createFriendExpense>>,
+  TError,
+  { data: BodyType<CreateFriendExpenseBody> },
+  TContext
+> => {
+  return useMutation(getCreateFriendExpenseMutationOptions(options));
+};
 
 /**
  * @summary List expenses in a group

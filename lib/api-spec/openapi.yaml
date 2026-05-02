@@ -270,6 +270,36 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # ─── Expenses ─────────────────────────────────────────────────────────────
+  /expenses:
+    post:
+      operationId: createFriendExpense
+      tags: [expenses]
+      summary: Create a non-group expense with a friend
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFriendExpenseBody"
+      responses:
+        "201":
+          description: Created expense
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseWithSplits"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Forbidden — the target user is not your friend
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /groups/{groupId}/expenses:
     get:
       operationId: listExpenses
@@ -786,6 +816,8 @@ components:
         groupId:
           type: string
           format: uuid
+          nullable: true
+          description: Null for non-group (friend-only) expenses.
         description:
           type: string
         totalAmount:
@@ -806,7 +838,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, groupId, description, totalAmount, currency, splitType, paidByUserId, paidByUser, date, createdAt]
+      required: [id, description, totalAmount, currency, splitType, paidByUserId, paidByUser, date, createdAt]
 
     ExpenseWithSplits:
       allOf:
@@ -878,6 +910,36 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ExpenseSplitInput"
+
+    CreateFriendExpenseBody:
+      type: object
+      description: |
+        Create a non-group expense between the current user and a friend.
+        Splits must reference exactly the current user and the selected friend.
+      properties:
+        friendUserId:
+          type: string
+          format: uuid
+        description:
+          type: string
+        totalAmount:
+          type: number
+        currency:
+          type: string
+          default: USD
+        splitType:
+          $ref: "#/components/schemas/SplitType"
+        paidByUserId:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        splits:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpenseSplitInput"
+      required: [friendUserId, description, totalAmount, splitType, paidByUserId, date, splits]
 
     # ─── Payment ──────────────────────────────────────────────────────────
     Payment:

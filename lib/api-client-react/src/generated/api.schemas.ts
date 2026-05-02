@@ -123,7 +123,8 @@ export interface ExpenseSplit {
 
 export interface Expense {
   id: string;
-  groupId: string;
+  /** Null for non-group (friend-only) expenses. */
+  groupId?: string | null;
   description: string;
   totalAmount: number;
   currency: string;
@@ -162,6 +163,22 @@ export interface UpdateExpenseBody {
   paidByUserId?: string;
   date?: string;
   splits?: ExpenseSplitInput[];
+}
+
+/**
+ * Create a non-group expense between the current user and a friend.
+Splits must reference exactly the current user and the selected friend.
+
+ */
+export interface CreateFriendExpenseBody {
+  friendUserId: string;
+  description: string;
+  totalAmount: number;
+  currency?: string;
+  splitType: SplitType;
+  paidByUserId: string;
+  date: string;
+  splits: ExpenseSplitInput[];
 }
 
 export interface Payment {

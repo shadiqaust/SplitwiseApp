@@ -12,6 +12,7 @@ export * from "./addMemberBody";
 export * from "./badRequestResponse";
 export * from "./balance";
 export * from "./createExpenseBody";
+export * from "./createFriendExpenseBody";
 export * from "./createGroupBody";
 export * from "./createPaymentBody";
 export * from "./dashboardSummary";

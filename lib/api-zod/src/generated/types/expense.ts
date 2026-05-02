@@ -10,7 +10,8 @@ import type { User } from "./user";
 
 export interface Expense {
   id: string;
-  groupId: string;
+  /** Null for non-group (friend-only) expenses. */
+  groupId?: string | null;
   description: string;
   totalAmount: number;
   currency: string;
