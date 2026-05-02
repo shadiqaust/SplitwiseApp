@@ -53,12 +53,14 @@ export function AddExpenseWithFriendModal({
     [currentUserId, friends],
   );
 
+  // UI-only split mode. "loan" = lent the full amount to the friend (single-friend only).
+  type Mode = "equal" | "exact" | "loan";
+
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
-  // Force equal for multi (3+ participants) — exact only allowed for 2 participants.
-  const [splitType, setSplitType] = useState<SplitType>(SplitType.equal);
-  // Exact-amount inputs, keyed by user id (used only when splitType === exact).
+  const [mode, setMode] = useState<Mode>("equal");
+  // Exact-amount inputs, keyed by user id (used only when mode === "exact").
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
 
   const updateExactAmount = (userId: string, value: string) => {
@@ -88,9 +90,22 @@ export function AddExpenseWithFriendModal({
     }
 
     let splits: Array<{ userId: string; amount: number }> = [];
-    if (splitType === SplitType.equal) {
+    let splitTypeForApi: SplitType;
+    let paidByForApi = paidByUserId;
+    if (mode === "equal") {
+      splitTypeForApi = SplitType.equal;
       splits = computeEqualSplits(total);
+    } else if (mode === "loan") {
+      // I lent the full amount to the friend → I pay everything, friend owes 100%.
+      splitTypeForApi = SplitType.exact;
+      paidByForApi = currentUserId;
+      const friendId = friends[0] ? String(friends[0].id) : "";
+      splits = [
+        { userId: currentUserId, amount: 0 },
+        { userId: friendId, amount: total },
+      ];
     } else {
+      splitTypeForApi = SplitType.exact;
       const sum = participants.reduce(
         (acc, p) => acc + (parseFloat(exactAmounts[p.id] ?? "0") || 0),
         0,
@@ -112,8 +127,8 @@ export function AddExpenseWithFriendModal({
           description: description.trim(),
           totalAmount: total,
           currency: "USD",
-          splitType,
-          paidByUserId,
+          splitType: splitTypeForApi,
+          paidByUserId: paidByForApi,
           date: new Date().toISOString().slice(0, 10),
           splits,
         },
@@ -218,16 +233,21 @@ export function AddExpenseWithFriendModal({
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Paid by</Text>
             <View style={styles.chipsWrap}>
               {participants.map((p) => {
-                const selected = paidByUserId === p.id;
+                const selected = (mode === "loan" ? currentUserId : paidByUserId) === p.id;
+                const disabled = mode === "loan" && p.id !== currentUserId;
                 return (
                   <Pressable
                     key={p.id}
-                    onPress={() => setPaidByUserId(p.id)}
+                    onPress={() => {
+                      if (disabled) return;
+                      setPaidByUserId(p.id);
+                    }}
                     style={[
                       styles.chip,
                       {
                         borderColor: selected ? colors.primary : colors.border,
                         backgroundColor: selected ? colors.primary : "transparent",
+                        opacity: disabled ? 0.4 : 1,
                       },
                     ]}
                   >
@@ -250,19 +270,19 @@ export function AddExpenseWithFriendModal({
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Split</Text>
             <View style={styles.chipsWrap}>
               <Pressable
-                onPress={() => setSplitType(SplitType.equal)}
+                onPress={() => setMode("equal")}
                 style={[
                   styles.chip,
                   {
-                    borderColor: splitType === SplitType.equal ? colors.primary : colors.border,
-                    backgroundColor: splitType === SplitType.equal ? colors.primary : "transparent",
+                    borderColor: mode === "equal" ? colors.primary : colors.border,
+                    backgroundColor: mode === "equal" ? colors.primary : "transparent",
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.chipText,
-                    { color: splitType === SplitType.equal ? "#fff" : colors.foreground },
+                    { color: mode === "equal" ? "#fff" : colors.foreground },
                   ]}
                 >
                   Equally ({participants.length} ways)
@@ -270,22 +290,43 @@ export function AddExpenseWithFriendModal({
               </Pressable>
               {!isMulti && (
                 <Pressable
-                  onPress={() => setSplitType(SplitType.exact)}
+                  onPress={() => setMode("exact")}
                   style={[
                     styles.chip,
                     {
-                      borderColor: splitType === SplitType.exact ? colors.primary : colors.border,
-                      backgroundColor: splitType === SplitType.exact ? colors.primary : "transparent",
+                      borderColor: mode === "exact" ? colors.primary : colors.border,
+                      backgroundColor: mode === "exact" ? colors.primary : "transparent",
                     },
                   ]}
                 >
                   <Text
                     style={[
                       styles.chipText,
-                      { color: splitType === SplitType.exact ? "#fff" : colors.foreground },
+                      { color: mode === "exact" ? "#fff" : colors.foreground },
                     ]}
                   >
                     Exact amounts
+                  </Text>
+                </Pressable>
+              )}
+              {!isMulti && (
+                <Pressable
+                  onPress={() => setMode("loan")}
+                  style={[
+                    styles.chip,
+                    {
+                      borderColor: mode === "loan" ? colors.primary : colors.border,
+                      backgroundColor: mode === "loan" ? colors.primary : "transparent",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      { color: mode === "loan" ? "#fff" : colors.foreground },
+                    ]}
+                  >
+                    Lent full to {friends[0]?.name ?? "friend"}
                   </Text>
                 </Pressable>
               )}
@@ -295,9 +336,15 @@ export function AddExpenseWithFriendModal({
                 Multi-friend expenses always split equally.
               </Text>
             )}
+            {mode === "loan" && !isMulti && (
+              <Text style={[styles.helperText, { color: colors.mutedForeground }]}>
+                You paid the full amount. {friends[0]?.name ?? "Your friend"} owes you{" "}
+                {amount ? formatCurrency(parseFloat(amount) || 0) : "the entire amount"}.
+              </Text>
+            )}
           </View>
 
-          {splitType === SplitType.exact && (
+          {mode === "exact" && (
             <View style={{ gap: 8 }}>
               <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
                 Exact amounts

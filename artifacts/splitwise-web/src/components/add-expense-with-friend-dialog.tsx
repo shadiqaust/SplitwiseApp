@@ -61,10 +61,13 @@ export function AddExpenseWithFriendDialog({
   const queryClient = useQueryClient();
   const createExpense = useCreateFriendExpense();
 
+  // UI-only split mode. "loan" = lent the full amount to the friend (single-friend only).
+  type Mode = "equal" | "exact" | "loan";
+
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
-  const [splitType, setSplitType] = useState<SplitType>(SplitType.equal);
+  const [mode, setMode] = useState<Mode>("equal");
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -72,10 +75,17 @@ export function AddExpenseWithFriendDialog({
       setDescription("");
       setAmount("");
       setPaidByUserId(currentUserId);
-      setSplitType(SplitType.equal);
+      setMode("equal");
       setExactAmounts({});
     }
   }, [open, currentUserId]);
+
+  // In loan mode, the lender (you) is always the payer.
+  useEffect(() => {
+    if (mode === "loan" && paidByUserId !== currentUserId) {
+      setPaidByUserId(currentUserId);
+    }
+  }, [mode, paidByUserId, currentUserId]);
 
   const updateExactAmount = (userId: string, value: string) => {
     setExactAmounts((prev) => ({ ...prev, [userId]: value }));
@@ -105,9 +115,22 @@ export function AddExpenseWithFriendDialog({
     }
 
     let splits: Array<{ userId: string; amount: number }> = [];
-    if (splitType === SplitType.equal) {
+    let splitTypeForApi: SplitType;
+    let paidByForApi = paidByUserId;
+    if (mode === "equal") {
+      splitTypeForApi = SplitType.equal;
       splits = computeEqualSplits(total);
+    } else if (mode === "loan") {
+      // I lent the full amount to the friend → I pay everything, friend owes 100%.
+      splitTypeForApi = SplitType.exact;
+      paidByForApi = currentUserId;
+      const friendId = friends[0] ? String(friends[0].id) : "";
+      splits = [
+        { userId: currentUserId, amount: 0 },
+        { userId: friendId, amount: total },
+      ];
     } else {
+      splitTypeForApi = SplitType.exact;
       const sum = participants.reduce(
         (acc, p) => acc + (parseFloat(exactAmounts[p.id] ?? "0") || 0),
         0,
@@ -125,9 +148,12 @@ export function AddExpenseWithFriendDialog({
       }));
     }
 
-    const successLabel = isMulti
-      ? `Expense added with ${friends.length} friends`
-      : `Expense added with ${friends[0]?.name ?? "friend"}`;
+    const successLabel =
+      mode === "loan"
+        ? `Logged loan to ${friends[0]?.name ?? "friend"}`
+        : isMulti
+          ? `Expense added with ${friends.length} friends`
+          : `Expense added with ${friends[0]?.name ?? "friend"}`;
 
     createExpense.mutate(
       {
@@ -136,8 +162,8 @@ export function AddExpenseWithFriendDialog({
           description: description.trim(),
           totalAmount: total,
           currency: "USD",
-          splitType,
-          paidByUserId,
+          splitType: splitTypeForApi,
+          paidByUserId: paidByForApi,
           date: new Date().toISOString().slice(0, 10),
           splits,
         },
@@ -205,7 +231,11 @@ export function AddExpenseWithFriendDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Paid by</Label>
-              <Select value={paidByUserId} onValueChange={setPaidByUserId}>
+              <Select
+                value={paidByUserId}
+                onValueChange={setPaidByUserId}
+                disabled={mode === "loan"}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -221,19 +251,21 @@ export function AddExpenseWithFriendDialog({
 
             <div className="space-y-2">
               <Label>Split</Label>
-              <Select
-                value={splitType}
-                onValueChange={(v) => setSplitType(v as SplitType)}
-              >
+              <Select value={mode} onValueChange={(v) => setMode(v as Mode)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={SplitType.equal}>
+                  <SelectItem value="equal">
                     Equally ({participants.length} ways)
                   </SelectItem>
                   {!isMulti && (
-                    <SelectItem value={SplitType.exact}>Exact amounts</SelectItem>
+                    <SelectItem value="exact">Exact amounts</SelectItem>
+                  )}
+                  {!isMulti && (
+                    <SelectItem value="loan">
+                      Lent full amount to {friends[0]?.name ?? "friend"}
+                    </SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -246,7 +278,14 @@ export function AddExpenseWithFriendDialog({
             </p>
           )}
 
-          {splitType === SplitType.exact && (
+          {mode === "loan" && !isMulti && (
+            <p className="text-xs text-muted-foreground">
+              You paid the full amount. {friends[0]?.name ?? "Your friend"} owes
+              you the entire {amount ? formatCurrency(parseFloat(amount) || 0) : "amount"}.
+            </p>
+          )}
+
+          {mode === "exact" && (
             <div className="space-y-2">
               <Label>Exact amounts</Label>
               <div className="border rounded-md divide-y">
