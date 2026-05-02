@@ -29,6 +29,7 @@ import {
   SplitType,
 } from "@workspace/api-client-react";
 
+import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DateField } from "@/components/ui/DateField";
@@ -50,7 +51,7 @@ const EXPENSE_CATEGORIES = [
   "Other",
 ];
 
-type Participant = { userId: string; name: string };
+type Participant = { userId: string; name: string; avatarUrl: string | null };
 
 export default function EditExpenseScreen() {
   const colors = useColors();
@@ -93,18 +94,26 @@ export default function EditExpenseScreen() {
       return members.map((m) => ({
         userId: m.userId,
         name: m.user?.name ?? "Member",
+        avatarUrl: m.user?.avatarUrl ?? null,
       }));
     }
-    const seen = new Map<string, string>();
+    const seen = new Map<string, { name: string; avatarUrl: string | null }>();
     for (const s of expense.splits) {
-      seen.set(s.userId, s.user?.name ?? "Member");
+      seen.set(s.userId, {
+        name: s.user?.name ?? "Member",
+        avatarUrl: s.user?.avatarUrl ?? null,
+      });
     }
     if (expense.paidByUser) {
-      seen.set(expense.paidByUserId, expense.paidByUser.name);
+      seen.set(expense.paidByUserId, {
+        name: expense.paidByUser.name,
+        avatarUrl: expense.paidByUser.avatarUrl ?? null,
+      });
     }
-    return Array.from(seen.entries()).map(([userId, name]) => ({
+    return Array.from(seen.entries()).map(([userId, v]) => ({
       userId,
-      name,
+      name: v.name,
+      avatarUrl: v.avatarUrl,
     }));
   }, [expense, groupQ.data]);
 
@@ -416,11 +425,15 @@ export default function EditExpenseScreen() {
                     style={({ pressed }) => [
                       styles.chip,
                       {
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
                         backgroundColor: active ? colors.primary : colors.muted,
                         opacity: pressed ? 0.85 : 1,
                       },
                     ]}
                   >
+                    <Avatar name={p.name} url={p.avatarUrl} size={20} />
                     <Text
                       style={{
                         color: active
@@ -503,6 +516,7 @@ export default function EditExpenseScreen() {
                         />
                       )}
                     </Pressable>
+                    <Avatar name={p.name} url={p.avatarUrl} size={28} />
                     <Text
                       style={{
                         flex: 1,

@@ -18,6 +18,7 @@ import { ArrowLeft, ImagePlus, Loader2, X } from "lucide-react";
 
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,7 +50,7 @@ const EXPENSE_CATEGORIES = [
   "Other",
 ];
 
-type Participant = { userId: string; name: string };
+type Participant = { userId: string; name: string; avatarUrl: string | null };
 
 export function ExpenseEditPage() {
   const params = useParams<{ expenseId: string }>();
@@ -96,18 +97,26 @@ export function ExpenseEditPage() {
       return members.map((m) => ({
         userId: m.userId,
         name: m.user?.name ?? "Member",
+        avatarUrl: m.user?.avatarUrl ?? null,
       }));
     }
-    const seen = new Map<string, string>();
+    const seen = new Map<string, { name: string; avatarUrl: string | null }>();
     for (const s of expense.splits) {
-      seen.set(s.userId, s.user?.name ?? "Member");
+      seen.set(s.userId, {
+        name: s.user?.name ?? "Member",
+        avatarUrl: s.user?.avatarUrl ?? null,
+      });
     }
     if (expense.paidByUser) {
-      seen.set(expense.paidByUserId, expense.paidByUser.name);
+      seen.set(expense.paidByUserId, {
+        name: expense.paidByUser.name,
+        avatarUrl: expense.paidByUser.avatarUrl ?? null,
+      });
     }
-    return Array.from(seen.entries()).map(([userId, name]) => ({
+    return Array.from(seen.entries()).map(([userId, v]) => ({
       userId,
-      name,
+      name: v.name,
+      avatarUrl: v.avatarUrl,
     }));
   }, [expense, groupQ.data]);
 
@@ -419,7 +428,10 @@ export function ExpenseEditPage() {
                     <SelectContent>
                       {participants.map((p) => (
                         <SelectItem key={p.userId} value={p.userId}>
-                          {p.userId === myId ? "You" : p.name}
+                          <span className="inline-flex items-center gap-2">
+                            <UserAvatar name={p.name} url={p.avatarUrl} size={20} />
+                            {p.userId === myId ? "You" : p.name}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -463,6 +475,7 @@ export function ExpenseEditPage() {
                           checked={checked}
                           onChange={() => toggleParticipant(p.userId)}
                         />
+                        <UserAvatar name={p.name} url={p.avatarUrl} size={28} />
                         <span className="flex-1 text-sm">
                           {p.userId === myId ? "You" : p.name}
                         </span>
