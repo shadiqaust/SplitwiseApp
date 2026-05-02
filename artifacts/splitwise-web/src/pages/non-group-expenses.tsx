@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { ChevronLeft, DollarSign } from "lucide-react";
@@ -11,6 +12,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatCurrency } from "@/lib/format";
+
+const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
 
 interface NonGroupResponse {
   myNetBalance: number;
@@ -40,6 +43,25 @@ export function NonGroupExpensesPage() {
 
   const expenses = data?.expenses ?? [];
   const net = data?.myNetBalance ?? 0;
+
+  const grouped = useMemo(() => {
+    const buckets = new Map<string, ExpenseWithSplits[]>();
+    const labels = new Map<string, string>();
+    const sorted = [...expenses].sort((a, b) =>
+      String(a.date) < String(b.date) ? 1 : -1,
+    );
+    for (const e of sorted) {
+      const d = new Date(String(e.date));
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = MONTH_FMT.format(d);
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key)!.push(e);
+      labels.set(key, label);
+    }
+    return Array.from(buckets.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
+  }, [expenses]);
 
   return (
     <Layout>
@@ -116,9 +138,18 @@ export function NonGroupExpensesPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {expenses.map((e) => (
-              <ExpenseRow key={e.id} expense={e} myId={myId} />
+          <div className="space-y-6">
+            {grouped.map((bucket) => (
+              <div key={bucket.key} className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {bucket.label}
+                </p>
+                <div className="space-y-3">
+                  {bucket.items.map((e) => (
+                    <ExpenseRow key={e.id} expense={e} myId={myId} />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}

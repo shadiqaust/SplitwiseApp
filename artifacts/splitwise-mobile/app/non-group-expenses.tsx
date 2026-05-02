@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -27,6 +27,8 @@ interface NonGroupResponse {
 }
 
 const NON_GROUP_KEY = ["non-group-expenses"] as const;
+
+const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
 
 export default function NonGroupExpensesScreen() {
   const colors = useColors();
@@ -61,6 +63,25 @@ export default function NonGroupExpensesScreen() {
   const expenses = data?.expenses ?? [];
   const net = data?.myNetBalance ?? 0;
   const myId = me.data?.id;
+
+  const grouped = useMemo(() => {
+    const buckets = new Map<string, ExpenseWithSplits[]>();
+    const labels = new Map<string, string>();
+    const sorted = [...expenses].sort((a, b) =>
+      String(a.date) < String(b.date) ? 1 : -1,
+    );
+    for (const e of sorted) {
+      const d = new Date(String(e.date));
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = MONTH_FMT.format(d);
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key)!.push(e);
+      labels.set(key, label);
+    }
+    return Array.from(buckets.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
+  }, [expenses]);
 
   return (
     <>
@@ -122,9 +143,16 @@ export default function NonGroupExpensesScreen() {
             />
           </Card>
         ) : (
-          <View style={{ gap: 8 }}>
-            {expenses.map((e) => (
-              <ExpenseRow key={e.id} expense={e} myId={myId} />
+          <View style={{ gap: 16 }}>
+            {grouped.map((bucket) => (
+              <View key={bucket.key} style={{ gap: 8 }}>
+                <Text style={[styles.monthLabel, { color: colors.mutedForeground }]}>
+                  {bucket.label.toUpperCase()}
+                </Text>
+                {bucket.items.map((e) => (
+                  <ExpenseRow key={e.id} expense={e} myId={myId} />
+                ))}
+              </View>
             ))}
           </View>
         )}
@@ -217,6 +245,7 @@ const styles = StyleSheet.create({
   desc: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   meta: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
   date: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
+  monthLabel: { fontFamily: "Inter_600SemiBold", fontSize: 11, letterSpacing: 0.8 },
   balance: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   balanceSub: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
 });
