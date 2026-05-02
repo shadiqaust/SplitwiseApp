@@ -17,6 +17,7 @@ interface GroupRowData {
   balance: number;
   isVirtual: boolean;
   avatarUrl?: string | null;
+  currency?: string;
 }
 
 export function DashboardPage() {
@@ -42,6 +43,7 @@ export function DashboardPage() {
       balance: g.myNetBalance,
       isVirtual: false,
       avatarUrl: g.avatarUrl ?? null,
+      currency: g.currency,
     }));
     return [virtualRow, ...real];
   }, [summary]);
@@ -198,7 +200,7 @@ export function DashboardPage() {
                           )}
                         >
                           {group.balance > 0 ? "+" : ""}
-                          {formatCurrency(group.balance)}
+                          {formatCurrency(group.balance, group.currency)}
                         </span>
                       </div>
                     </Link>

@@ -291,7 +291,7 @@ export default function ExpenseDetailScreen() {
             <View style={styles.amountRow}>
               <View>
                 <Text style={[styles.bigAmount, { color: colors.foreground }]}>
-                  {formatCurrency(total)}
+                  {formatCurrency(total, expense.currency)}
                 </Text>
                 <Text style={[styles.tinyMuted, { color: colors.mutedForeground }]}>
                   total amount
@@ -313,10 +313,10 @@ export default function ExpenseDetailScreen() {
                     ]}
                   >
                     {lentOrBorrowed > 0
-                      ? `+${formatCurrency(lentOrBorrowed)}`
+                      ? `+${formatCurrency(lentOrBorrowed, expense.currency)}`
                       : lentOrBorrowed < 0
-                        ? `-${formatCurrency(Math.abs(lentOrBorrowed))}`
-                        : formatCurrency(0)}
+                        ? `-${formatCurrency(Math.abs(lentOrBorrowed), expense.currency)}`
+                        : formatCurrency(0, expense.currency)}
                   </Text>
                   <Text
                     style={[styles.tinyMuted, { color: colors.mutedForeground }]}
@@ -381,7 +381,7 @@ export default function ExpenseDetailScreen() {
                     )}
                   </View>
                   <Text style={[styles.splitAmount, { color: colors.foreground }]}>
-                    {formatCurrency(Number(s.amount))}
+                    {formatCurrency(Number(s.amount), expense.currency)}
                   </Text>
                 </View>
               );

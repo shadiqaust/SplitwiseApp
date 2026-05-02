@@ -233,7 +233,7 @@ export function GroupsPage() {
                                 "font-bold text-lg",
                                 group.myNetBalance > 0 ? "text-primary" : group.myNetBalance < 0 ? "text-destructive" : "text-muted-foreground"
                               )}>
-                                {group.myNetBalance > 0 ? "+" : ""}{formatCurrency(group.myNetBalance)}
+                                {group.myNetBalance > 0 ? "+" : ""}{formatCurrency(group.myNetBalance, group.currency)}
                               </p>
                             </div>
                           </CardContent>
@@ -280,7 +280,7 @@ export function GroupsPage() {
                                 "font-semibold",
                                 group.myNetBalance > 0 ? "text-primary" : group.myNetBalance < 0 ? "text-destructive" : "text-muted-foreground"
                               )}>
-                                {group.myNetBalance > 0 ? "+" : ""}{formatCurrency(group.myNetBalance)}
+                                {group.myNetBalance > 0 ? "+" : ""}{formatCurrency(group.myNetBalance, group.currency)}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {group.myNetBalance > 0

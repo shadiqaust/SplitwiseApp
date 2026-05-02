@@ -218,9 +218,9 @@ export default function DashboardScreen() {
                       ]}
                     >
                       {g.myNetBalance > 0
-                        ? `you are owed ${formatCurrency(g.myNetBalance)}`
+                        ? `you are owed ${formatCurrency(g.myNetBalance, g.currency)}`
                         : g.myNetBalance < 0
-                          ? `you owe ${formatCurrency(Math.abs(g.myNetBalance))}`
+                          ? `you owe ${formatCurrency(Math.abs(g.myNetBalance), g.currency)}`
                           : "settled up"}
                     </Text>
                   </View>

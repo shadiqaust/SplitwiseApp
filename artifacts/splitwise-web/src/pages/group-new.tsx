@@ -7,13 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { COMMON_CURRENCIES } from "@/lib/currencies";
 
 const formSchema = z.object({
   name: z.string().min(1, "Group name is required").max(100),
   description: z.string().max(255).optional(),
+  currency: z.string().min(1, "Currency is required"),
 });
 
 export function NewGroupPage() {
@@ -26,6 +29,7 @@ export function NewGroupPage() {
     defaultValues: {
       name: "",
       description: "",
+      currency: "USD",
     },
   });
 
@@ -71,6 +75,30 @@ export function NewGroupPage() {
                   <FormControl>
                     <Textarea placeholder="What is this group for?" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="currency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Currency</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a currency" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {COMMON_CURRENCIES.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.symbol} {c.code} — {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

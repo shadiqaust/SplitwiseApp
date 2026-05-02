@@ -36,6 +36,8 @@ export interface Group {
   description?: string | null;
   category?: string | null;
   avatarUrl?: string | null;
+  /** ISO-4217 currency code used to format all amounts in this group */
+  currency?: string;
   /** Short code others can use to join this group via QR/link */
   inviteCode?: string | null;
   createdByUserId: string;
@@ -79,6 +81,7 @@ export interface CreateGroupBody {
   description?: string | null;
   category?: string | null;
   avatarUrl?: string | null;
+  currency?: string;
 }
 
 export interface UpdateGroupBody {
@@ -86,6 +89,7 @@ export interface UpdateGroupBody {
   description?: string | null;
   category?: string | null;
   avatarUrl?: string | null;
+  currency?: string;
 }
 
 export interface IncludeMemberInPastExpensesBody {
@@ -260,6 +264,7 @@ export interface GroupBalanceSummary {
   groupId: string;
   groupName: string;
   avatarUrl?: string | null;
+  currency?: string;
   myNetBalance: number;
 }
 

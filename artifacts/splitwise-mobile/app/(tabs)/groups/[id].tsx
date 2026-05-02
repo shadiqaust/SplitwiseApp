@@ -110,6 +110,7 @@ export default function GroupDetailScreen() {
   // QueryClient (5s, runs in background).
   const me = useGetMe();
   const group = useGetGroup(groupId);
+  const groupCurrency = group.data?.currency ?? "USD";
   const expenses = useListExpenses(groupId);
   const payments = useListPayments(groupId);
   const balances = useGetGroupBalances(groupId);
@@ -612,7 +613,7 @@ export default function GroupDetailScreen() {
 
           <View style={[styles.spendRow, { borderTopColor: colors.border }]}>
             <Text style={[styles.spendLabel, { color: colors.mutedForeground }]}>Total group spend</Text>
-            <Text style={[styles.spendValue, { color: colors.foreground }]}>{formatCurrency(totalGroupSpend)}</Text>
+            <Text style={[styles.spendValue, { color: colors.foreground }]}>{formatCurrency(totalGroupSpend, groupCurrency)}</Text>
           </View>
         </Card>
 
@@ -734,7 +735,7 @@ export default function GroupDetailScreen() {
                           {e.description}
                         </Text>
                         <Text style={[styles.activitySub, { color: colors.mutedForeground }]}>
-                          {youPaid ? "You" : e.paidByUser.name} paid {formatCurrency(e.totalAmount)} · {e.category ?? "General"} · {formatDate(e.date)}
+                          {youPaid ? "You" : e.paidByUser.name} paid {formatCurrency(e.totalAmount, groupCurrency)} · {e.category ?? "General"} · {formatDate(e.date)}
                         </Text>
                       </View>
                       <Text
@@ -744,10 +745,10 @@ export default function GroupDetailScreen() {
                         ]}
                       >
                         {lentOrBorrowed > 0
-                          ? `+${formatCurrency(lentOrBorrowed)}`
+                          ? `+${formatCurrency(lentOrBorrowed, groupCurrency)}`
                           : lentOrBorrowed < 0
-                            ? `-${formatCurrency(Math.abs(lentOrBorrowed))}`
-                            : formatCurrency(0)}
+                            ? `-${formatCurrency(Math.abs(lentOrBorrowed), groupCurrency)}`
+                            : formatCurrency(0, groupCurrency)}
                       </Text>
                     </Card>
                     </Pressable>
@@ -785,7 +786,7 @@ export default function GroupDetailScreen() {
                       </Text>
                     </View>
                     <Text style={[styles.activityAmount, { color: "#16a34a" }]}>
-                      {formatCurrency(p.amount)}
+                      {formatCurrency(p.amount, groupCurrency)}
                     </Text>
                   </Card>
                   </Pressable>
@@ -815,7 +816,7 @@ export default function GroupDetailScreen() {
                   </Text>
                 </Text>
                 <Text style={[styles.balanceAmount, { color: colors.negative }]}>
-                  {formatCurrency(b.amount)}
+                  {formatCurrency(b.amount, groupCurrency)}
                 </Text>
               </Card>
             ))}
@@ -884,12 +885,12 @@ export default function GroupDetailScreen() {
                       </>
                     ) : netAmount > 0 ? (
                       <>
-                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 22, color: "#16a34a" }}>{formatCurrency(netAmount)}</Text>
+                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 22, color: "#16a34a" }}>{formatCurrency(netAmount, groupCurrency)}</Text>
                         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>{pm.user.name.split(" ")[0]} owes you</Text>
                       </>
                     ) : (
                       <>
-                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 22, color: "#dc2626" }}>{formatCurrency(Math.abs(netAmount))}</Text>
+                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 22, color: "#dc2626" }}>{formatCurrency(Math.abs(netAmount), groupCurrency)}</Text>
                         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>You owe {pm.user.name.split(" ")[0]}</Text>
                       </>
                     )}

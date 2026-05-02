@@ -57,6 +57,12 @@ export const ListGroupsResponseItem = zod
     description: zod.string().nullish(),
     category: zod.string().nullish(),
     avatarUrl: zod.string().nullish(),
+    currency: zod
+      .string()
+      .optional()
+      .describe(
+        "ISO-4217 currency code used to format all amounts in this group",
+      ),
     inviteCode: zod
       .string()
       .nullish()
@@ -82,6 +88,7 @@ export const CreateGroupBody = zod.object({
   description: zod.string().nullish(),
   category: zod.string().nullish(),
   avatarUrl: zod.string().nullish(),
+  currency: zod.string().optional(),
 });
 
 /**
@@ -114,6 +121,12 @@ export const JoinGroupResponse = zod.object({
   description: zod.string().nullish(),
   category: zod.string().nullish(),
   avatarUrl: zod.string().nullish(),
+  currency: zod
+    .string()
+    .optional()
+    .describe(
+      "ISO-4217 currency code used to format all amounts in this group",
+    ),
   inviteCode: zod
     .string()
     .nullish()
@@ -136,6 +149,12 @@ export const GetGroupResponse = zod
     description: zod.string().nullish(),
     category: zod.string().nullish(),
     avatarUrl: zod.string().nullish(),
+    currency: zod
+      .string()
+      .optional()
+      .describe(
+        "ISO-4217 currency code used to format all amounts in this group",
+      ),
     inviteCode: zod
       .string()
       .nullish()
@@ -177,6 +196,7 @@ export const UpdateGroupBody = zod.object({
   description: zod.string().nullish(),
   category: zod.string().nullish(),
   avatarUrl: zod.string().nullish(),
+  currency: zod.string().optional(),
 });
 
 export const UpdateGroupResponse = zod.object({
@@ -185,6 +205,12 @@ export const UpdateGroupResponse = zod.object({
   description: zod.string().nullish(),
   category: zod.string().nullish(),
   avatarUrl: zod.string().nullish(),
+  currency: zod
+    .string()
+    .optional()
+    .describe(
+      "ISO-4217 currency code used to format all amounts in this group",
+    ),
   inviteCode: zod
     .string()
     .nullish()
@@ -906,6 +932,7 @@ export const GetDashboardSummaryResponse = zod.object({
       groupId: zod.string().uuid(),
       groupName: zod.string(),
       avatarUrl: zod.string().nullish(),
+      currency: zod.string().optional(),
       myNetBalance: zod.number(),
     }),
   ),

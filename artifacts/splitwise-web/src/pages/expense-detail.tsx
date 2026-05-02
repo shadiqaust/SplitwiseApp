@@ -294,7 +294,7 @@ export function ExpenseDetailPage() {
 
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-3xl font-bold">{formatCurrency(total)}</p>
+                <p className="text-3xl font-bold">{formatCurrency(total, expense.currency)}</p>
                 <p className="text-xs text-muted-foreground">total amount</p>
               </div>
               {myShare !== null && (
@@ -310,10 +310,10 @@ export function ExpenseDetailPage() {
                     )}
                   >
                     {lentOrBorrowed > 0
-                      ? `+${formatCurrency(lentOrBorrowed)}`
+                      ? `+${formatCurrency(lentOrBorrowed, expense.currency)}`
                       : lentOrBorrowed < 0
-                        ? `-${formatCurrency(Math.abs(lentOrBorrowed))}`
-                        : formatCurrency(0)}
+                        ? `-${formatCurrency(Math.abs(lentOrBorrowed), expense.currency)}`
+                        : formatCurrency(0, expense.currency)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {lentOrBorrowed > 0
@@ -361,7 +361,7 @@ export function ExpenseDetailPage() {
                       )}
                     </div>
                     <p className="text-sm font-medium">
-                      {formatCurrency(Number(s.amount))}
+                      {formatCurrency(Number(s.amount), expense.currency)}
                     </p>
                   </div>
                 );

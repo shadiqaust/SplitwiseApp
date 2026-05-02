@@ -9,6 +9,7 @@ export const groupsTable = pgTable("groups", {
   description: text("description"),
   category: text("category"),
   avatarUrl: text("avatar_url"),
+  currency: text("currency").notNull().default("USD"),
   inviteCode: text("invite_code").unique(),
   createdByUserId: uuid("created_by_user_id")
     .notNull()

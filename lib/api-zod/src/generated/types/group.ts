@@ -12,6 +12,8 @@ export interface Group {
   description?: string | null;
   category?: string | null;
   avatarUrl?: string | null;
+  /** ISO-4217 currency code used to format all amounts in this group */
+  currency?: string;
   /** Short code others can use to join this group via QR/link */
   inviteCode?: string | null;
   createdByUserId: string;

@@ -7,6 +7,7 @@ import {
   expenseCommentsTable,
   usersTable,
   groupMembersTable,
+  groupsTable,
   friendshipsTable,
   paymentsTable,
 } from "@workspace/db";
@@ -549,6 +550,13 @@ router.post(
       return;
     }
 
+    // Group expenses always use the group's currency, ignoring any client-provided value.
+    const [groupRow] = await db
+      .select({ currency: groupsTable.currency })
+      .from(groupsTable)
+      .where(eq(groupsTable.id, groupId));
+    const groupCurrency = groupRow?.currency ?? currency ?? "USD";
+
     const [expense] = await db
       .insert(expensesTable)
       .values({
@@ -556,7 +564,7 @@ router.post(
         description,
         category: category ?? null,
         totalAmount: totalAmount.toFixed(2),
-        currency: currency ?? "USD",
+        currency: groupCurrency,
         splitType,
         paidByUserId,
         date: toDateString(String(date)),

@@ -167,6 +167,7 @@ router.post("/groups", requireAuth, async (req, res): Promise<void> => {
       name: parsed.data.name,
       description: parsed.data.description ?? null,
       category: parsed.data.category ?? null,
+      currency: parsed.data.currency ?? "USD",
       createdByUserId: req.dbUserId!,
       inviteCode: generateInviteCode(),
     })
@@ -310,6 +311,7 @@ router.put(
     if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
     if (parsed.data.category !== undefined) updateData.category = parsed.data.category;
     if (parsed.data.avatarUrl !== undefined) updateData.avatarUrl = parsed.data.avatarUrl ?? null;
+    if (parsed.data.currency !== undefined && parsed.data.currency) updateData.currency = parsed.data.currency;
 
     const [group] = await db
       .update(groupsTable)

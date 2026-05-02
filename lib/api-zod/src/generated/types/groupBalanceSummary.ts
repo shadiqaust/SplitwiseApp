@@ -10,5 +10,6 @@ export interface GroupBalanceSummary {
   groupId: string;
   groupName: string;
   avatarUrl?: string | null;
+  currency?: string;
   myNetBalance: number;
 }

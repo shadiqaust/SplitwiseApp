@@ -281,10 +281,10 @@ export default function GroupsScreen() {
                         ]}
                       >
                         {g.myNetBalance > 0
-                          ? `+${formatCurrency(g.myNetBalance)}`
+                          ? `+${formatCurrency(g.myNetBalance, g.currency)}`
                           : g.myNetBalance < 0
-                            ? `-${formatCurrency(Math.abs(g.myNetBalance))}`
-                            : formatCurrency(0)}
+                            ? `-${formatCurrency(Math.abs(g.myNetBalance), g.currency)}`
+                            : formatCurrency(0, g.currency)}
                       </Text>
                       <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
                         {g.myNetBalance > 0
@@ -354,10 +354,10 @@ export default function GroupsScreen() {
                         ]}
                       >
                         {g.myNetBalance > 0
-                          ? `+${formatCurrency(g.myNetBalance)}`
+                          ? `+${formatCurrency(g.myNetBalance, g.currency)}`
                           : g.myNetBalance < 0
-                            ? `-${formatCurrency(Math.abs(g.myNetBalance))}`
-                            : formatCurrency(0)}
+                            ? `-${formatCurrency(Math.abs(g.myNetBalance), g.currency)}`
+                            : formatCurrency(0, g.currency)}
                       </Text>
                     </View>
                         </Card>

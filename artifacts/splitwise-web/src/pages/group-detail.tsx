@@ -731,10 +731,12 @@ function AddExpenseDialog({
   groupId,
   members,
   currentUserId,
+  groupCurrency,
 }: {
   groupId: string;
   members: GroupMember[];
   currentUserId: string;
+  groupCurrency: string;
 }) {
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState("");
@@ -827,7 +829,7 @@ function AddExpenseDialog({
       const sum = splits.reduce((a, s) => a + s.amount, 0);
       if (Math.abs(sum - total) > 0.01) {
         toast({
-          title: `Exact amounts must sum to ${formatCurrency(total)}`,
+          title: `Exact amounts must sum to ${formatCurrency(total, groupCurrency)}`,
           variant: "destructive",
         });
         return;
@@ -851,7 +853,7 @@ function AddExpenseDialog({
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
-          currency: "USD",
+          currency: groupCurrency,
           splitType,
           paidByUserId,
           date: new Date().toISOString().slice(0, 10),
@@ -1052,11 +1054,13 @@ function SettleUpDialog({
   members,
   currentUserId,
   balances,
+  groupCurrency,
 }: {
   groupId: string;
   members: GroupMember[];
   currentUserId: string;
   balances: Balance[];
+  groupCurrency: string;
 }) {
   const [open, setOpen] = useState(false);
   const [fromUserId, setFromUserId] = useState<string>(currentUserId);
@@ -1082,8 +1086,8 @@ function SettleUpDialog({
     const owed = balances.find((b) => b.fromUserId === toUserId && b.toUserId === fromUserId);
     const fromName = fromUserId === currentUserId ? "You" : members.find((m) => m.userId === fromUserId)?.user.name ?? "Payer";
     const toName = toUserId === currentUserId ? "you" : members.find((m) => m.userId === toUserId)?.user.name ?? "Recipient";
-    if (owes) return { text: `${fromName} owe${fromUserId !== currentUserId ? "s" : ""} ${toName} ${formatCurrency(owes.amount)}`, amount: owes.amount, positive: true };
-    if (owed) return { text: `${toUserId === currentUserId ? "You owe" : `${owed.fromUser.name} owes`} ${fromUserId === currentUserId ? "you" : owed.toUser.name} ${formatCurrency(owed.amount)} — no payment needed`, amount: null, positive: false };
+    if (owes) return { text: `${fromName} owe${fromUserId !== currentUserId ? "s" : ""} ${toName} ${formatCurrency(owes.amount, groupCurrency)}`, amount: owes.amount, positive: true };
+    if (owed) return { text: `${toUserId === currentUserId ? "You owe" : `${owed.fromUser.name} owes`} ${fromUserId === currentUserId ? "you" : owed.toUser.name} ${formatCurrency(owed.amount, groupCurrency)} — no payment needed`, amount: null, positive: false };
     return { text: "All settled up between these two", amount: null, positive: false };
   }, [fromUserId, toUserId, balances, currentUserId, members]);
 
@@ -1251,6 +1255,7 @@ function MemberProfileDialog({
   myUserId,
   balances,
   members,
+  groupCurrency,
 }: {
   member: ProfileMember;
   open: boolean;
@@ -1259,6 +1264,7 @@ function MemberProfileDialog({
   myUserId: string;
   balances: Balance[];
   members: GroupMember[];
+  groupCurrency: string;
 }) {
   const owesMe = balances.find(b => b.fromUserId === member.userId && b.toUserId === myUserId);
   const iOwe = balances.find(b => b.fromUserId === myUserId && b.toUserId === member.userId);
@@ -1320,12 +1326,12 @@ function MemberProfileDialog({
               </>
             ) : netAmount > 0 ? (
               <>
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(netAmount)}</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(netAmount, groupCurrency)}</p>
                 <p className="text-sm text-muted-foreground">{firstName} owes you</p>
               </>
             ) : (
               <>
-                <p className="text-2xl font-bold text-red-600">{formatCurrency(Math.abs(netAmount))}</p>
+                <p className="text-2xl font-bold text-red-600">{formatCurrency(Math.abs(netAmount), groupCurrency)}</p>
                 <p className="text-sm text-muted-foreground">You owe {firstName}</p>
               </>
             )}
@@ -1361,7 +1367,7 @@ function MemberProfileDialog({
                   className="text-xs text-primary underline"
                   onClick={() => setAmount(String(Math.abs(netAmount)))}
                 >
-                  Use balance ({formatCurrency(Math.abs(netAmount))})
+                  Use balance ({formatCurrency(Math.abs(netAmount), groupCurrency)})
                 </button>
               )}
             </div>
@@ -1397,6 +1403,7 @@ export function GroupDetailPage() {
 
   const myUserId = me.data?.id ?? "";
   const members = group.data?.members ?? [];
+  const groupCurrency = group.data?.currency ?? "USD";
 
   const [filterMemberId, setFilterMemberId] = useState<string | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"all" | "7d" | "30d">("all");
@@ -1532,11 +1539,13 @@ export function GroupDetailPage() {
                   members={members}
                   currentUserId={myUserId}
                   balances={balances.data ?? []}
+                  groupCurrency={groupCurrency}
                 />
                 <AddExpenseDialog
                   groupId={groupId}
                   members={members}
                   currentUserId={myUserId}
+                  groupCurrency={groupCurrency}
                 />
               </>
             ) : null}
@@ -1592,6 +1601,7 @@ export function GroupDetailPage() {
                 myUserId={myUserId}
                 balances={balances.data ?? []}
                 members={members}
+                groupCurrency={groupCurrency}
               />
             )}
           </CardContent>
@@ -1601,7 +1611,7 @@ export function GroupDetailPage() {
         <Card>
           <CardContent className="py-4 flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Total group spend</span>
-            <span className="text-lg font-bold">{formatCurrency(totalGroupSpend)}</span>
+            <span className="text-lg font-bold">{formatCurrency(totalGroupSpend, groupCurrency)}</span>
           </CardContent>
         </Card>
 
@@ -1707,7 +1717,7 @@ export function GroupDetailPage() {
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {youPaid ? "You" : e.paidByUser.name} paid{" "}
-                            {formatCurrency(e.totalAmount)} ·{" "}
+                            {formatCurrency(e.totalAmount, groupCurrency)} ·{" "}
                             {e.category ?? "General"} ·{" "}
                             {formatDate(e.date)}
                           </p>
@@ -1723,10 +1733,10 @@ export function GroupDetailPage() {
                           )}
                         >
                           {lentOrBorrowed > 0
-                            ? `+${formatCurrency(lentOrBorrowed)}`
+                            ? `+${formatCurrency(lentOrBorrowed, groupCurrency)}`
                             : lentOrBorrowed < 0
-                              ? `-${formatCurrency(Math.abs(lentOrBorrowed))}`
-                              : formatCurrency(0)}
+                              ? `-${formatCurrency(Math.abs(lentOrBorrowed), groupCurrency)}`
+                              : formatCurrency(0, groupCurrency)}
                         </div>
                       </CardContent>
                     </Card>
@@ -1767,7 +1777,7 @@ export function GroupDetailPage() {
                         </p>
                       </div>
                       <div className="font-medium text-sm whitespace-nowrap text-green-700">
-                        {formatCurrency(p.amount)}
+                        {formatCurrency(p.amount, groupCurrency)}
                       </div>
                     </CardContent>
                   </Card>
@@ -1796,7 +1806,7 @@ export function GroupDetailPage() {
                       </span>
                     </p>
                     <div className="text-destructive font-medium">
-                      {formatCurrency(b.amount)}
+                      {formatCurrency(b.amount, groupCurrency)}
                     </div>
                   </CardContent>
                 </Card>

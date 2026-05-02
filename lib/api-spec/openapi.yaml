@@ -958,6 +958,9 @@ components:
         avatarUrl:
           type: string
           nullable: true
+        currency:
+          type: string
+          description: ISO-4217 currency code used to format all amounts in this group
         inviteCode:
           type: string
           nullable: true
@@ -1037,6 +1040,8 @@ components:
         avatarUrl:
           type: string
           nullable: true
+        currency:
+          type: string
       required: [name]
 
     UpdateGroupBody:
@@ -1053,6 +1058,8 @@ components:
         avatarUrl:
           type: string
           nullable: true
+        currency:
+          type: string
 
     GroupMember:
       type: object
@@ -1466,6 +1473,8 @@ components:
         avatarUrl:
           type: string
           nullable: true
+        currency:
+          type: string
         myNetBalance:
           type: number
       required: [groupId, groupName, myNetBalance]
