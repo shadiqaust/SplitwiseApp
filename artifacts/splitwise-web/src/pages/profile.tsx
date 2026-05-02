@@ -131,10 +131,14 @@ export function ProfilePage() {
     updateMe.mutate(
       { data: payload },
       {
-        onSuccess: () => {
-          // Refresh the TanStack cache for any component reading useGetMe(),
-          // and patch the auth context so the sidebar (which reads
-          // useAuth().user) updates immediately.
+        onSuccess: (updated) => {
+          // Patch the cached me() so anything reading useGetMe() (sidebar,
+          // mobile top header, etc.) reflects the new name/location instantly.
+          queryClient.setQueryData(
+            getGetMeQueryKey(),
+            (prev: typeof updated | undefined) =>
+              prev ? { ...prev, ...payload } : updated,
+          );
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
           updateUser(payload);
           toast({ title: "Profile updated" });
@@ -170,7 +174,12 @@ export function ProfilePage() {
     updateMe.mutate(
       { data: { avatarUrl: selectedUrl } },
       {
-        onSuccess: () => {
+        onSuccess: (updated) => {
+          queryClient.setQueryData(
+            getGetMeQueryKey(),
+            (prev: typeof updated | undefined) =>
+              prev ? { ...prev, avatarUrl: selectedUrl } : updated,
+          );
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
           // Patch the auth context so the sidebar avatar updates immediately.
           updateUser({ avatarUrl: selectedUrl });
