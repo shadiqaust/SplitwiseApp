@@ -23,6 +23,8 @@ interface NonGroupResponse {
   myNetBalance: number;
   count: number;
   expenses: ExpenseWithSplits[];
+  /** Per-friend net for non-group activity only (positive = friend owes me). */
+  friendNets?: Record<string, number>;
 }
 
 function authHeaders(): HeadersInit {
@@ -158,6 +160,7 @@ export function NonGroupExpensesPage() {
                       key={e.id}
                       expense={e}
                       myId={myId}
+                      friendNets={data?.friendNets}
                       onSettle={(friend, impact) =>
                         setSettleTarget({ friend, impact })
                       }
@@ -188,10 +191,12 @@ export function NonGroupExpensesPage() {
 function ExpenseRow({
   expense,
   myId,
+  friendNets,
   onSettle,
 }: {
   expense: ExpenseWithSplits;
   myId: string | undefined;
+  friendNets?: Record<string, number>;
   onSettle: (friend: SettleFriend, impact: number) => void;
 }) {
   const total = Number(expense.totalAmount);
@@ -210,23 +215,33 @@ function ExpenseRow({
       ? `with ${otherNames.slice(0, 3).join(", ")}${otherNames.length > 3 ? ` +${otherNames.length - 3}` : ""}`
       : "";
 
-  // Settle button only on unambiguous 1-on-1 rows (one counterparty).
-  // Multi-person rows: users settle from the friend page or friends list.
+  // 1-on-1 counterparty (if any).
+  const onlyCounterparty =
+    otherSplits.length === 1 ? otherSplits[0] : null;
+  const counterpartyId = onlyCounterparty?.userId;
+  const counterpartyNet =
+    counterpartyId !== undefined && friendNets
+      ? friendNets[counterpartyId]
+      : undefined;
+  const isSettled =
+    typeof counterpartyNet === "number" && Math.abs(counterpartyNet) < 0.01;
+
+  // Settle button only on unambiguous 1-on-1 rows that aren't already settled.
   let settleFriend: SettleFriend | null = null;
   let settleImpact = 0;
-  if (otherSplits.length === 1) {
-    if (owedToMe > 0 && otherSplits[0].user) {
+  if (onlyCounterparty && !isSettled) {
+    if (owedToMe > 0 && onlyCounterparty.user) {
       settleFriend = {
-        id: otherSplits[0].userId,
-        name: otherSplits[0].user.name,
+        id: onlyCounterparty.userId,
+        name: onlyCounterparty.user.name,
       };
-      settleImpact = Number(otherSplits[0].amount);
+      settleImpact = counterpartyNet ?? Number(onlyCounterparty.amount);
     } else if (iOwe > 0 && expense.paidByUser) {
       settleFriend = {
         id: expense.paidByUserId,
         name: expense.paidByUser.name,
       };
-      settleImpact = -iOwe;
+      settleImpact = counterpartyNet ?? -iOwe;
     }
   }
 
@@ -246,7 +261,16 @@ function ExpenseRow({
           </p>
         </div>
         <div className="text-right shrink-0">
-          {owedToMe > 0 ? (
+          {isSettled ? (
+            <>
+              <p className="font-semibold text-muted-foreground">
+                {iPaid
+                  ? `+${formatCurrency(owedToMe)}`
+                  : `-${formatCurrency(iOwe)}`}
+              </p>
+              <p className="text-xs text-primary">settled up</p>
+            </>
+          ) : owedToMe > 0 ? (
             <>
               <p className="font-semibold text-primary">
                 +{formatCurrency(owedToMe)}

@@ -30,6 +30,7 @@ interface NonGroupResponse {
   myNetBalance: number;
   count: number;
   expenses: ExpenseWithSplits[];
+  friendNets?: Record<string, number>;
 }
 
 const NON_GROUP_KEY = ["non-group-expenses"] as const;
@@ -164,6 +165,7 @@ export default function NonGroupExpensesScreen() {
                     key={e.id}
                     expense={e}
                     myId={myId}
+                    friendNets={query.data?.friendNets}
                     onSettle={(friend, impact) =>
                       setSettleTarget({ friend, impact })
                     }
@@ -189,10 +191,12 @@ export default function NonGroupExpensesScreen() {
 function ExpenseRow({
   expense,
   myId,
+  friendNets,
   onSettle,
 }: {
   expense: ExpenseWithSplits;
   myId: string | undefined;
+  friendNets?: Record<string, number>;
   onSettle: (friend: SettleFriend, impact: number) => void;
 }) {
   const colors = useColors();
@@ -212,22 +216,28 @@ function ExpenseRow({
       ? `with ${otherNames.slice(0, 2).join(", ")}${otherNames.length > 2 ? ` +${otherNames.length - 2}` : ""}`
       : "";
 
-  // Only show settle on unambiguous 1-on-1 rows (one counterparty).
+  const onlyCounterparty =
+    otherSplits.length === 1 ? otherSplits[0] : null;
+  const counterpartyNet =
+    onlyCounterparty && friendNets ? friendNets[onlyCounterparty.userId] : undefined;
+  const isSettled =
+    typeof counterpartyNet === "number" && Math.abs(counterpartyNet) < 0.01;
+
   let settleFriend: SettleFriend | null = null;
   let settleImpact = 0;
-  if (otherSplits.length === 1) {
-    if (owedToMe > 0 && otherSplits[0].user) {
+  if (onlyCounterparty && !isSettled) {
+    if (owedToMe > 0 && onlyCounterparty.user) {
       settleFriend = {
-        id: otherSplits[0].userId,
-        name: otherSplits[0].user.name,
+        id: onlyCounterparty.userId,
+        name: onlyCounterparty.user.name,
       };
-      settleImpact = Number(otherSplits[0].amount);
+      settleImpact = counterpartyNet ?? Number(onlyCounterparty.amount);
     } else if (iOwe > 0 && expense.paidByUser) {
       settleFriend = {
         id: expense.paidByUserId,
         name: expense.paidByUser.name,
       };
-      settleImpact = -iOwe;
+      settleImpact = counterpartyNet ?? -iOwe;
     }
   }
 
@@ -266,7 +276,18 @@ function ExpenseRow({
         )}
       </View>
       <View style={{ alignItems: "flex-end" }}>
-        {owedToMe > 0 ? (
+        {isSettled ? (
+          <>
+            <Text style={[styles.balance, { color: colors.mutedForeground }]}>
+              {iPaid
+                ? `+${formatCurrency(owedToMe)}`
+                : `-${formatCurrency(iOwe)}`}
+            </Text>
+            <Text style={[styles.balanceSub, { color: colors.primary }]}>
+              settled up
+            </Text>
+          </>
+        ) : owedToMe > 0 ? (
           <>
             <Text style={[styles.balance, { color: colors.positive }]}>
               +{formatCurrency(owedToMe)}

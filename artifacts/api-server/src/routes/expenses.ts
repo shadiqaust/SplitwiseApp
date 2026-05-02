@@ -7,6 +7,7 @@ import {
   usersTable,
   groupMembersTable,
   friendshipsTable,
+  paymentsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import {
@@ -233,25 +234,70 @@ router.get(
       splitsByExpense.get(s.expenseId)!.push(s);
     }
 
+    // Per-friend net for non-group activity. Positive = friend owes me.
+    const friendNets = new Map<string, number>();
+    const bump = (friendId: string, delta: number) => {
+      friendNets.set(friendId, (friendNets.get(friendId) ?? 0) + delta);
+    };
+
     let myNet = 0;
     for (const e of expenses) {
       const splits = splitsByExpense.get(e.id) ?? [];
       if (e.paidByUserId === me) {
         for (const s of splits) {
-          if (s.userId !== me) myNet += parseFloat(s.amount);
+          if (s.userId !== me) {
+            const v = parseFloat(s.amount);
+            myNet += v;
+            bump(s.userId, v);
+          }
         }
       } else {
         const mine = splits.find((s) => s.userId === me);
-        if (mine) myNet -= parseFloat(mine.amount);
+        if (mine) {
+          const v = parseFloat(mine.amount);
+          myNet -= v;
+          bump(e.paidByUserId, -v);
+        }
+      }
+    }
+
+    // Fold non-group payments into the per-friend net AND aggregate net.
+    const nonGroupPayments = await db
+      .select()
+      .from(paymentsTable)
+      .where(
+        and(
+          isNull(paymentsTable.groupId),
+          or(
+            eq(paymentsTable.fromUserId, me),
+            eq(paymentsTable.toUserId, me),
+          ),
+        ),
+      );
+    for (const p of nonGroupPayments) {
+      const amt = parseFloat(p.amount);
+      if (p.fromUserId === me) {
+        // I paid friend → reduces what I owe → my net goes up.
+        myNet += amt;
+        bump(p.toUserId, amt);
+      } else {
+        // Friend paid me → reduces what friend owes me → my net goes down.
+        myNet -= amt;
+        bump(p.fromUserId, -amt);
       }
     }
 
     const built = await Promise.all(expenses.map(buildExpenseWithSplits));
+    const friendNetsObj: Record<string, number> = {};
+    for (const [k, v] of friendNets) {
+      friendNetsObj[k] = Math.round(v * 100) / 100;
+    }
 
     res.json({
       myNetBalance: Math.round(myNet * 100) / 100,
       count: built.length,
       expenses: built,
+      friendNets: friendNetsObj,
     });
   },
 );
