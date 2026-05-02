@@ -137,7 +137,7 @@ export function GroupsPage() {
           </Select>
         </div>
 
-        <Link href="/non-group-expenses">
+        <Link href="/non-group-expenses" className="block mb-4">
           <Card className="hover:border-primary/50 transition-colors cursor-pointer">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
