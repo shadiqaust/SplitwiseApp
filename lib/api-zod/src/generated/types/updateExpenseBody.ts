@@ -10,10 +10,12 @@ import type { SplitType } from "./splitType";
 
 export interface UpdateExpenseBody {
   description?: string;
+  category?: string | null;
   totalAmount?: number;
   currency?: string;
   splitType?: SplitType;
   paidByUserId?: string;
   date?: Date;
+  photoUrl?: string | null;
   splits?: ExpenseSplitInput[];
 }

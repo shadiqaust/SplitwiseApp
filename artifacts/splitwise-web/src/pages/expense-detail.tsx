@@ -16,7 +16,7 @@ import {
   useDeleteExpense,
   type ExpenseComment,
 } from "@workspace/api-client-react";
-import { ArrowLeft, MessageSquare, Receipt, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, MessageSquare, Pencil, Receipt, Send, Trash2 } from "lucide-react";
 
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error";
 import { cn, formatCurrency, formatDate } from "@/lib/format";
+import { photoSrc } from "@/lib/upload";
 
 export function ExpenseDetailPage() {
   const params = useParams<{ expenseId: string }>();
@@ -213,6 +214,21 @@ export function ExpenseDetailPage() {
               </div>
             </div>
 
+            {expense.photoUrl && photoSrc(expense.photoUrl) && (
+              <a
+                href={photoSrc(expense.photoUrl)!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-lg overflow-hidden border bg-muted"
+              >
+                <img
+                  src={photoSrc(expense.photoUrl)!}
+                  alt="Receipt"
+                  className="w-full max-h-80 object-contain"
+                />
+              </a>
+            )}
+
             <div className="flex items-end justify-between">
               <div>
                 <p className="text-3xl font-bold">{formatCurrency(total)}</p>
@@ -340,7 +356,13 @@ export function ExpenseDetailPage() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/expenses/${expenseId}/edit`)}
+          >
+            <Pencil className="w-4 h-4 mr-1" /> Edit expense
+          </Button>
           <Button
             variant="destructive"
             onClick={deleteExpenseFn}

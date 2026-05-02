@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@clerk/express": "^2.1.7",
+    "@google-cloud/storage": "^7.19.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@workspace/api-zod": "workspace:*",
@@ -20,6 +21,7 @@
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
+    "google-auth-library": "^10.6.2",
     "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.3",
     "pino": "^9",

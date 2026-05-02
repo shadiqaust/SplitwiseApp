@@ -142,3 +142,46 @@ Every expense row across the apps is clickable and routes to a dedicated Expense
 - Detail page shows: description, total, who paid, date, category, group/non-group label, per-person split breakdown (with "(paid)" tag and percentage when present), and a comments thread.
 - Comments thread: list (oldest→newest), add (Cmd/Ctrl+Enter on web), delete-own only. Authors are returned as `{ id, name, email, avatarUrl }`.
 - Backend: `expense_comments` table (FK to `expenses` cascade) in `lib/db/src/schema/expenses.ts`. Endpoints in `artifacts/api-server/src/routes/expenses.ts`: `GET /expenses/:expenseId/comments`, `POST /expenses/:expenseId/comments` (body trimmed, max 2000 chars), `DELETE /expenses/:expenseId/comments/:commentId` (UUID-validated, author-only 403). All gated by `requireExpenseAccess()`. Deleting an expense also clears its comments (via FK cascade; explicit delete kept for safety).
+
+## Expense edit + receipt photo (May 2026)
+
+Full expense edit (group + non-group) and optional receipt photo upload per expense.
+
+### Object storage
+- `artifacts/api-server/src/lib/{objectStorage,objectAcl}.ts` — GCS client + ACL helpers (Replit App Storage).
+- `artifacts/api-server/src/routes/storage.ts` — three endpoints, mounted under `/api`:
+  - `POST /storage/uploads/request-url` — **gated by `requireAuth`**; returns `{ uploadUrl, objectPath }` where `objectPath = /objects/uploads/<uuid>`.
+  - `GET /storage/objects/*path` — fetch a private object (currently unauthenticated; receipt URLs are UUID-obscured — acceptable for low-risk receipts).
+  - `GET /storage/public-objects/{filePath}` — public asset passthrough.
+- Required env: `DEFAULT_OBJECT_STORAGE_BUCKET_ID`, `PRIVATE_OBJECT_DIR`, `PUBLIC_OBJECT_SEARCH_PATHS` (already set).
+
+### DB
+- `expensesTable.photoUrl text` (nullable) — added in `lib/db/src/schema/expenses.ts`. Pushed.
+
+### Backend `PUT /api/expenses/:expenseId`
+- `requireExpenseAccess()` gates the route.
+- Supports group **and** non-group expenses. For non-group, allowed participants are derived from existing `expense_splits` rows ∪ `paidByUserId`.
+- Accepts partial updates of `description`, `category`, `date`, `totalAmount`, `currency`, `splitType`, `paidByUserId`, `splits`, `photoUrl`.
+- Invariant: when `splits` are provided, `paidByUserId` **must** appear in `splits[].userId` (otherwise 400 "Payer must be included in the split participants").
+- Splits are recomputed via `computeFinalSplits(splitType, total, splits)` then replaced atomically (delete-then-insert).
+
+### OpenAPI
+- `Expense` and `UpdateExpenseBody` include `photoUrl?: string | null`.
+- `/storage/uploads/request-url` declares `security: [{ bearerAuth: [] }]` and `401` response.
+- `pnpm --filter @workspace/api-spec run codegen` regenerates `useRequestUploadUrl` and updated typings.
+
+### Web edit page
+- Route `/expenses/:expenseId/edit` → `artifacts/splitwise-web/src/pages/expense-edit.tsx`.
+- "Edit" button on `expense-detail.tsx` navigates here.
+- Single-page form: description, amount, category, date, paidBy, splitType (equal/exact/percentage), participants checklist, receipt photo.
+- Hydration via a `hydrated` flag from `useGetExpense` + `useGetGroup` (group only when `expense.groupId`). `useGetGroup` is called with `query: { queryKey: getGetGroupQueryKey(groupId), enabled: Boolean(expense?.groupId) }`.
+- Payer is **locked into participants**: `changePayer()` auto-adds the new payer to the participant set; `toggleParticipant()` is a no-op for the current payer.
+- `src/lib/upload.ts` — `uploadPhoto(file)` (POST request URL, PUT to presigned URL, return `objectPath`) and `photoSrc(objectPath)` (returns `/api/storage<objectPath>` for `<img>`).
+- On save, invalidates: `getGetExpenseQueryKey(id)`, `getListExpensesQueryKey()`, `getGetActivityQueryKey()`, `getGetDashboardSummaryQueryKey()`, and group balances when applicable.
+
+### Mobile edit screen
+- Route `/expenses/edit/[id]` → `artifacts/splitwise-mobile/app/expenses/edit/[id].tsx`. Same form/logic as web.
+- "Edit" button on `app/expenses/[id].tsx`. Receipt thumbnail rendered on the detail screen too.
+- `lib/upload.ts` — `uploadPhotoFromUri(uri)` (uses `FileSystem.uploadAsync` BINARY mode against the presigned URL) and `photoUri(objectPath)` (returns `${BASE_URL}/api/storage<objectPath>`).
+- Image picking via `expo-image-picker` (already installed). Same payer-in-participants invariant enforced.
+- Mobile `Button` component takes `title=` (not children); also has `fullWidth` and `loading` props.

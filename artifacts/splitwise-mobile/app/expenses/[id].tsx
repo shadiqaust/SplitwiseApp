@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -33,6 +34,7 @@ import { Card } from "@/components/ui/Card";
 import { useColors } from "@/hooks/useColors";
 import { getErrorMessage } from "@/lib/error";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { photoUri } from "@/lib/upload";
 
 export default function ExpenseDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
@@ -208,6 +210,19 @@ export default function ExpenseDetailScreen() {
               </View>
             </View>
 
+            {expense.photoUrl && photoUri(expense.photoUrl) && (
+              <Pressable
+                onPress={() => router.push(`/expenses/edit/${expenseId}`)}
+                style={{ marginTop: 14 }}
+              >
+                <Image
+                  source={{ uri: photoUri(expense.photoUrl)! }}
+                  style={styles.receipt}
+                  resizeMode="cover"
+                />
+              </Pressable>
+            )}
+
             <View style={styles.amountRow}>
               <View>
                 <Text style={[styles.bigAmount, { color: colors.foreground }]}>
@@ -378,6 +393,23 @@ export default function ExpenseDetailScreen() {
               </Pressable>
             </View>
           </Card>
+
+          <Pressable
+            onPress={() => router.push(`/expenses/edit/${expenseId}`)}
+            style={({ pressed }) => [
+              styles.editBtn,
+              {
+                backgroundColor: colors.muted,
+                borderColor: colors.border,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <Feather name="edit-2" size={16} color={colors.foreground} />
+            <Text style={[styles.editBtnText, { color: colors.foreground }]}>
+              Edit expense
+            </Text>
+          </Pressable>
 
           <Pressable
             onPress={onDeleteExpense}
@@ -552,5 +584,24 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
     color: "#fff",
+  },
+  editBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  editBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+  },
+  receipt: {
+    width: "100%",
+    height: 200,
+    borderRadius: 8,
   },
 });

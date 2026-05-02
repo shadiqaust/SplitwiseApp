@@ -135,6 +135,8 @@ export interface Expense {
   paidByUserId: string;
   paidByUser: User;
   date: string;
+  /** Optional receipt photo URL (object storage path). */
+  photoUrl?: string | null;
   createdAt: string;
 }
 
@@ -178,11 +180,13 @@ export interface CreateExpenseBody {
 
 export interface UpdateExpenseBody {
   description?: string;
+  category?: string | null;
   totalAmount?: number;
   currency?: string;
   splitType?: SplitType;
   paidByUserId?: string;
   date?: string;
+  photoUrl?: string | null;
   splits?: ExpenseSplitInput[];
 }
 
@@ -279,6 +283,25 @@ export interface ActivityItem {
   involvedUser: User;
   date: string;
   createdAt: string;
+}
+
+export interface UploadUrlRequest {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 1 */
+  size: number;
+  /** @minLength 1 */
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata?: UploadUrlRequest;
+}
+
+export interface ErrorEnvelope {
+  error: string;
 }
 
 /**

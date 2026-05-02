@@ -21,5 +21,7 @@ export interface Expense {
   paidByUserId: string;
   paidByUser: User;
   date: Date;
+  /** Optional receipt photo URL (object storage path). */
+  photoUrl?: string | null;
   createdAt: Date;
 }

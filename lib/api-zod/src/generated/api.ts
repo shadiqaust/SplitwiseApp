@@ -288,6 +288,10 @@ export const GetFriendActivityResponse = zod.object({
           createdAt: zod.coerce.date(),
         }),
         date: zod.coerce.date(),
+        photoUrl: zod
+          .string()
+          .nullish()
+          .describe("Optional receipt photo URL (object storage path)."),
         createdAt: zod.coerce.date(),
       })
       .and(
@@ -388,6 +392,10 @@ export const ListNonGroupExpensesResponse = zod.object({
           createdAt: zod.coerce.date(),
         }),
         date: zod.coerce.date(),
+        photoUrl: zod
+          .string()
+          .nullish()
+          .describe("Optional receipt photo URL (object storage path)."),
         createdAt: zod.coerce.date(),
       })
       .and(
@@ -498,6 +506,10 @@ export const ListExpensesResponseItem = zod
       createdAt: zod.coerce.date(),
     }),
     date: zod.coerce.date(),
+    photoUrl: zod
+      .string()
+      .nullish()
+      .describe("Optional receipt photo URL (object storage path)."),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -586,6 +598,10 @@ export const GetExpenseResponse = zod
       createdAt: zod.coerce.date(),
     }),
     date: zod.coerce.date(),
+    photoUrl: zod
+      .string()
+      .nullish()
+      .describe("Optional receipt photo URL (object storage path)."),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -620,11 +636,13 @@ export const UpdateExpenseParams = zod.object({
 
 export const UpdateExpenseBody = zod.object({
   description: zod.string().optional(),
+  category: zod.string().nullish(),
   totalAmount: zod.number().optional(),
   currency: zod.string().optional(),
   splitType: zod.enum(["equal", "exact", "percentage"]).optional(),
   paidByUserId: zod.string().uuid().optional(),
   date: zod.coerce.date().optional(),
+  photoUrl: zod.string().nullish(),
   splits: zod
     .array(
       zod.object({
@@ -665,6 +683,10 @@ export const UpdateExpenseResponse = zod
       createdAt: zod.coerce.date(),
     }),
     date: zod.coerce.date(),
+    photoUrl: zod
+      .string()
+      .nullish()
+      .describe("Optional receipt photo URL (object storage path)."),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -880,3 +902,39 @@ export const GetActivityResponseItem = zod.object({
   createdAt: zod.coerce.date(),
 });
 export const GetActivityResponse = zod.array(GetActivityResponseItem);
+
+/**
+ * @summary Request a presigned URL for file upload
+ */
+
+export const RequestUploadUrlBody = zod.object({
+  name: zod.string().min(1),
+  size: zod.number().min(1),
+  contentType: zod.string().min(1),
+});
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod.string().url(),
+  objectPath: zod.string(),
+  metadata: zod
+    .object({
+      name: zod.string().min(1),
+      size: zod.number().min(1),
+      contentType: zod.string().min(1),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Serve a public asset
+ */
+export const GetPublicObjectParams = zod.object({
+  filePath: zod.coerce.string(),
+});
+
+/**
+ * @summary Serve an object entity
+ */
+export const GetStorageObjectParams = zod.object({
+  objectPath: zod.coerce.string(),
+});

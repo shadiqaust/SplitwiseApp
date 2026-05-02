@@ -22,6 +22,7 @@ export const expensesTable = pgTable("expenses", {
     .notNull()
     .references(() => usersTable.id),
   date: date("date").notNull(),
+  photoUrl: text("photo_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

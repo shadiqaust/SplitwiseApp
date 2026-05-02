@@ -569,16 +569,20 @@ router.put(
       return;
     }
 
-    // Editing non-group (friend-only) expenses is not yet supported.
-    if (current.groupId === null) {
-      res.status(400).json({
-        error: "Editing non-group friend expenses is not supported yet",
-      });
-      return;
+    // For group expenses, allowed participants are group members.
+    // For non-group (friend) expenses, allowed participants are the existing
+    // split user IDs (the original payer + friend(s)).
+    let memberIds: Set<string>;
+    if (current.groupId !== null) {
+      memberIds = await getMemberIds(current.groupId);
+    } else {
+      const existingSplits = await db
+        .select({ userId: expenseSplitsTable.userId })
+        .from(expenseSplitsTable)
+        .where(eq(expenseSplitsTable.expenseId, expenseId));
+      memberIds = new Set(existingSplits.map((s) => s.userId));
+      memberIds.add(current.paidByUserId);
     }
-
-    const groupId = current.groupId;
-    const memberIds = await getMemberIds(groupId);
 
     const newSplitType = (parsed.data.splitType ?? current.splitType) as
       | "equal"
@@ -598,25 +602,44 @@ router.put(
       return;
     }
     if (!memberIds.has(newPaidBy)) {
-      res.status(400).json({ error: "Payer must be a group member" });
+      res.status(400).json({
+        error:
+          current.groupId !== null
+            ? "Payer must be a group member"
+            : "Payer must be one of the original participants",
+      });
       return;
     }
 
     const updateData: Record<string, unknown> = {};
     if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
+    if (parsed.data.category !== undefined) updateData.category = parsed.data.category;
     if (parsed.data.totalAmount !== undefined)
       updateData.totalAmount = parsed.data.totalAmount.toFixed(2);
     if (parsed.data.currency !== undefined) updateData.currency = parsed.data.currency;
     if (parsed.data.splitType !== undefined) updateData.splitType = parsed.data.splitType;
     if (parsed.data.paidByUserId !== undefined) updateData.paidByUserId = parsed.data.paidByUserId;
     if (parsed.data.date !== undefined) updateData.date = toDateString(String(parsed.data.date));
+    if (parsed.data.photoUrl !== undefined) updateData.photoUrl = parsed.data.photoUrl;
 
     if (parsed.data.splits) {
       for (const s of parsed.data.splits) {
         if (!memberIds.has(s.userId)) {
-          res.status(400).json({ error: "All split participants must be group members" });
+          res.status(400).json({
+            error:
+              current.groupId !== null
+                ? "All split participants must be group members"
+                : "All split participants must be among the original participants",
+          });
           return;
         }
+      }
+      const splitUserIds = new Set(parsed.data.splits.map((s) => s.userId));
+      if (!splitUserIds.has(newPaidBy)) {
+        res
+          .status(400)
+          .json({ error: "Payer must be included in the split participants" });
+        return;
       }
       const computed = computeFinalSplits(
         newSplitType,
