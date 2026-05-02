@@ -37,6 +37,7 @@ import type {
   IncludeMemberInPastExpensesBody,
   IncludeMemberInPastExpensesResponse,
   ListExpensesParams,
+  ListNonGroupExpenses200,
   NotFoundResponse,
   Payment,
   UnauthorizedResponse,
@@ -1058,6 +1059,84 @@ export function useGetGroupBalances<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetGroupBalancesQueryOptions(groupId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns every non-group expense (`groupId` is null) where the current user
+is either the payer or appears in the splits, plus a summary balance.
+
+ * @summary List all non-group (friend-only) expenses for the current user
+ */
+export const getListNonGroupExpensesUrl = () => {
+  return `/api/expenses/non-group`;
+};
+
+export const listNonGroupExpenses = async (
+  options?: RequestInit,
+): Promise<ListNonGroupExpenses200> => {
+  return customFetch<ListNonGroupExpenses200>(getListNonGroupExpensesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListNonGroupExpensesQueryKey = () => {
+  return [`/api/expenses/non-group`] as const;
+};
+
+export const getListNonGroupExpensesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listNonGroupExpenses>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listNonGroupExpenses>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListNonGroupExpensesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listNonGroupExpenses>>
+  > = ({ signal }) => listNonGroupExpenses({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listNonGroupExpenses>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListNonGroupExpensesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listNonGroupExpenses>>
+>;
+export type ListNonGroupExpensesQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary List all non-group (friend-only) expenses for the current user
+ */
+
+export function useListNonGroupExpenses<
+  TData = Awaited<ReturnType<typeof listNonGroupExpenses>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listNonGroupExpenses>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListNonGroupExpensesQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

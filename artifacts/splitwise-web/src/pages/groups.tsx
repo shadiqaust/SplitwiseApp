@@ -5,7 +5,7 @@ import { Layout } from "@/components/layout";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Plus, Users } from "lucide-react";
+import { ChevronRight, DollarSign, Plus, Users } from "lucide-react";
 
 export function GroupsPage() {
   const { data: groups, isLoading } = useListGroups();
@@ -22,6 +22,23 @@ export function GroupsPage() {
             </Button>
           </Link>
         </div>
+
+        <Link href="/non-group-expenses">
+          <Card className="hover:border-primary/50 transition-colors cursor-pointer">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <DollarSign className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold">Non-group expenses</p>
+                <p className="text-sm text-muted-foreground">
+                  All expenses not tied to a group
+                </p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
 
         {isLoading ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

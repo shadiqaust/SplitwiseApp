@@ -59,6 +59,9 @@ Custom JWT-based authentication — no Clerk or third-party provider.
 ### Non-group expense API (`POST /api/expenses`)
 Body: `{ friendUserId? | friendUserIds?: string[], description, totalAmount, currency, splitType, paidByUserId, date, splits }`. Either `friendUserId` (single, legacy) or `friendUserIds` (one or more) must be provided. Backend validates all are friends, payer is one of `{me, ...friends}`, and splits cover every participant exactly once. Multi-friend (`friendUserIds.length > 1`) is restricted to `splitType: "equal"`.
 
+### Non-group expense history (`GET /api/expenses/non-group`)
+Returns `{ myNetBalance, count, expenses }` for every expense with `groupId IS NULL` involving the current user (as payer or in the splits). Surfaced as a virtual "Non-group expenses" card at the top of the Groups tab on both web (`/non-group-expenses` route in `pages/non-group-expenses.tsx`) and mobile (`app/non-group-expenses.tsx` route, linked from `app/(tabs)/groups/index.tsx`). The screens render a balance summary plus per-expense rows with "you lent" / "you owe" labels.
+
 ### Mobile (`artifacts/splitwise-mobile`)
 - `lib/auth.tsx` — `AuthProvider` + `useAuth()` hook. Stores JWT in `expo-secure-store` (native) or `localStorage` (web). Exports `getToken()` for the API client.
 - `app/sign-in.tsx` — native sign-in / sign-up screen.

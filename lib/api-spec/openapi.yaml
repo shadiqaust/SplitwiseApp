@@ -270,6 +270,36 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # ─── Expenses ─────────────────────────────────────────────────────────────
+  /expenses/non-group:
+    get:
+      operationId: listNonGroupExpenses
+      tags: [expenses]
+      summary: List all non-group (friend-only) expenses for the current user
+      description: |
+        Returns every non-group expense (`groupId` is null) where the current user
+        is either the payer or appears in the splits, plus a summary balance.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Non-group expense history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  myNetBalance:
+                    type: number
+                    description: Positive = others owe you, negative = you owe.
+                  count:
+                    type: integer
+                  expenses:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ExpenseWithSplits"
+                required: [myNetBalance, count, expenses]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /expenses:
     post:
       operationId: createFriendExpense

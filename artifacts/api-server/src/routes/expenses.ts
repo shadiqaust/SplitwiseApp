@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, inArray, and, or } from "drizzle-orm";
+import { eq, desc, inArray, and, or, isNull } from "drizzle-orm";
 import {
   db,
   expensesTable,
@@ -181,6 +181,80 @@ async function areFriends(userA: string, userB: string): Promise<boolean> {
     );
   return Boolean(sharedRow);
 }
+
+// GET /expenses/non-group — list all non-group expenses involving the current user.
+router.get(
+  "/expenses/non-group",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const me = req.dbUserId!;
+
+    const asPayer = await db
+      .select()
+      .from(expensesTable)
+      .where(
+        and(isNull(expensesTable.groupId), eq(expensesTable.paidByUserId, me)),
+      );
+
+    const asSplit = await db
+      .select({ expenseId: expenseSplitsTable.expenseId })
+      .from(expenseSplitsTable)
+      .innerJoin(expensesTable, eq(expensesTable.id, expenseSplitsTable.expenseId))
+      .where(
+        and(isNull(expensesTable.groupId), eq(expenseSplitsTable.userId, me)),
+      );
+
+    const expenseIds = Array.from(
+      new Set<string>([
+        ...asPayer.map((e) => e.id),
+        ...asSplit.map((r) => r.expenseId),
+      ]),
+    );
+
+    if (expenseIds.length === 0) {
+      res.json({ myNetBalance: 0, count: 0, expenses: [] });
+      return;
+    }
+
+    const expenses = await db
+      .select()
+      .from(expensesTable)
+      .where(inArray(expensesTable.id, expenseIds))
+      .orderBy(desc(expensesTable.date), desc(expensesTable.createdAt));
+
+    const allSplits = await db
+      .select()
+      .from(expenseSplitsTable)
+      .where(inArray(expenseSplitsTable.expenseId, expenseIds));
+
+    const splitsByExpense = new Map<string, typeof allSplits>();
+    for (const s of allSplits) {
+      if (!splitsByExpense.has(s.expenseId)) splitsByExpense.set(s.expenseId, []);
+      splitsByExpense.get(s.expenseId)!.push(s);
+    }
+
+    let myNet = 0;
+    for (const e of expenses) {
+      const splits = splitsByExpense.get(e.id) ?? [];
+      if (e.paidByUserId === me) {
+        for (const s of splits) {
+          if (s.userId !== me) myNet += parseFloat(s.amount);
+        }
+      } else {
+        const mine = splits.find((s) => s.userId === me);
+        if (mine) myNet -= parseFloat(mine.amount);
+      }
+    }
+
+    const built = await Promise.all(expenses.map(buildExpenseWithSplits));
+
+    res.json({
+      myNetBalance: Math.round(myNet * 100) / 100,
+      count: built.length,
+      expenses: built,
+    });
+  },
+);
 
 // POST /expenses — create a non-group expense between current user and a friend.
 router.post(

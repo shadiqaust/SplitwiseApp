@@ -261,6 +261,13 @@ export type NotFoundResponse = ErrorResponse;
  */
 export type BadRequestResponse = ErrorResponse;
 
+export type ListNonGroupExpenses200 = {
+  /** Positive = others owe you, negative = you owe. */
+  myNetBalance: number;
+  count: number;
+  expenses: ExpenseWithSplits[];
+};
+
 export type ListExpensesParams = {
   limit?: number;
   offset?: number;

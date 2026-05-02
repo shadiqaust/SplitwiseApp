@@ -31,6 +31,7 @@ export * from "./healthStatus";
 export * from "./includeMemberInPastExpensesBody";
 export * from "./includeMemberInPastExpensesResponse";
 export * from "./listExpensesParams";
+export * from "./listNonGroupExpenses200";
 export * from "./notFoundResponse";
 export * from "./payment";
 export * from "./splitType";

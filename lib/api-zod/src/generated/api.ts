@@ -234,6 +234,72 @@ export const GetGroupBalancesResponseItem = zod
 export const GetGroupBalancesResponse = zod.array(GetGroupBalancesResponseItem);
 
 /**
+ * Returns every non-group expense (`groupId` is null) where the current user
+is either the payer or appears in the splits, plus a summary balance.
+
+ * @summary List all non-group (friend-only) expenses for the current user
+ */
+export const listNonGroupExpensesResponseExpensesItemOneCurrencyDefault = `USD`;
+
+export const ListNonGroupExpensesResponse = zod.object({
+  myNetBalance: zod
+    .number()
+    .describe("Positive = others owe you, negative = you owe."),
+  count: zod.number(),
+  expenses: zod.array(
+    zod
+      .object({
+        id: zod.string().uuid(),
+        groupId: zod
+          .string()
+          .uuid()
+          .nullish()
+          .describe("Null for non-group (friend-only) expenses."),
+        description: zod.string(),
+        totalAmount: zod.number(),
+        currency: zod
+          .string()
+          .default(listNonGroupExpensesResponseExpensesItemOneCurrencyDefault),
+        splitType: zod.enum(["equal", "exact", "percentage"]),
+        paidByUserId: zod.string().uuid(),
+        paidByUser: zod.object({
+          id: zod.string().uuid(),
+          name: zod.string(),
+          email: zod.string(),
+          avatarUrl: zod.string().nullish(),
+          country: zod.string().nullish(),
+          location: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        }),
+        date: zod.coerce.date(),
+        createdAt: zod.coerce.date(),
+      })
+      .and(
+        zod.object({
+          splits: zod.array(
+            zod.object({
+              id: zod.string().uuid(),
+              expenseId: zod.string().uuid(),
+              userId: zod.string().uuid(),
+              user: zod.object({
+                id: zod.string().uuid(),
+                name: zod.string(),
+                email: zod.string(),
+                avatarUrl: zod.string().nullish(),
+                country: zod.string().nullish(),
+                location: zod.string().nullish(),
+                createdAt: zod.coerce.date(),
+              }),
+              amount: zod.number().describe("Amount this user owes"),
+              percentage: zod.number().nullish(),
+            }),
+          ),
+        }),
+      ),
+  ),
+});
+
+/**
  * @summary Create a non-group expense with a friend
  */
 export const createFriendExpenseBodyCurrencyDefault = `USD`;

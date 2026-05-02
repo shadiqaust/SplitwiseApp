@@ -62,6 +62,23 @@ export default function GroupsScreen() {
         fullWidth
       />
 
+      <Pressable onPress={() => router.push("/non-group-expenses")}>
+        <Card style={styles.row}>
+          <View style={[styles.bubble, { backgroundColor: colors.accent }]}>
+            <Feather name="dollar-sign" size={20} color={colors.accentForeground} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
+              Non-group expenses
+            </Text>
+            <Text style={[styles.sub, { color: colors.mutedForeground }]}>
+              All expenses not tied to a group
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+        </Card>
+      </Pressable>
+
       {data && data.length > 0 ? (
         <View style={{ gap: 8 }}>
           {data.map((g) => (
