@@ -44,8 +44,9 @@ export function DateField({
   const [showIosPicker, setShowIosPicker] = useState(false);
   const current = parseIsoDate(value);
 
-  const handleChange = (_: DateTimePickerEvent, selected?: Date) => {
-    if (selected) onChange(toIsoDate(selected));
+  const handleChange = (event: DateTimePickerEvent, selected?: Date) => {
+    if (event.type === "set" && selected) onChange(toIsoDate(selected));
+    setShowIosPicker(false);
   };
 
   const open = () => {
