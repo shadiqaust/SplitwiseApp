@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -10,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   SplitType,
   useCreateFriendExpense,
@@ -18,12 +19,21 @@ import {
   getGetActivityQueryKey,
 } from "@workspace/api-client-react";
 
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 
+import { Avatar } from "@/components/ui/Avatar";
 import { useColors } from "@/hooks/useColors";
+import { authFetch } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { getErrorMessage } from "@/lib/error";
 import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
+
+interface ApiFriend {
+  id: string | number;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+}
 
 const EXPENSE_CATEGORIES = [
   "General",
@@ -57,21 +67,12 @@ export function AddExpenseWithFriendModal({
   const queryClient = useQueryClient();
   const createExpense = useCreateFriendExpense();
 
-  const friendIds = useMemo(() => friends.map((f) => String(f.id)), [friends]);
-  const isMulti = friends.length > 1;
-
-  // Participants (me + friends), in a stable order. "You" is always first.
-  const participants = useMemo(
-    () => [
-      { id: currentUserId, name: "You", isMe: true },
-      ...friends.map((f) => ({ id: String(f.id), name: f.name, isMe: false })),
-    ],
-    [currentUserId, friends],
-  );
-
   // UI-only split mode. "loan" = lent the full amount to the friend (single-friend only).
   type Mode = "equal" | "exact" | "loan";
 
+  // Editable friend list (initial value comes from `friends` prop, but the user
+  // can add more or remove some inside the modal).
+  const [friendsList, setFriendsList] = useState<FriendLike[]>(friends);
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<string>("General");
   const [amount, setAmount] = useState("");
@@ -79,6 +80,65 @@ export function AddExpenseWithFriendModal({
   const [mode, setMode] = useState<Mode>("equal");
   // Exact-amount inputs, keyed by user id (used only when mode === "exact").
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const friendIds = useMemo(
+    () => friendsList.map((f) => String(f.id)),
+    [friendsList],
+  );
+  const isMulti = friendsList.length > 1;
+
+  // Participants (me + friends), in a stable order. "You" is always first.
+  const participants = useMemo(
+    () => [
+      { id: currentUserId, name: "You", isMe: true },
+      ...friendsList.map((f) => ({
+        id: String(f.id),
+        name: f.name,
+        isMe: false,
+      })),
+    ],
+    [currentUserId, friendsList],
+  );
+
+  const allFriendsQuery = useQuery<ApiFriend[]>({
+    queryKey: ["friends-mobile"],
+    queryFn: async () => {
+      const res = await authFetch("/api/friends");
+      if (!res.ok) throw new Error("Failed to load friends");
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (isMulti && mode !== "equal") setMode("equal");
+  }, [isMulti, mode]);
+
+  useEffect(() => {
+    const ids = new Set([currentUserId, ...friendIds]);
+    if (!ids.has(paidByUserId)) setPaidByUserId(currentUserId);
+  }, [friendIds, currentUserId, paidByUserId]);
+
+  const addFriend = (f: ApiFriend) => {
+    setFriendsList((prev) => {
+      const key = String(f.id);
+      if (prev.some((x) => String(x.id) === key)) return prev;
+      return [...prev, { id: f.id, name: f.name }];
+    });
+  };
+  const removeFriend = (id: string | number) => {
+    setFriendsList((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((f) => String(f.id) !== String(id));
+    });
+  };
+
+  const availableFriends = useMemo(() => {
+    const have = new Set(friendIds);
+    return (allFriendsQuery.data ?? []).filter(
+      (f) => !have.has(String(f.id)) && String(f.id) !== currentUserId,
+    );
+  }, [allFriendsQuery.data, friendIds, currentUserId]);
 
   const updateExactAmount = (userId: string, value: string) => {
     setExactAmounts((prev) => ({ ...prev, [userId]: value }));
@@ -106,17 +166,21 @@ export function AddExpenseWithFriendModal({
       return;
     }
 
+    // Multi-friend non-group expenses must split equally — derive the effective
+    // mode at submit time so a stale `mode` can't slip through.
+    const effectiveMode: Mode = isMulti ? "equal" : mode;
+
     let splits: Array<{ userId: string; amount: number }> = [];
     let splitTypeForApi: SplitType;
     let paidByForApi = paidByUserId;
-    if (mode === "equal") {
+    if (effectiveMode === "equal") {
       splitTypeForApi = SplitType.equal;
       splits = computeEqualSplits(total);
-    } else if (mode === "loan") {
+    } else if (effectiveMode === "loan") {
       // I lent the full amount to the friend → I pay everything, friend owes 100%.
       splitTypeForApi = SplitType.exact;
       paidByForApi = currentUserId;
-      const friendId = friends[0] ? String(friends[0].id) : "";
+      const friendId = friendsList[0] ? String(friendsList[0].id) : "";
       splits = [
         { userId: currentUserId, amount: 0 },
         { userId: friendId, amount: total },
@@ -170,8 +234,8 @@ export function AddExpenseWithFriendModal({
   };
 
   const titleSubtext = isMulti
-    ? `${friends.length} friends`
-    : friends[0]?.name ?? "";
+    ? `${friendsList.length} friends`
+    : friendsList[0]?.name ?? "";
 
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -209,6 +273,60 @@ export function AddExpenseWithFriendModal({
         </View>
 
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 14 }}>
+          <View style={{ gap: 6 }}>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Friends</Text>
+            <View style={styles.chipsWrap}>
+              {friendsList.map((f) => (
+                <View
+                  key={String(f.id)}
+                  style={[
+                    styles.friendPill,
+                    { borderColor: colors.border, backgroundColor: colors.muted },
+                  ]}
+                >
+                  <Text
+                    style={[styles.friendPillText, { color: colors.foreground }]}
+                    numberOfLines={1}
+                  >
+                    {f.name}
+                  </Text>
+                  {friendsList.length > 1 && (
+                    <Pressable
+                      onPress={() => removeFriend(f.id)}
+                      hitSlop={8}
+                      style={styles.friendPillRemove}
+                    >
+                      <Feather name="x" size={14} color={colors.mutedForeground} />
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+              <Pressable
+                onPress={() => setPickerOpen(true)}
+                disabled={
+                  allFriendsQuery.isLoading || availableFriends.length === 0
+                }
+                style={[
+                  styles.friendAddBtn,
+                  {
+                    borderColor: colors.border,
+                    opacity:
+                      allFriendsQuery.isLoading || availableFriends.length === 0
+                        ? 0.5
+                        : 1,
+                  },
+                ]}
+              >
+                <Feather name="plus" size={14} color={colors.primary} />
+                <Text
+                  style={[styles.friendAddBtnText, { color: colors.primary }]}
+                >
+                  {availableFriends.length === 0 ? "No more" : "Add friend"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
           <View style={{ gap: 6 }}>
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Description</Text>
             <TextInput
@@ -391,7 +509,7 @@ export function AddExpenseWithFriendModal({
                       { color: mode === "loan" ? "#fff" : colors.foreground },
                     ]}
                   >
-                    Lent full to {friends[0]?.name ?? "friend"}
+                    Lent full to {friendsList[0]?.name ?? "friend"}
                   </Text>
                 </Pressable>
               )}
@@ -403,7 +521,7 @@ export function AddExpenseWithFriendModal({
             )}
             {mode === "loan" && !isMulti && (
               <Text style={[styles.helperText, { color: colors.mutedForeground }]}>
-                You paid the full amount. {friends[0]?.name ?? "Your friend"} owes you{" "}
+                You paid the full amount. {friendsList[0]?.name ?? "Your friend"} owes you{" "}
                 {amount ? formatCurrency(parseFloat(amount) || 0) : "the entire amount"}.
               </Text>
             )}
@@ -458,6 +576,105 @@ export function AddExpenseWithFriendModal({
             </Text>
           </Pressable>
         </ScrollView>
+
+        <Modal
+          visible={pickerOpen}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setPickerOpen(false)}
+        >
+          <View
+            style={[
+              styles.sheet,
+              { backgroundColor: colors.background, paddingTop: Math.max(insets.top, 8) },
+            ]}
+          >
+            <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+              <Pressable
+                onPress={() => setPickerOpen(false)}
+                hitSlop={12}
+                style={styles.headerSide}
+              >
+                <Text style={[styles.headerCancel, { color: colors.primary }]}>
+                  Done
+                </Text>
+              </Pressable>
+              <View style={styles.headerCenter}>
+                <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+                  Add friends
+                </Text>
+              </View>
+              <View style={styles.headerSide} />
+            </View>
+            <View style={{ flex: 1, padding: 16 }}>
+              {allFriendsQuery.isLoading ? (
+                <View style={{ alignItems: "center", paddingVertical: 24 }}>
+                  <ActivityIndicator color={colors.primary} />
+                </View>
+              ) : availableFriends.length === 0 ? (
+                <Text
+                  style={{
+                    color: colors.mutedForeground,
+                    textAlign: "center",
+                    paddingVertical: 24,
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 13,
+                  }}
+                >
+                  Everyone's already added.
+                </Text>
+              ) : (
+                <ScrollView keyboardShouldPersistTaps="handled">
+                  {availableFriends.map((f) => (
+                    <Pressable
+                      key={String(f.id)}
+                      onPress={() => {
+                        addFriend(f);
+                        setPickerOpen(false);
+                      }}
+                      android_ripple={{ color: colors.accent }}
+                      style={({ pressed }) => [
+                        {
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingVertical: 12,
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                          borderBottomColor: colors.border,
+                          opacity: pressed ? 0.7 : 1,
+                        },
+                      ]}
+                    >
+                      <Avatar name={f.name} url={f.avatarUrl} size={36} />
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text
+                          style={{
+                            fontFamily: "Inter_600SemiBold",
+                            fontSize: 15,
+                            color: colors.foreground,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {f.name}
+                        </Text>
+                        <Text
+                          style={{
+                            fontFamily: "Inter_400Regular",
+                            fontSize: 12,
+                            color: colors.mutedForeground,
+                            marginTop: 2,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {f.email}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
       </View>
     </Modal>
   );
@@ -518,4 +735,37 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   submitBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: "#fff" },
+  friendPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingLeft: 12,
+    paddingRight: 6,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    gap: 4,
+  },
+  friendPillText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    maxWidth: 140,
+  },
+  friendPillRemove: {
+    padding: 2,
+    borderRadius: 999,
+  },
+  friendAddBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    gap: 4,
+  },
+  friendAddBtnText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+  },
 });

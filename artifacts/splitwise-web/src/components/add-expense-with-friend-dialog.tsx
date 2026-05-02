@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, X } from "lucide-react";
 import {
   SplitType,
   useCreateFriendExpense,
@@ -18,6 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -48,6 +54,18 @@ export interface FriendLike {
   name: string;
 }
 
+interface ApiFriend {
+  id: string | number;
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
+}
+
+function authHeaders(): HeadersInit {
+  const token = localStorage.getItem("sw_auth_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export function AddExpenseWithFriendDialog({
   friends,
   currentUserId,
@@ -59,18 +77,6 @@ export function AddExpenseWithFriendDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const friendIds = useMemo(() => friends.map((f) => String(f.id)), [friends]);
-  const isMulti = friends.length > 1;
-
-  // Participants: me + friends. "You" is always first.
-  const participants = useMemo(
-    () => [
-      { id: currentUserId, name: "You", isMe: true },
-      ...friends.map((f) => ({ id: String(f.id), name: f.name, isMe: false })),
-    ],
-    [currentUserId, friends],
-  );
-
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createExpense = useCreateFriendExpense();
@@ -78,23 +84,65 @@ export function AddExpenseWithFriendDialog({
   // UI-only split mode. "loan" = lent the full amount to the friend (single-friend only).
   type Mode = "equal" | "exact" | "loan";
 
+  // Editable friend list (initial value comes from `friends` prop, but the user
+  // can add more or remove some inside the dialog).
+  const [friendsList, setFriendsList] = useState<FriendLike[]>(friends);
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<string>("General");
   const [amount, setAmount] = useState("");
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
   const [mode, setMode] = useState<Mode>("equal");
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
+  const [pickerOpen, setPickerOpen] = useState(false);
 
+  const friendIds = useMemo(
+    () => friendsList.map((f) => String(f.id)),
+    [friendsList],
+  );
+  const isMulti = friendsList.length > 1;
+
+  // Participants: me + friends. "You" is always first.
+  const participants = useMemo(
+    () => [
+      { id: currentUserId, name: "You", isMe: true },
+      ...friendsList.map((f) => ({
+        id: String(f.id),
+        name: f.name,
+        isMe: false,
+      })),
+    ],
+    [currentUserId, friendsList],
+  );
+
+  // Fetch all friends for the "Add more friends" picker.
+  const allFriendsQuery = useQuery<ApiFriend[]>({
+    queryKey: ["friends"],
+    queryFn: async () => {
+      const res = await fetch("/api/friends", { headers: authHeaders() });
+      if (!res.ok) throw new Error("Failed to load friends");
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  // Initialize state only on the open false→true transition. We intentionally
+  // do NOT depend on `friends` or `currentUserId` here — the parent passes a
+  // fresh `[expenseFriend]` array on every render, which would otherwise wipe
+  // user input mid-edit.
+  const wasOpenRef = useRef(false);
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpenRef.current) {
+      setFriendsList(friends);
       setDescription("");
       setCategory("General");
       setAmount("");
       setPaidByUserId(currentUserId);
       setMode("equal");
       setExactAmounts({});
+      setPickerOpen(false);
     }
-  }, [open, currentUserId]);
+    wasOpenRef.current = open;
+  }, [open, currentUserId, friends]);
 
   // In loan mode, the lender (you) is always the payer.
   useEffect(() => {
@@ -102,6 +150,38 @@ export function AddExpenseWithFriendDialog({
       setPaidByUserId(currentUserId);
     }
   }, [mode, paidByUserId, currentUserId]);
+
+  // When transitioning to multi-friend, multi requires "equal" split.
+  useEffect(() => {
+    if (isMulti && mode !== "equal") setMode("equal");
+  }, [isMulti, mode]);
+
+  // If the current payer was removed, reset to "You".
+  useEffect(() => {
+    const ids = new Set([currentUserId, ...friendIds]);
+    if (!ids.has(paidByUserId)) setPaidByUserId(currentUserId);
+  }, [friendIds, currentUserId, paidByUserId]);
+
+  const addFriend = (f: ApiFriend) => {
+    setFriendsList((prev) => {
+      const key = String(f.id);
+      if (prev.some((x) => String(x.id) === key)) return prev;
+      return [...prev, { id: f.id, name: f.name }];
+    });
+  };
+  const removeFriend = (id: string | number) => {
+    setFriendsList((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((f) => String(f.id) !== String(id));
+    });
+  };
+
+  const availableFriends = useMemo(() => {
+    const have = new Set(friendIds);
+    return (allFriendsQuery.data ?? []).filter(
+      (f) => !have.has(String(f.id)) && String(f.id) !== currentUserId,
+    );
+  }, [allFriendsQuery.data, friendIds, currentUserId]);
 
   const updateExactAmount = (userId: string, value: string) => {
     setExactAmounts((prev) => ({ ...prev, [userId]: value }));
@@ -130,17 +210,23 @@ export function AddExpenseWithFriendDialog({
       return;
     }
 
+    // Multi-friend non-group expenses must split equally (API constraint and
+    // product invariant). Derive the effective mode at submit time so a stale
+    // `mode` value can't slip through if the user submits before the
+    // multi→equal effect commits.
+    const effectiveMode: Mode = isMulti ? "equal" : mode;
+
     let splits: Array<{ userId: string; amount: number }> = [];
     let splitTypeForApi: SplitType;
     let paidByForApi = paidByUserId;
-    if (mode === "equal") {
+    if (effectiveMode === "equal") {
       splitTypeForApi = SplitType.equal;
       splits = computeEqualSplits(total);
-    } else if (mode === "loan") {
+    } else if (effectiveMode === "loan") {
       // I lent the full amount to the friend → I pay everything, friend owes 100%.
       splitTypeForApi = SplitType.exact;
       paidByForApi = currentUserId;
-      const friendId = friends[0] ? String(friends[0].id) : "";
+      const friendId = friendsList[0] ? String(friendsList[0].id) : "";
       splits = [
         { userId: currentUserId, amount: 0 },
         { userId: friendId, amount: total },
@@ -165,11 +251,11 @@ export function AddExpenseWithFriendDialog({
     }
 
     const successLabel =
-      mode === "loan"
-        ? `Logged loan to ${friends[0]?.name ?? "friend"}`
+      effectiveMode === "loan"
+        ? `Logged loan to ${friendsList[0]?.name ?? "friend"}`
         : isMulti
-          ? `Expense added with ${friends.length} friends`
-          : `Expense added with ${friends[0]?.name ?? "friend"}`;
+          ? `Expense added with ${friendsList.length} friends`
+          : `Expense added with ${friendsList[0]?.name ?? "friend"}`;
 
     createExpense.mutate(
       {
@@ -209,8 +295,8 @@ export function AddExpenseWithFriendDialog({
   };
 
   const titleSubtext = isMulti
-    ? `${friends.length} friends`
-    : friends[0]?.name ?? "friend";
+    ? `${friendsList.length} friends`
+    : friendsList[0]?.name ?? "friend";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -219,11 +305,85 @@ export function AddExpenseWithFriendDialog({
           <DialogTitle>Add expense with {titleSubtext}</DialogTitle>
           <DialogDescription>
             {isMulti
-              ? `This expense isn't tied to a group — split equally between you and ${friends.length} friends.`
-              : `This expense isn't tied to a group — just between you and ${friends[0]?.name ?? "your friend"}.`}
+              ? `This expense isn't tied to a group — split equally between you and ${friendsList.length} friends.`
+              : `This expense isn't tied to a group — just between you and ${friendsList[0]?.name ?? "your friend"}.`}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Friends</Label>
+            <div className="flex flex-wrap gap-2 items-center">
+              {friendsList.map((f) => (
+                <span
+                  key={String(f.id)}
+                  className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 pl-3 pr-1 py-1 text-sm"
+                >
+                  <span className="truncate max-w-[140px]">{f.name}</span>
+                  {friendsList.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeFriend(f.id)}
+                      className="rounded-full p-0.5 hover:bg-muted"
+                      aria-label={`Remove ${f.name}`}
+                      title={`Remove ${f.name}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </span>
+              ))}
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-full px-3"
+                    disabled={
+                      allFriendsQuery.isLoading || availableFriends.length === 0
+                    }
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    {availableFriends.length === 0
+                      ? "No more friends"
+                      : "Add friend"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2" align="start">
+                  <div className="max-h-64 overflow-y-auto">
+                    {availableFriends.length === 0 ? (
+                      <p className="text-xs text-muted-foreground p-2 text-center">
+                        Everyone's already added.
+                      </p>
+                    ) : (
+                      availableFriends.map((f) => (
+                        <button
+                          key={String(f.id)}
+                          type="button"
+                          onClick={() => {
+                            addFriend(f);
+                            setPickerOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded-md text-left text-sm"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+                            {f.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate">{f.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {f.email}
+                            </p>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label>Description</Label>
             <Input
@@ -311,7 +471,7 @@ export function AddExpenseWithFriendDialog({
                   )}
                   {!isMulti && (
                     <SelectItem value="loan">
-                      Lent full amount to {friends[0]?.name ?? "friend"}
+                      Lent full amount to {friendsList[0]?.name ?? "friend"}
                     </SelectItem>
                   )}
                 </SelectContent>
@@ -327,7 +487,7 @@ export function AddExpenseWithFriendDialog({
 
           {mode === "loan" && !isMulti && (
             <p className="text-xs text-muted-foreground">
-              You paid the full amount. {friends[0]?.name ?? "Your friend"} owes
+              You paid the full amount. {friendsList[0]?.name ?? "Your friend"} owes
               you the entire {amount ? formatCurrency(parseFloat(amount) || 0) : "amount"}.
             </p>
           )}
