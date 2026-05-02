@@ -25,7 +25,7 @@ function toDateString(value: string): string {
 
 const router: IRouter = Router();
 
-async function getUserById(id: number) {
+async function getUserById(id: string) {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
   return user;
 }
@@ -57,7 +57,7 @@ async function buildExpenseWithSplits(expense: typeof expensesTable.$inferSelect
   };
 }
 
-async function getMemberIds(groupId: number): Promise<Set<number>> {
+async function getMemberIds(groupId: string): Promise<Set<string>> {
   const rows = await db
     .select({ userId: groupMembersTable.userId })
     .from(groupMembersTable)
@@ -65,13 +65,13 @@ async function getMemberIds(groupId: number): Promise<Set<number>> {
   return new Set(rows.map((r) => r.userId));
 }
 
-type SplitInput = { userId: number; amount?: number | null; percentage?: number | null };
+type SplitInput = { userId: string; amount?: number | null; percentage?: number | null };
 
 function computeFinalSplits(
   splitType: "equal" | "exact" | "percentage",
   totalAmount: number,
   splits: SplitInput[],
-): { ok: true; rows: Array<{ userId: number; amount: string; percentage: string | null }> } | { ok: false; error: string } {
+): { ok: true; rows: Array<{ userId: string; amount: string; percentage: string | null }> } | { ok: false; error: string } {
   if (splits.length === 0) return { ok: false, error: "At least one split is required" };
 
   const totalCents = Math.round(totalAmount * 100);
@@ -115,7 +115,7 @@ function computeFinalSplits(
   // percentage
   let sumPctTimes100 = 0;
   let allocatedCents = 0;
-  const rows: Array<{ userId: number; amount: string; percentage: string | null }> = [];
+  const rows: Array<{ userId: string; amount: string; percentage: string | null }> = [];
   splits.forEach((s, i) => {
     const pct = Number(s.percentage ?? 0);
     sumPctTimes100 += Math.round(pct * 100);
@@ -236,7 +236,7 @@ router.get(
     const raw = Array.isArray(req.params.expenseId)
       ? req.params.expenseId[0]
       : req.params.expenseId;
-    const expenseId = parseInt(raw, 10);
+    const expenseId = raw;
     const [expense] = await db
       .select()
       .from(expensesTable)
@@ -257,7 +257,7 @@ router.put(
     const raw = Array.isArray(req.params.expenseId)
       ? req.params.expenseId[0]
       : req.params.expenseId;
-    const expenseId = parseInt(raw, 10);
+    const expenseId = raw;
     const groupId = req.authorizedGroupId!;
 
     const parsed = UpdateExpenseBody.safeParse(req.body);
@@ -353,7 +353,7 @@ router.delete(
     const raw = Array.isArray(req.params.expenseId)
       ? req.params.expenseId[0]
       : req.params.expenseId;
-    const expenseId = parseInt(raw, 10);
+    const expenseId = raw;
     await db.delete(expenseSplitsTable).where(eq(expenseSplitsTable.expenseId, expenseId));
     const [expense] = await db
       .delete(expensesTable)

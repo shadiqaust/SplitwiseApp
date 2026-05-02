@@ -6,7 +6,7 @@ import { verifyToken } from "../lib/jwt";
 declare global {
   namespace Express {
     interface Request {
-      dbUserId?: number;
+      dbUserId?: string;
     }
   }
 }

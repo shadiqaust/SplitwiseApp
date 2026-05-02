@@ -9,7 +9,7 @@ This workspace hosts a **Splitwise clone**:
 - `artifacts/splitwise-web` — React + Vite + Tailwind v4 web app served at `/`
 - `artifacts/splitwise-mobile` — Expo Router 6 mobile app served at `/mobile`
 - `artifacts/api-server` — Express 5 + Drizzle + Postgres API at `/api`
-- `lib/db` — Drizzle schema (users, groups, group_members, expenses, expense_splits, payments)
+- `lib/db` — Drizzle schema (users, groups, group_members, expenses, expense_splits, payments). All primary keys and foreign keys are **UUID v4** (`uuid("id").defaultRandom()`).
 - `lib/api-spec` — OpenAPI source-of-truth used to generate clients and Zod schemas
 - `lib/api-client-react` — generated TanStack Query hooks (orval) consumed by web + mobile
 - `lib/api-zod` — generated Zod request/response validators consumed by the API server

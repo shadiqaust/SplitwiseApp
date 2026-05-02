@@ -439,12 +439,12 @@ export const useCreateGroup = <
 /**
  * @summary Get group detail
  */
-export const getGetGroupUrl = (groupId: number) => {
+export const getGetGroupUrl = (groupId: string) => {
   return `/api/groups/${groupId}`;
 };
 
 export const getGroup = async (
-  groupId: number,
+  groupId: string,
   options?: RequestInit,
 ): Promise<GroupDetail> => {
   return customFetch<GroupDetail>(getGetGroupUrl(groupId), {
@@ -453,7 +453,7 @@ export const getGroup = async (
   });
 };
 
-export const getGetGroupQueryKey = (groupId: number) => {
+export const getGetGroupQueryKey = (groupId: string) => {
   return [`/api/groups/${groupId}`] as const;
 };
 
@@ -461,7 +461,7 @@ export const getGetGroupQueryOptions = <
   TData = Awaited<ReturnType<typeof getGroup>>,
   TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
 >(
-  groupId: number,
+  groupId: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getGroup>>,
@@ -504,7 +504,7 @@ export function useGetGroup<
   TData = Awaited<ReturnType<typeof getGroup>>,
   TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
 >(
-  groupId: number,
+  groupId: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getGroup>>,
@@ -526,12 +526,12 @@ export function useGetGroup<
 /**
  * @summary Update group
  */
-export const getUpdateGroupUrl = (groupId: number) => {
+export const getUpdateGroupUrl = (groupId: string) => {
   return `/api/groups/${groupId}`;
 };
 
 export const updateGroup = async (
-  groupId: number,
+  groupId: string,
   updateGroupBody: UpdateGroupBody,
   options?: RequestInit,
 ): Promise<Group> => {
@@ -550,14 +550,14 @@ export const getUpdateGroupMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateGroup>>,
     TError,
-    { groupId: number; data: BodyType<UpdateGroupBody> },
+    { groupId: string; data: BodyType<UpdateGroupBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof updateGroup>>,
   TError,
-  { groupId: number; data: BodyType<UpdateGroupBody> },
+  { groupId: string; data: BodyType<UpdateGroupBody> },
   TContext
 > => {
   const mutationKey = ["updateGroup"];
@@ -571,7 +571,7 @@ export const getUpdateGroupMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof updateGroup>>,
-    { groupId: number; data: BodyType<UpdateGroupBody> }
+    { groupId: string; data: BodyType<UpdateGroupBody> }
   > = (props) => {
     const { groupId, data } = props ?? {};
 
@@ -599,14 +599,14 @@ export const useUpdateGroup = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateGroup>>,
     TError,
-    { groupId: number; data: BodyType<UpdateGroupBody> },
+    { groupId: string; data: BodyType<UpdateGroupBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof updateGroup>>,
   TError,
-  { groupId: number; data: BodyType<UpdateGroupBody> },
+  { groupId: string; data: BodyType<UpdateGroupBody> },
   TContext
 > => {
   return useMutation(getUpdateGroupMutationOptions(options));
@@ -615,12 +615,12 @@ export const useUpdateGroup = <
 /**
  * @summary Delete group
  */
-export const getDeleteGroupUrl = (groupId: number) => {
+export const getDeleteGroupUrl = (groupId: string) => {
   return `/api/groups/${groupId}`;
 };
 
 export const deleteGroup = async (
-  groupId: number,
+  groupId: string,
   options?: RequestInit,
 ): Promise<void> => {
   return customFetch<void>(getDeleteGroupUrl(groupId), {
@@ -636,14 +636,14 @@ export const getDeleteGroupMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteGroup>>,
     TError,
-    { groupId: number },
+    { groupId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof deleteGroup>>,
   TError,
-  { groupId: number },
+  { groupId: string },
   TContext
 > => {
   const mutationKey = ["deleteGroup"];
@@ -657,7 +657,7 @@ export const getDeleteGroupMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof deleteGroup>>,
-    { groupId: number }
+    { groupId: string }
   > = (props) => {
     const { groupId } = props ?? {};
 
@@ -685,14 +685,14 @@ export const useDeleteGroup = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteGroup>>,
     TError,
-    { groupId: number },
+    { groupId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof deleteGroup>>,
   TError,
-  { groupId: number },
+  { groupId: string },
   TContext
 > => {
   return useMutation(getDeleteGroupMutationOptions(options));
@@ -701,12 +701,12 @@ export const useDeleteGroup = <
 /**
  * @summary Add a member to the group by email
  */
-export const getAddGroupMemberUrl = (groupId: number) => {
+export const getAddGroupMemberUrl = (groupId: string) => {
   return `/api/groups/${groupId}/members`;
 };
 
 export const addGroupMember = async (
-  groupId: number,
+  groupId: string,
   addMemberBody: AddMemberBody,
   options?: RequestInit,
 ): Promise<GroupMember> => {
@@ -725,14 +725,14 @@ export const getAddGroupMemberMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof addGroupMember>>,
     TError,
-    { groupId: number; data: BodyType<AddMemberBody> },
+    { groupId: string; data: BodyType<AddMemberBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof addGroupMember>>,
   TError,
-  { groupId: number; data: BodyType<AddMemberBody> },
+  { groupId: string; data: BodyType<AddMemberBody> },
   TContext
 > => {
   const mutationKey = ["addGroupMember"];
@@ -746,7 +746,7 @@ export const getAddGroupMemberMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof addGroupMember>>,
-    { groupId: number; data: BodyType<AddMemberBody> }
+    { groupId: string; data: BodyType<AddMemberBody> }
   > = (props) => {
     const { groupId, data } = props ?? {};
 
@@ -774,14 +774,14 @@ export const useAddGroupMember = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof addGroupMember>>,
     TError,
-    { groupId: number; data: BodyType<AddMemberBody> },
+    { groupId: string; data: BodyType<AddMemberBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof addGroupMember>>,
   TError,
-  { groupId: number; data: BodyType<AddMemberBody> },
+  { groupId: string; data: BodyType<AddMemberBody> },
   TContext
 > => {
   return useMutation(getAddGroupMemberMutationOptions(options));
@@ -790,13 +790,13 @@ export const useAddGroupMember = <
 /**
  * @summary Remove a member from the group
  */
-export const getRemoveGroupMemberUrl = (groupId: number, memberId: number) => {
+export const getRemoveGroupMemberUrl = (groupId: string, memberId: string) => {
   return `/api/groups/${groupId}/members/${memberId}`;
 };
 
 export const removeGroupMember = async (
-  groupId: number,
-  memberId: number,
+  groupId: string,
+  memberId: string,
   options?: RequestInit,
 ): Promise<void> => {
   return customFetch<void>(getRemoveGroupMemberUrl(groupId, memberId), {
@@ -812,14 +812,14 @@ export const getRemoveGroupMemberMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof removeGroupMember>>,
     TError,
-    { groupId: number; memberId: number },
+    { groupId: string; memberId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof removeGroupMember>>,
   TError,
-  { groupId: number; memberId: number },
+  { groupId: string; memberId: string },
   TContext
 > => {
   const mutationKey = ["removeGroupMember"];
@@ -833,7 +833,7 @@ export const getRemoveGroupMemberMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof removeGroupMember>>,
-    { groupId: number; memberId: number }
+    { groupId: string; memberId: string }
   > = (props) => {
     const { groupId, memberId } = props ?? {};
 
@@ -861,14 +861,14 @@ export const useRemoveGroupMember = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof removeGroupMember>>,
     TError,
-    { groupId: number; memberId: number },
+    { groupId: string; memberId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof removeGroupMember>>,
   TError,
-  { groupId: number; memberId: number },
+  { groupId: string; memberId: string },
   TContext
 > => {
   return useMutation(getRemoveGroupMemberMutationOptions(options));
@@ -877,12 +877,12 @@ export const useRemoveGroupMember = <
 /**
  * @summary Get simplified debt balances for the group
  */
-export const getGetGroupBalancesUrl = (groupId: number) => {
+export const getGetGroupBalancesUrl = (groupId: string) => {
   return `/api/groups/${groupId}/balances`;
 };
 
 export const getGroupBalances = async (
-  groupId: number,
+  groupId: string,
   options?: RequestInit,
 ): Promise<Balance[]> => {
   return customFetch<Balance[]>(getGetGroupBalancesUrl(groupId), {
@@ -891,7 +891,7 @@ export const getGroupBalances = async (
   });
 };
 
-export const getGetGroupBalancesQueryKey = (groupId: number) => {
+export const getGetGroupBalancesQueryKey = (groupId: string) => {
   return [`/api/groups/${groupId}/balances`] as const;
 };
 
@@ -899,7 +899,7 @@ export const getGetGroupBalancesQueryOptions = <
   TData = Awaited<ReturnType<typeof getGroupBalances>>,
   TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
 >(
-  groupId: number,
+  groupId: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getGroupBalances>>,
@@ -945,7 +945,7 @@ export function useGetGroupBalances<
   TData = Awaited<ReturnType<typeof getGroupBalances>>,
   TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
 >(
-  groupId: number,
+  groupId: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getGroupBalances>>,
@@ -968,7 +968,7 @@ export function useGetGroupBalances<
  * @summary List expenses in a group
  */
 export const getListExpensesUrl = (
-  groupId: number,
+  groupId: string,
   params?: ListExpensesParams,
 ) => {
   const normalizedParams = new URLSearchParams();
@@ -987,7 +987,7 @@ export const getListExpensesUrl = (
 };
 
 export const listExpenses = async (
-  groupId: number,
+  groupId: string,
   params?: ListExpensesParams,
   options?: RequestInit,
 ): Promise<ExpenseWithSplits[]> => {
@@ -998,7 +998,7 @@ export const listExpenses = async (
 };
 
 export const getListExpensesQueryKey = (
-  groupId: number,
+  groupId: string,
   params?: ListExpensesParams,
 ) => {
   return [
@@ -1011,7 +1011,7 @@ export const getListExpensesQueryOptions = <
   TData = Awaited<ReturnType<typeof listExpenses>>,
   TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
 >(
-  groupId: number,
+  groupId: string,
   params?: ListExpensesParams,
   options?: {
     query?: UseQueryOptions<
@@ -1058,7 +1058,7 @@ export function useListExpenses<
   TData = Awaited<ReturnType<typeof listExpenses>>,
   TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
 >(
-  groupId: number,
+  groupId: string,
   params?: ListExpensesParams,
   options?: {
     query?: UseQueryOptions<
@@ -1081,12 +1081,12 @@ export function useListExpenses<
 /**
  * @summary Add an expense to the group
  */
-export const getCreateExpenseUrl = (groupId: number) => {
+export const getCreateExpenseUrl = (groupId: string) => {
   return `/api/groups/${groupId}/expenses`;
 };
 
 export const createExpense = async (
-  groupId: number,
+  groupId: string,
   createExpenseBody: CreateExpenseBody,
   options?: RequestInit,
 ): Promise<ExpenseWithSplits> => {
@@ -1107,14 +1107,14 @@ export const getCreateExpenseMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof createExpense>>,
     TError,
-    { groupId: number; data: BodyType<CreateExpenseBody> },
+    { groupId: string; data: BodyType<CreateExpenseBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof createExpense>>,
   TError,
-  { groupId: number; data: BodyType<CreateExpenseBody> },
+  { groupId: string; data: BodyType<CreateExpenseBody> },
   TContext
 > => {
   const mutationKey = ["createExpense"];
@@ -1128,7 +1128,7 @@ export const getCreateExpenseMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof createExpense>>,
-    { groupId: number; data: BodyType<CreateExpenseBody> }
+    { groupId: string; data: BodyType<CreateExpenseBody> }
   > = (props) => {
     const { groupId, data } = props ?? {};
 
@@ -1158,14 +1158,14 @@ export const useCreateExpense = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof createExpense>>,
     TError,
-    { groupId: number; data: BodyType<CreateExpenseBody> },
+    { groupId: string; data: BodyType<CreateExpenseBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof createExpense>>,
   TError,
-  { groupId: number; data: BodyType<CreateExpenseBody> },
+  { groupId: string; data: BodyType<CreateExpenseBody> },
   TContext
 > => {
   return useMutation(getCreateExpenseMutationOptions(options));
@@ -1174,12 +1174,12 @@ export const useCreateExpense = <
 /**
  * @summary Get expense detail
  */
-export const getGetExpenseUrl = (expenseId: number) => {
+export const getGetExpenseUrl = (expenseId: string) => {
   return `/api/expenses/${expenseId}`;
 };
 
 export const getExpense = async (
-  expenseId: number,
+  expenseId: string,
   options?: RequestInit,
 ): Promise<ExpenseWithSplits> => {
   return customFetch<ExpenseWithSplits>(getGetExpenseUrl(expenseId), {
@@ -1188,7 +1188,7 @@ export const getExpense = async (
   });
 };
 
-export const getGetExpenseQueryKey = (expenseId: number) => {
+export const getGetExpenseQueryKey = (expenseId: string) => {
   return [`/api/expenses/${expenseId}`] as const;
 };
 
@@ -1196,7 +1196,7 @@ export const getGetExpenseQueryOptions = <
   TData = Awaited<ReturnType<typeof getExpense>>,
   TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
 >(
-  expenseId: number,
+  expenseId: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getExpense>>,
@@ -1241,7 +1241,7 @@ export function useGetExpense<
   TData = Awaited<ReturnType<typeof getExpense>>,
   TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
 >(
-  expenseId: number,
+  expenseId: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getExpense>>,
@@ -1263,12 +1263,12 @@ export function useGetExpense<
 /**
  * @summary Update an expense
  */
-export const getUpdateExpenseUrl = (expenseId: number) => {
+export const getUpdateExpenseUrl = (expenseId: string) => {
   return `/api/expenses/${expenseId}`;
 };
 
 export const updateExpense = async (
-  expenseId: number,
+  expenseId: string,
   updateExpenseBody: UpdateExpenseBody,
   options?: RequestInit,
 ): Promise<ExpenseWithSplits> => {
@@ -1287,14 +1287,14 @@ export const getUpdateExpenseMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateExpense>>,
     TError,
-    { expenseId: number; data: BodyType<UpdateExpenseBody> },
+    { expenseId: string; data: BodyType<UpdateExpenseBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof updateExpense>>,
   TError,
-  { expenseId: number; data: BodyType<UpdateExpenseBody> },
+  { expenseId: string; data: BodyType<UpdateExpenseBody> },
   TContext
 > => {
   const mutationKey = ["updateExpense"];
@@ -1308,7 +1308,7 @@ export const getUpdateExpenseMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof updateExpense>>,
-    { expenseId: number; data: BodyType<UpdateExpenseBody> }
+    { expenseId: string; data: BodyType<UpdateExpenseBody> }
   > = (props) => {
     const { expenseId, data } = props ?? {};
 
@@ -1336,14 +1336,14 @@ export const useUpdateExpense = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateExpense>>,
     TError,
-    { expenseId: number; data: BodyType<UpdateExpenseBody> },
+    { expenseId: string; data: BodyType<UpdateExpenseBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof updateExpense>>,
   TError,
-  { expenseId: number; data: BodyType<UpdateExpenseBody> },
+  { expenseId: string; data: BodyType<UpdateExpenseBody> },
   TContext
 > => {
   return useMutation(getUpdateExpenseMutationOptions(options));
@@ -1352,12 +1352,12 @@ export const useUpdateExpense = <
 /**
  * @summary Delete an expense
  */
-export const getDeleteExpenseUrl = (expenseId: number) => {
+export const getDeleteExpenseUrl = (expenseId: string) => {
   return `/api/expenses/${expenseId}`;
 };
 
 export const deleteExpense = async (
-  expenseId: number,
+  expenseId: string,
   options?: RequestInit,
 ): Promise<void> => {
   return customFetch<void>(getDeleteExpenseUrl(expenseId), {
@@ -1373,14 +1373,14 @@ export const getDeleteExpenseMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteExpense>>,
     TError,
-    { expenseId: number },
+    { expenseId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof deleteExpense>>,
   TError,
-  { expenseId: number },
+  { expenseId: string },
   TContext
 > => {
   const mutationKey = ["deleteExpense"];
@@ -1394,7 +1394,7 @@ export const getDeleteExpenseMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof deleteExpense>>,
-    { expenseId: number }
+    { expenseId: string }
   > = (props) => {
     const { expenseId } = props ?? {};
 
@@ -1422,14 +1422,14 @@ export const useDeleteExpense = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteExpense>>,
     TError,
-    { expenseId: number },
+    { expenseId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof deleteExpense>>,
   TError,
-  { expenseId: number },
+  { expenseId: string },
   TContext
 > => {
   return useMutation(getDeleteExpenseMutationOptions(options));
@@ -1438,12 +1438,12 @@ export const useDeleteExpense = <
 /**
  * @summary List settle-up payments in a group
  */
-export const getListPaymentsUrl = (groupId: number) => {
+export const getListPaymentsUrl = (groupId: string) => {
   return `/api/groups/${groupId}/payments`;
 };
 
 export const listPayments = async (
-  groupId: number,
+  groupId: string,
   options?: RequestInit,
 ): Promise<Payment[]> => {
   return customFetch<Payment[]>(getListPaymentsUrl(groupId), {
@@ -1452,7 +1452,7 @@ export const listPayments = async (
   });
 };
 
-export const getListPaymentsQueryKey = (groupId: number) => {
+export const getListPaymentsQueryKey = (groupId: string) => {
   return [`/api/groups/${groupId}/payments`] as const;
 };
 
@@ -1460,7 +1460,7 @@ export const getListPaymentsQueryOptions = <
   TData = Awaited<ReturnType<typeof listPayments>>,
   TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
 >(
-  groupId: number,
+  groupId: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listPayments>>,
@@ -1505,7 +1505,7 @@ export function useListPayments<
   TData = Awaited<ReturnType<typeof listPayments>>,
   TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
 >(
-  groupId: number,
+  groupId: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listPayments>>,
@@ -1527,12 +1527,12 @@ export function useListPayments<
 /**
  * @summary Record a settle-up payment
  */
-export const getCreatePaymentUrl = (groupId: number) => {
+export const getCreatePaymentUrl = (groupId: string) => {
   return `/api/groups/${groupId}/payments`;
 };
 
 export const createPayment = async (
-  groupId: number,
+  groupId: string,
   createPaymentBody: CreatePaymentBody,
   options?: RequestInit,
 ): Promise<Payment> => {
@@ -1551,14 +1551,14 @@ export const getCreatePaymentMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof createPayment>>,
     TError,
-    { groupId: number; data: BodyType<CreatePaymentBody> },
+    { groupId: string; data: BodyType<CreatePaymentBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof createPayment>>,
   TError,
-  { groupId: number; data: BodyType<CreatePaymentBody> },
+  { groupId: string; data: BodyType<CreatePaymentBody> },
   TContext
 > => {
   const mutationKey = ["createPayment"];
@@ -1572,7 +1572,7 @@ export const getCreatePaymentMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof createPayment>>,
-    { groupId: number; data: BodyType<CreatePaymentBody> }
+    { groupId: string; data: BodyType<CreatePaymentBody> }
   > = (props) => {
     const { groupId, data } = props ?? {};
 
@@ -1600,14 +1600,14 @@ export const useCreatePayment = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof createPayment>>,
     TError,
-    { groupId: number; data: BodyType<CreatePaymentBody> },
+    { groupId: string; data: BodyType<CreatePaymentBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof createPayment>>,
   TError,
-  { groupId: number; data: BodyType<CreatePaymentBody> },
+  { groupId: string; data: BodyType<CreatePaymentBody> },
   TContext
 > => {
   return useMutation(getCreatePaymentMutationOptions(options));
@@ -1616,12 +1616,12 @@ export const useCreatePayment = <
 /**
  * @summary Delete a payment record
  */
-export const getDeletePaymentUrl = (paymentId: number) => {
+export const getDeletePaymentUrl = (paymentId: string) => {
   return `/api/payments/${paymentId}`;
 };
 
 export const deletePayment = async (
-  paymentId: number,
+  paymentId: string,
   options?: RequestInit,
 ): Promise<void> => {
   return customFetch<void>(getDeletePaymentUrl(paymentId), {
@@ -1637,14 +1637,14 @@ export const getDeletePaymentMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deletePayment>>,
     TError,
-    { paymentId: number },
+    { paymentId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof deletePayment>>,
   TError,
-  { paymentId: number },
+  { paymentId: string },
   TContext
 > => {
   const mutationKey = ["deletePayment"];
@@ -1658,7 +1658,7 @@ export const getDeletePaymentMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof deletePayment>>,
-    { paymentId: number }
+    { paymentId: string }
   > = (props) => {
     const { paymentId } = props ?? {};
 
@@ -1686,14 +1686,14 @@ export const useDeletePayment = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deletePayment>>,
     TError,
-    { paymentId: number },
+    { paymentId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof deletePayment>>,
   TError,
-  { paymentId: number },
+  { paymentId: string },
   TContext
 > => {
   return useMutation(getDeletePaymentMutationOptions(options));

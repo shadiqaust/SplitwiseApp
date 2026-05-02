@@ -15,7 +15,7 @@ import { CreatePaymentBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-async function getUserById(id: number) {
+async function getUserById(id: string) {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
   return user;
 }
@@ -32,7 +32,7 @@ async function buildPayment(payment: typeof paymentsTable.$inferSelect) {
   };
 }
 
-async function getMemberIds(groupId: number): Promise<Set<number>> {
+async function getMemberIds(groupId: string): Promise<Set<string>> {
   const rows = await db
     .select({ userId: groupMembersTable.userId })
     .from(groupMembersTable)
@@ -110,7 +110,7 @@ router.delete(
     const raw = Array.isArray(req.params.paymentId)
       ? req.params.paymentId[0]
       : req.params.paymentId;
-    const paymentId = parseInt(raw, 10);
+    const paymentId = raw;
     const [payment] = await db
       .delete(paymentsTable)
       .where(eq(paymentsTable.id, paymentId))

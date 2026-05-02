@@ -33,8 +33,8 @@ export default function NewPaymentScreen() {
   const colors = useColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ groupId: string; toUserId?: string }>();
-  const groupId = Number(params.groupId);
-  const initialToUserId = params.toUserId ? Number(params.toUserId) : null;
+  const groupId = params.groupId!;
+  const initialToUserId = params.toUserId ?? null;
   const queryClient = useQueryClient();
 
   const me = useGetMe();
@@ -42,8 +42,8 @@ export default function NewPaymentScreen() {
   const balances = useGetGroupBalances(groupId);
   const createPayment = useCreatePayment();
 
-  const [fromUserId, setFromUserId] = useState<number | null>(null);
-  const [toUserId, setToUserId] = useState<number | null>(initialToUserId);
+  const [fromUserId, setFromUserId] = useState<string | null>(null);
+  const [toUserId, setToUserId] = useState<string | null>(initialToUserId);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -114,8 +114,8 @@ export default function NewPaymentScreen() {
   };
 
   const renderChips = (
-    selected: number | null,
-    setSelected: (id: number) => void,
+    selected: string | null,
+    setSelected: (id: string) => void,
   ) => (
     <View style={styles.chipRow}>
       {members.map((m) => (

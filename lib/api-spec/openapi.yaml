@@ -206,7 +206,8 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
+            format: uuid
       responses:
         "204":
           description: Member removed
@@ -412,7 +413,8 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
+            format: uuid
       responses:
         "204":
           description: Deleted
@@ -474,13 +476,15 @@ components:
       in: path
       required: true
       schema:
-        type: integer
+        type: string
+        format: uuid
     ExpenseId:
       name: expenseId
       in: path
       required: true
       schema:
-        type: integer
+        type: string
+        format: uuid
 
   responses:
     Unauthorized:
@@ -522,7 +526,8 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
+          format: uuid
         name:
           type: string
         email:
@@ -549,7 +554,8 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
+          format: uuid
         name:
           type: string
         description:
@@ -559,7 +565,8 @@ components:
           type: string
           nullable: true
         createdByUserId:
-          type: integer
+          type: string
+          format: uuid
         createdAt:
           type: string
           format: date-time
@@ -617,11 +624,14 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
+          format: uuid
         groupId:
-          type: integer
+          type: string
+          format: uuid
         userId:
-          type: integer
+          type: string
+          format: uuid
         user:
           $ref: "#/components/schemas/User"
         joinedAt:
@@ -643,11 +653,13 @@ components:
       description: "fromUser owes toUser the given amount"
       properties:
         fromUserId:
-          type: integer
+          type: string
+          format: uuid
         fromUser:
           $ref: "#/components/schemas/User"
         toUserId:
-          type: integer
+          type: string
+          format: uuid
         toUser:
           $ref: "#/components/schemas/User"
         amount:
@@ -663,11 +675,14 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
+          format: uuid
         expenseId:
-          type: integer
+          type: string
+          format: uuid
         userId:
-          type: integer
+          type: string
+          format: uuid
         user:
           $ref: "#/components/schemas/User"
         amount:
@@ -682,9 +697,11 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
+          format: uuid
         groupId:
-          type: integer
+          type: string
+          format: uuid
         description:
           type: string
         totalAmount:
@@ -695,7 +712,8 @@ components:
         splitType:
           $ref: "#/components/schemas/SplitType"
         paidByUserId:
-          type: integer
+          type: string
+          format: uuid
         paidByUser:
           $ref: "#/components/schemas/User"
         date:
@@ -721,7 +739,8 @@ components:
       type: object
       properties:
         userId:
-          type: integer
+          type: string
+          format: uuid
         amount:
           type: number
           nullable: true
@@ -743,7 +762,8 @@ components:
         splitType:
           $ref: "#/components/schemas/SplitType"
         paidByUserId:
-          type: integer
+          type: string
+          format: uuid
         date:
           type: string
           format: date
@@ -765,7 +785,8 @@ components:
         splitType:
           $ref: "#/components/schemas/SplitType"
         paidByUserId:
-          type: integer
+          type: string
+          format: uuid
         date:
           type: string
           format: date
@@ -779,15 +800,19 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
+          format: uuid
         groupId:
-          type: integer
+          type: string
+          format: uuid
         fromUserId:
-          type: integer
+          type: string
+          format: uuid
         fromUser:
           $ref: "#/components/schemas/User"
         toUserId:
-          type: integer
+          type: string
+          format: uuid
         toUser:
           $ref: "#/components/schemas/User"
         amount:
@@ -807,9 +832,11 @@ components:
       type: object
       properties:
         fromUserId:
-          type: integer
+          type: string
+          format: uuid
         toUserId:
-          type: integer
+          type: string
+          format: uuid
         amount:
           type: number
         note:
@@ -845,7 +872,8 @@ components:
       type: object
       properties:
         groupId:
-          type: integer
+          type: string
+          format: uuid
         groupName:
           type: string
         myNetBalance:
@@ -862,7 +890,8 @@ components:
           type: string
           enum: [expense, payment]
         groupId:
-          type: integer
+          type: string
+          format: uuid
         groupName:
           type: string
         description:
@@ -870,7 +899,8 @@ components:
         amount:
           type: number
         involvedUserId:
-          type: integer
+          type: string
+          format: uuid
           description: The paidBy user (expense) or fromUser (payment)
         involvedUser:
           $ref: "#/components/schemas/User"

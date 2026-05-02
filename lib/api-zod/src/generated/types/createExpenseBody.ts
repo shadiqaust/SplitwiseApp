@@ -13,7 +13,7 @@ export interface CreateExpenseBody {
   totalAmount: number;
   currency?: string;
   splitType: SplitType;
-  paidByUserId: number;
+  paidByUserId: string;
   date: Date;
   splits: ExpenseSplitInput[];
 }

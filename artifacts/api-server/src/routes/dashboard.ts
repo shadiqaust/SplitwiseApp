@@ -6,7 +6,7 @@ import { GetActivityQueryParams } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-async function getUserById(id: number) {
+async function getUserById(id: string) {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
   return user;
 }

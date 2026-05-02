@@ -1,26 +1,26 @@
-import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 
 export const groupsTable = pgTable("groups", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
   category: text("category"),
   avatarUrl: text("avatar_url"),
-  createdByUserId: integer("created_by_user_id")
+  createdByUserId: uuid("created_by_user_id")
     .notNull()
     .references(() => usersTable.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const groupMembersTable = pgTable("group_members", {
-  id: serial("id").primaryKey(),
-  groupId: integer("group_id")
+  id: uuid("id").defaultRandom().primaryKey(),
+  groupId: uuid("group_id")
     .notNull()
     .references(() => groupsTable.id, { onDelete: "cascade" }),
-  userId: integer("user_id")
+  userId: uuid("user_id")
     .notNull()
     .references(() => usersTable.id),
   joinedAt: timestamp("joined_at").notNull().defaultNow(),

@@ -73,7 +73,7 @@ async function authFetch(path: string, options: RequestInit = {}) {
 }
 
 interface UserResult {
-  id: number;
+  id: string;
   name: string;
   email: string;
   avatarUrl: string | null;
@@ -86,19 +86,19 @@ export default function GroupDetailScreen() {
   const colors = useColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
-  const groupId = Number(params.id);
+  const groupId = params.id!;
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<Tab>("expenses");
   const [showAddModal, setShowAddModal] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
-  const [addingUserId, setAddingUserId] = useState<number | null>(null);
+  const [addingUserId, setAddingUserId] = useState<string | null>(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
-  const [filterMemberId, setFilterMemberId] = useState<number | "all">("all");
+  const [filterMemberId, setFilterMemberId] = useState<string | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"all" | "7d" | "30d">("all");
-  const [profileMember, setProfileMember] = useState<{ userId: number; user: { name: string; email: string; avatarUrl: string | null } } | null>(null);
+  const [profileMember, setProfileMember] = useState<{ userId: string; user: { name: string; email: string; avatarUrl: string | null } } | null>(null);
 
   const me = useGetMe();
   const POLL = { query: { refetchInterval: 5_000, staleTime: 4_000, refetchIntervalInBackground: false } } as const;
@@ -188,6 +188,20 @@ export default function GroupDetailScreen() {
       },
     );
   };
+
+  if (group.isError) {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background, padding: 24 }]}>
+        <Stack.Screen options={{ title: "Not found" }} />
+        <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "600", marginBottom: 8 }}>
+          Page not found
+        </Text>
+        <Text style={{ color: colors.mutedForeground, textAlign: "center" }}>
+          This group doesn&apos;t exist or you don&apos;t have access to it.
+        </Text>
+      </View>
+    );
+  }
 
   if (group.isLoading || !group.data) {
     return (

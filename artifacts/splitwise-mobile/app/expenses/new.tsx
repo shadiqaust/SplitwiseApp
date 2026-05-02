@@ -35,7 +35,7 @@ export default function NewExpenseScreen() {
   const colors = useColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ groupId: string }>();
-  const groupId = Number(params.groupId);
+  const groupId = params.groupId!;
   const queryClient = useQueryClient();
 
   const me = useGetMe();
@@ -44,11 +44,11 @@ export default function NewExpenseScreen() {
 
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [paidByUserId, setPaidByUserId] = useState<number | null>(null);
+  const [paidByUserId, setPaidByUserId] = useState<string | null>(null);
   const [splitType, setSplitType] = useState<SplitType>(SplitType.equal);
-  const [participantIds, setParticipantIds] = useState<Set<number>>(new Set());
-  const [exactAmounts, setExactAmounts] = useState<Record<number, string>>({});
-  const [percentages, setPercentages] = useState<Record<number, string>>({});
+  const [participantIds, setParticipantIds] = useState<Set<string>>(new Set());
+  const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
+  const [percentages, setPercentages] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   const members = group.data?.members ?? [];
@@ -61,7 +61,7 @@ export default function NewExpenseScreen() {
     }
   }, [me.data, members, paidByUserId, participantIds.size]);
 
-  const toggleParticipant = (userId: number) => {
+  const toggleParticipant = (userId: string) => {
     const next = new Set(participantIds);
     if (next.has(userId)) next.delete(userId);
     else next.add(userId);
@@ -69,7 +69,7 @@ export default function NewExpenseScreen() {
   };
 
   const buildSplits = (): Array<{
-    userId: number;
+    userId: string;
     amount: number;
     percentage?: number;
   }> => {

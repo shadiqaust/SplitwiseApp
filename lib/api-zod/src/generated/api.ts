@@ -18,12 +18,10 @@ export const HealthCheckResponse = zod.object({
  * @summary Get current user profile
  */
 export const GetMeResponse = zod.object({
-  id: zod.number(),
+  id: zod.string().uuid(),
   name: zod.string(),
   email: zod.string(),
   avatarUrl: zod.string().nullish(),
-  country: zod.string().nullish(),
-  location: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -33,17 +31,13 @@ export const GetMeResponse = zod.object({
 export const UpdateMeBody = zod.object({
   name: zod.string().optional(),
   avatarUrl: zod.string().nullish(),
-  country: zod.string().nullish(),
-  location: zod.string().nullish(),
 });
 
 export const UpdateMeResponse = zod.object({
-  id: zod.number(),
+  id: zod.string().uuid(),
   name: zod.string(),
   email: zod.string(),
   avatarUrl: zod.string().nullish(),
-  country: zod.string().nullish(),
-  location: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -52,12 +46,11 @@ export const UpdateMeResponse = zod.object({
  */
 export const ListGroupsResponseItem = zod
   .object({
-    id: zod.number(),
+    id: zod.string().uuid(),
     name: zod.string(),
     description: zod.string().nullish(),
     category: zod.string().nullish(),
-    avatarUrl: zod.string().nullish(),
-    createdByUserId: zod.number(),
+    createdByUserId: zod.string().uuid(),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -83,28 +76,27 @@ export const CreateGroupBody = zod.object({
  * @summary Get group detail
  */
 export const GetGroupParams = zod.object({
-  groupId: zod.coerce.number(),
+  groupId: zod.coerce.string().uuid(),
 });
 
 export const GetGroupResponse = zod
   .object({
-    id: zod.number(),
+    id: zod.string().uuid(),
     name: zod.string(),
     description: zod.string().nullish(),
     category: zod.string().nullish(),
-    avatarUrl: zod.string().nullish(),
-    createdByUserId: zod.number(),
+    createdByUserId: zod.string().uuid(),
     createdAt: zod.coerce.date(),
   })
   .and(
     zod.object({
       members: zod.array(
         zod.object({
-          id: zod.number(),
-          groupId: zod.number(),
-          userId: zod.number(),
+          id: zod.string().uuid(),
+          groupId: zod.string().uuid(),
+          userId: zod.string().uuid(),
           user: zod.object({
-            id: zod.number(),
+            id: zod.string().uuid(),
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
@@ -120,23 +112,21 @@ export const GetGroupResponse = zod
  * @summary Update group
  */
 export const UpdateGroupParams = zod.object({
-  groupId: zod.coerce.number(),
+  groupId: zod.coerce.string().uuid(),
 });
 
 export const UpdateGroupBody = zod.object({
   name: zod.string().optional(),
   description: zod.string().nullish(),
   category: zod.string().nullish(),
-  avatarUrl: zod.string().nullish(),
 });
 
 export const UpdateGroupResponse = zod.object({
-  id: zod.number(),
+  id: zod.string().uuid(),
   name: zod.string(),
   description: zod.string().nullish(),
   category: zod.string().nullish(),
-  avatarUrl: zod.string().nullish(),
-  createdByUserId: zod.number(),
+  createdByUserId: zod.string().uuid(),
   createdAt: zod.coerce.date(),
 });
 
@@ -144,49 +134,48 @@ export const UpdateGroupResponse = zod.object({
  * @summary Delete group
  */
 export const DeleteGroupParams = zod.object({
-  groupId: zod.coerce.number(),
+  groupId: zod.coerce.string().uuid(),
 });
 
 /**
  * @summary Add a member to the group by email
  */
 export const AddGroupMemberParams = zod.object({
-  groupId: zod.coerce.number(),
+  groupId: zod.coerce.string().uuid(),
 });
 
-export const AddGroupMemberBody = zod.union([
-  zod.object({ userId: zod.number().int().positive() }),
-  zod.object({ email: zod.string().email() }),
-]);
+export const AddGroupMemberBody = zod.object({
+  email: zod.string().email(),
+});
 
 /**
  * @summary Remove a member from the group
  */
 export const RemoveGroupMemberParams = zod.object({
-  groupId: zod.coerce.number(),
-  memberId: zod.coerce.number(),
+  groupId: zod.coerce.string().uuid(),
+  memberId: zod.coerce.string().uuid(),
 });
 
 /**
  * @summary Get simplified debt balances for the group
  */
 export const GetGroupBalancesParams = zod.object({
-  groupId: zod.coerce.number(),
+  groupId: zod.coerce.string().uuid(),
 });
 
 export const GetGroupBalancesResponseItem = zod
   .object({
-    fromUserId: zod.number(),
+    fromUserId: zod.string().uuid(),
     fromUser: zod.object({
-      id: zod.number(),
+      id: zod.string().uuid(),
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
       createdAt: zod.coerce.date(),
     }),
-    toUserId: zod.number(),
+    toUserId: zod.string().uuid(),
     toUser: zod.object({
-      id: zod.number(),
+      id: zod.string().uuid(),
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
@@ -201,7 +190,7 @@ export const GetGroupBalancesResponse = zod.array(GetGroupBalancesResponseItem);
  * @summary List expenses in a group
  */
 export const ListExpensesParams = zod.object({
-  groupId: zod.coerce.number(),
+  groupId: zod.coerce.string().uuid(),
 });
 
 export const listExpensesQueryLimitDefault = 50;
@@ -216,15 +205,15 @@ export const listExpensesResponseOneCurrencyDefault = `USD`;
 
 export const ListExpensesResponseItem = zod
   .object({
-    id: zod.number(),
-    groupId: zod.number(),
+    id: zod.string().uuid(),
+    groupId: zod.string().uuid(),
     description: zod.string(),
     totalAmount: zod.number(),
     currency: zod.string().default(listExpensesResponseOneCurrencyDefault),
     splitType: zod.enum(["equal", "exact", "percentage"]),
-    paidByUserId: zod.number(),
+    paidByUserId: zod.string().uuid(),
     paidByUser: zod.object({
-      id: zod.number(),
+      id: zod.string().uuid(),
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
@@ -237,11 +226,11 @@ export const ListExpensesResponseItem = zod
     zod.object({
       splits: zod.array(
         zod.object({
-          id: zod.number(),
-          expenseId: zod.number(),
-          userId: zod.number(),
+          id: zod.string().uuid(),
+          expenseId: zod.string().uuid(),
+          userId: zod.string().uuid(),
           user: zod.object({
-            id: zod.number(),
+            id: zod.string().uuid(),
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
@@ -259,7 +248,7 @@ export const ListExpensesResponse = zod.array(ListExpensesResponseItem);
  * @summary Add an expense to the group
  */
 export const CreateExpenseParams = zod.object({
-  groupId: zod.coerce.number(),
+  groupId: zod.coerce.string().uuid(),
 });
 
 export const createExpenseBodyCurrencyDefault = `USD`;
@@ -269,11 +258,11 @@ export const CreateExpenseBody = zod.object({
   totalAmount: zod.number(),
   currency: zod.string().default(createExpenseBodyCurrencyDefault),
   splitType: zod.enum(["equal", "exact", "percentage"]),
-  paidByUserId: zod.number(),
+  paidByUserId: zod.string().uuid(),
   date: zod.coerce.date(),
   splits: zod.array(
     zod.object({
-      userId: zod.number(),
+      userId: zod.string().uuid(),
       amount: zod.number().nullish(),
       percentage: zod.number().nullish(),
     }),
@@ -284,22 +273,22 @@ export const CreateExpenseBody = zod.object({
  * @summary Get expense detail
  */
 export const GetExpenseParams = zod.object({
-  expenseId: zod.coerce.number(),
+  expenseId: zod.coerce.string().uuid(),
 });
 
 export const getExpenseResponseOneCurrencyDefault = `USD`;
 
 export const GetExpenseResponse = zod
   .object({
-    id: zod.number(),
-    groupId: zod.number(),
+    id: zod.string().uuid(),
+    groupId: zod.string().uuid(),
     description: zod.string(),
     totalAmount: zod.number(),
     currency: zod.string().default(getExpenseResponseOneCurrencyDefault),
     splitType: zod.enum(["equal", "exact", "percentage"]),
-    paidByUserId: zod.number(),
+    paidByUserId: zod.string().uuid(),
     paidByUser: zod.object({
-      id: zod.number(),
+      id: zod.string().uuid(),
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
@@ -312,11 +301,11 @@ export const GetExpenseResponse = zod
     zod.object({
       splits: zod.array(
         zod.object({
-          id: zod.number(),
-          expenseId: zod.number(),
-          userId: zod.number(),
+          id: zod.string().uuid(),
+          expenseId: zod.string().uuid(),
+          userId: zod.string().uuid(),
           user: zod.object({
-            id: zod.number(),
+            id: zod.string().uuid(),
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
@@ -333,7 +322,7 @@ export const GetExpenseResponse = zod
  * @summary Update an expense
  */
 export const UpdateExpenseParams = zod.object({
-  expenseId: zod.coerce.number(),
+  expenseId: zod.coerce.string().uuid(),
 });
 
 export const UpdateExpenseBody = zod.object({
@@ -341,12 +330,12 @@ export const UpdateExpenseBody = zod.object({
   totalAmount: zod.number().optional(),
   currency: zod.string().optional(),
   splitType: zod.enum(["equal", "exact", "percentage"]).optional(),
-  paidByUserId: zod.number().optional(),
+  paidByUserId: zod.string().uuid().optional(),
   date: zod.coerce.date().optional(),
   splits: zod
     .array(
       zod.object({
-        userId: zod.number(),
+        userId: zod.string().uuid(),
         amount: zod.number().nullish(),
         percentage: zod.number().nullish(),
       }),
@@ -358,15 +347,15 @@ export const updateExpenseResponseOneCurrencyDefault = `USD`;
 
 export const UpdateExpenseResponse = zod
   .object({
-    id: zod.number(),
-    groupId: zod.number(),
+    id: zod.string().uuid(),
+    groupId: zod.string().uuid(),
     description: zod.string(),
     totalAmount: zod.number(),
     currency: zod.string().default(updateExpenseResponseOneCurrencyDefault),
     splitType: zod.enum(["equal", "exact", "percentage"]),
-    paidByUserId: zod.number(),
+    paidByUserId: zod.string().uuid(),
     paidByUser: zod.object({
-      id: zod.number(),
+      id: zod.string().uuid(),
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
@@ -379,11 +368,11 @@ export const UpdateExpenseResponse = zod
     zod.object({
       splits: zod.array(
         zod.object({
-          id: zod.number(),
-          expenseId: zod.number(),
-          userId: zod.number(),
+          id: zod.string().uuid(),
+          expenseId: zod.string().uuid(),
+          userId: zod.string().uuid(),
           user: zod.object({
-            id: zod.number(),
+            id: zod.string().uuid(),
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
@@ -400,30 +389,30 @@ export const UpdateExpenseResponse = zod
  * @summary Delete an expense
  */
 export const DeleteExpenseParams = zod.object({
-  expenseId: zod.coerce.number(),
+  expenseId: zod.coerce.string().uuid(),
 });
 
 /**
  * @summary List settle-up payments in a group
  */
 export const ListPaymentsParams = zod.object({
-  groupId: zod.coerce.number(),
+  groupId: zod.coerce.string().uuid(),
 });
 
 export const ListPaymentsResponseItem = zod.object({
-  id: zod.number(),
-  groupId: zod.number(),
-  fromUserId: zod.number(),
+  id: zod.string().uuid(),
+  groupId: zod.string().uuid(),
+  fromUserId: zod.string().uuid(),
   fromUser: zod.object({
-    id: zod.number(),
+    id: zod.string().uuid(),
     name: zod.string(),
     email: zod.string(),
     avatarUrl: zod.string().nullish(),
     createdAt: zod.coerce.date(),
   }),
-  toUserId: zod.number(),
+  toUserId: zod.string().uuid(),
   toUser: zod.object({
-    id: zod.number(),
+    id: zod.string().uuid(),
     name: zod.string(),
     email: zod.string(),
     avatarUrl: zod.string().nullish(),
@@ -440,12 +429,12 @@ export const ListPaymentsResponse = zod.array(ListPaymentsResponseItem);
  * @summary Record a settle-up payment
  */
 export const CreatePaymentParams = zod.object({
-  groupId: zod.coerce.number(),
+  groupId: zod.coerce.string().uuid(),
 });
 
 export const CreatePaymentBody = zod.object({
-  fromUserId: zod.number(),
-  toUserId: zod.number(),
+  fromUserId: zod.string().uuid(),
+  toUserId: zod.string().uuid(),
   amount: zod.number(),
   note: zod.string().nullish(),
   date: zod.coerce.date(),
@@ -455,7 +444,7 @@ export const CreatePaymentBody = zod.object({
  * @summary Delete a payment record
  */
 export const DeletePaymentParams = zod.object({
-  paymentId: zod.coerce.number(),
+  paymentId: zod.coerce.string().uuid(),
 });
 
 /**
@@ -472,9 +461,8 @@ export const GetDashboardSummaryResponse = zod.object({
   groupCount: zod.number(),
   groupSummaries: zod.array(
     zod.object({
-      groupId: zod.number(),
+      groupId: zod.string().uuid(),
       groupName: zod.string(),
-      avatarUrl: zod.string().nullish(),
       myNetBalance: zod.number(),
     }),
   ),
@@ -492,15 +480,16 @@ export const GetActivityQueryParams = zod.object({
 export const GetActivityResponseItem = zod.object({
   id: zod.string().describe('Unique ID like \"expense-42\" or \"payment-12\"'),
   type: zod.enum(["expense", "payment"]),
-  groupId: zod.number(),
+  groupId: zod.string().uuid(),
   groupName: zod.string(),
   description: zod.string(),
   amount: zod.number(),
   involvedUserId: zod
-    .number()
+    .string()
+    .uuid()
     .describe("The paidBy user (expense) or fromUser (payment)"),
   involvedUser: zod.object({
-    id: zod.number(),
+    id: zod.string().uuid(),
     name: zod.string(),
     email: zod.string(),
     avatarUrl: zod.string().nullish(),

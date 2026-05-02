@@ -12,12 +12,12 @@ export interface ActivityItem {
   /** Unique ID like "expense-42" or "payment-12" */
   id: string;
   type: ActivityItemType;
-  groupId: number;
+  groupId: string;
   groupName: string;
   description: string;
   amount: number;
   /** The paidBy user (expense) or fromUser (payment) */
-  involvedUserId: number;
+  involvedUserId: string;
   involvedUser: User;
   date: Date;
   createdAt: Date;

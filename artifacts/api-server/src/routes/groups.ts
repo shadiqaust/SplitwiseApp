@@ -23,22 +23,22 @@ import {
 
 const router: IRouter = Router();
 
-async function getUserById(id: number) {
+async function getUserById(id: string) {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
   return user;
 }
 
 async function buildMember(gm: {
-  id: number;
-  groupId: number;
-  userId: number;
+  id: string;
+  groupId: string;
+  userId: string;
   joinedAt: Date;
 }) {
   const user = await getUserById(gm.userId);
   return { ...gm, user, joinedAt: gm.joinedAt.toISOString() };
 }
 
-async function computeMyNetBalance(groupId: number, userId: number): Promise<number> {
+async function computeMyNetBalance(groupId: string, userId: string): Promise<number> {
   const expenses = await db
     .select({
       id: expensesTable.id,
@@ -296,7 +296,7 @@ router.delete(
     const memberIdRaw = Array.isArray(req.params.memberId)
       ? req.params.memberId[0]
       : req.params.memberId;
-    const memberId = parseInt(memberIdRaw, 10);
+    const memberId = memberIdRaw;
     const [member] = await db
       .delete(groupMembersTable)
       .where(eq(groupMembersTable.id, memberId))
@@ -328,7 +328,7 @@ router.get(
     const users = await db.select().from(usersTable).where(inArray(usersTable.id, userIds));
     const userMap = new Map(users.map((u) => [u.id, u]));
 
-    const net = new Map<number, number>();
+    const net = new Map<string, number>();
     for (const id of userIds) net.set(id, 0);
 
     const expenses = await db
@@ -359,9 +359,9 @@ router.get(
     }
 
     const balances: Array<{
-      fromUserId: number;
+      fromUserId: string;
       fromUser: unknown;
-      toUserId: number;
+      toUserId: string;
       toUser: unknown;
       amount: number;
     }> = [];

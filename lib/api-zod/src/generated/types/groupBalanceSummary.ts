@@ -7,7 +7,7 @@
  */
 
 export interface GroupBalanceSummary {
-  groupId: number;
+  groupId: string;
   groupName: string;
   myNetBalance: number;
 }

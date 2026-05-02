@@ -8,9 +8,9 @@
 import type { User } from "./user";
 
 export interface ExpenseSplit {
-  id: number;
-  expenseId: number;
-  userId: number;
+  id: string;
+  expenseId: string;
+  userId: string;
   user: User;
   /** Amount this user owes */
   amount: number;

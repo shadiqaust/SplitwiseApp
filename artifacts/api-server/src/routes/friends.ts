@@ -14,10 +14,12 @@ import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Compute friend list for the current user.
 // Friends = people in shared groups OR directly added via friendships table.
 // netBalance: positive → friend owes me, negative → I owe friend.
-async function buildFriendList(me: number) {
+async function buildFriendList(me: string) {
   // ── 1. Group-based connections ─────────────────────────────────────────────
   const myMemberships = await db
     .select({ groupId: groupMembersTable.groupId })
@@ -26,8 +28,8 @@ async function buildFriendList(me: number) {
 
   const myGroupIds = myMemberships.map((m) => m.groupId);
 
-  const groupFriendIds = new Set<number>();
-  const friendGroupsMap = new Map<number, Set<number>>(); // friendId → groupIds
+  const groupFriendIds = new Set<string>();
+  const friendGroupsMap = new Map<string, Set<string>>(); // friendId → groupIds
 
   if (myGroupIds.length > 0) {
     const otherMembers = await db
@@ -48,7 +50,7 @@ async function buildFriendList(me: number) {
     .from(friendshipsTable)
     .where(or(eq(friendshipsTable.userId, me), eq(friendshipsTable.friendId, me)));
 
-  const directFriendIds = new Set<number>();
+  const directFriendIds = new Set<string>();
   for (const f of directFriendships) {
     const otherId = f.userId === me ? f.friendId : f.userId;
     directFriendIds.add(otherId);
@@ -65,7 +67,7 @@ async function buildFriendList(me: number) {
   const userMap = new Map(friendUsers.map((u) => [u.id, u]));
 
   // ── 4. Balance computation ─────────────────────────────────────────────────
-  const netBalances = new Map<number, number>(allFriendIds.map((id) => [id, 0]));
+  const netBalances = new Map<string, number>(allFriendIds.map((id) => [id, 0]));
 
   if (myGroupIds.length > 0) {
     const expenses = await db.select().from(expensesTable).where(inArray(expensesTable.groupId, myGroupIds));
@@ -74,7 +76,7 @@ async function buildFriendList(me: number) {
       ? await db.select().from(expenseSplitsTable).where(inArray(expenseSplitsTable.expenseId, expenseIds))
       : [];
 
-    const splitsMap = new Map<number, typeof splits>();
+    const splitsMap = new Map<string, typeof splits>();
     for (const s of splits) {
       if (!splitsMap.has(s.expenseId)) splitsMap.set(s.expenseId, []);
       splitsMap.get(s.expenseId)!.push(s);
@@ -120,7 +122,7 @@ async function buildFriendList(me: number) {
       if (!user) return null;
       const sharedGroups = [...(friendGroupsMap.get(friendId) ?? [])]
         .map((gid) => groupMap.get(gid))
-        .filter(Boolean) as { id: number; name: string }[];
+        .filter(Boolean) as { id: string; name: string }[];
       const isDirect = directFriendIds.has(friendId);
       return {
         id: user.id,
@@ -148,9 +150,9 @@ router.get("/friends", requireAuth, async (req, res): Promise<void> => {
 // POST /friends  { friendId }
 router.post("/friends", requireAuth, async (req, res): Promise<void> => {
   const me = req.dbUserId!;
-  const { friendId } = req.body as { friendId?: number };
+  const { friendId } = req.body as { friendId?: string };
 
-  if (!friendId || typeof friendId !== "number") {
+  if (!friendId || typeof friendId !== "string" || !UUID_RE.test(friendId)) {
     res.status(400).json({ error: "friendId is required" });
     return;
   }
@@ -189,8 +191,8 @@ router.post("/friends", requireAuth, async (req, res): Promise<void> => {
 // DELETE /friends/:friendId
 router.delete("/friends/:friendId", requireAuth, async (req, res): Promise<void> => {
   const me = req.dbUserId!;
-  const friendId = parseInt(req.params.friendId, 10);
-  if (isNaN(friendId)) {
+  const friendId = req.params.friendId;
+  if (!UUID_RE.test(friendId)) {
     res.status(400).json({ error: "Invalid friendId" });
     return;
   }

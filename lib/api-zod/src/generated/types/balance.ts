@@ -11,9 +11,9 @@ import type { User } from "./user";
  * fromUser owes toUser the given amount
  */
 export interface Balance {
-  fromUserId: number;
+  fromUserId: string;
   fromUser: User;
-  toUserId: number;
+  toUserId: string;
   toUser: User;
   amount: number;
 }

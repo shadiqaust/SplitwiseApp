@@ -7,10 +7,10 @@
  */
 
 export interface Group {
-  id: number;
+  id: string;
   name: string;
   description?: string | null;
   category?: string | null;
-  createdByUserId: number;
+  createdByUserId: string;
   createdAt: Date;
 }

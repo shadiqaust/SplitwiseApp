@@ -4,7 +4,7 @@ const JWT_SECRET = process.env.JWT_SECRET ?? "dev-secret-change-in-production";
 const JWT_EXPIRES_IN = "7d";
 
 export interface JwtPayload {
-  userId: number;
+  userId: string;
 }
 
 export function signToken(payload: JwtPayload): string {

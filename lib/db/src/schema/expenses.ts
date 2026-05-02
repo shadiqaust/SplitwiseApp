@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, numeric, date } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, numeric, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -7,15 +7,15 @@ import { groupsTable } from "./groups";
 export const splitTypeEnum = ["equal", "exact", "percentage"] as const;
 
 export const expensesTable = pgTable("expenses", {
-  id: serial("id").primaryKey(),
-  groupId: integer("group_id")
+  id: uuid("id").defaultRandom().primaryKey(),
+  groupId: uuid("group_id")
     .notNull()
     .references(() => groupsTable.id, { onDelete: "cascade" }),
   description: text("description").notNull(),
   totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(),
   currency: text("currency").notNull().default("USD"),
   splitType: text("split_type").notNull().default("equal"),
-  paidByUserId: integer("paid_by_user_id")
+  paidByUserId: uuid("paid_by_user_id")
     .notNull()
     .references(() => usersTable.id),
   date: date("date").notNull(),
@@ -23,11 +23,11 @@ export const expensesTable = pgTable("expenses", {
 });
 
 export const expenseSplitsTable = pgTable("expense_splits", {
-  id: serial("id").primaryKey(),
-  expenseId: integer("expense_id")
+  id: uuid("id").defaultRandom().primaryKey(),
+  expenseId: uuid("expense_id")
     .notNull()
     .references(() => expensesTable.id, { onDelete: "cascade" }),
-  userId: integer("user_id")
+  userId: uuid("user_id")
     .notNull()
     .references(() => usersTable.id),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),

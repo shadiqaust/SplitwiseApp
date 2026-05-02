@@ -8,11 +8,11 @@
 import type { User } from "./user";
 
 export interface Payment {
-  id: number;
-  groupId: number;
-  fromUserId: number;
+  id: string;
+  groupId: string;
+  fromUserId: string;
   fromUser: User;
-  toUserId: number;
+  toUserId: string;
   toUser: User;
   amount: number;
   note?: string | null;

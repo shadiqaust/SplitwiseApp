@@ -8,9 +8,9 @@
 import type { User } from "./user";
 
 export interface GroupMember {
-  id: number;
-  groupId: number;
-  userId: number;
+  id: string;
+  groupId: string;
+  userId: string;
   user: User;
   joinedAt: Date;
 }

@@ -40,7 +40,7 @@ router.put("/users/me", requireAuth, async (req, res): Promise<void> => {
 /** Resolve "known" user IDs for the current user.
  *  Mirrors the same definition used in /api/friends:
  *  anyone in a shared group OR in the friendshipsTable. */
-async function resolveFriendIds(currentUserId: number): Promise<{ allIds: number[]; directIds: Set<number> }> {
+async function resolveFriendIds(currentUserId: string): Promise<{ allIds: string[]; directIds: Set<string> }> {
   // 1. Groups the current user belongs to
   const myMemberships = await db
     .select({ groupId: groupMembersTable.groupId })
@@ -49,7 +49,7 @@ async function resolveFriendIds(currentUserId: number): Promise<{ allIds: number
   const myGroupIds = myMemberships.map((m) => m.groupId);
 
   // 2. Co-members from shared groups
-  const groupFriendSet = new Set<number>();
+  const groupFriendSet = new Set<string>();
   if (myGroupIds.length > 0) {
     const others = await db
       .select({ userId: groupMembersTable.userId })
@@ -73,7 +73,7 @@ async function resolveFriendIds(currentUserId: number): Promise<{ allIds: number
         eq(friendshipsTable.friendId, currentUserId),
       )!,
     );
-  const directIds = new Set<number>();
+  const directIds = new Set<string>();
   for (const r of friendRows) {
     directIds.add(r.userId === currentUserId ? r.friendId : r.userId);
   }
@@ -84,7 +84,7 @@ async function resolveFriendIds(currentUserId: number): Promise<{ allIds: number
 
 const SearchQueryParams = z.object({
   q: z.string().min(1).max(100).optional(),
-  excludeGroupId: z.coerce.number().int().positive().optional(),
+  excludeGroupId: z.string().uuid().optional(),
 });
 
 router.get("/users/search", requireAuth, async (req, res): Promise<void> => {
@@ -108,7 +108,7 @@ router.get("/users/search", requireAuth, async (req, res): Promise<void> => {
     : null;
 
   // ── Friends section ────────────────────────────────────────────────────────
-  const friends: { id: number; name: string; email: string; avatarUrl: string | null }[] = [];
+  const friends: { id: string; name: string; email: string; avatarUrl: string | null }[] = [];
 
   if (friendIds.length > 0) {
     const conditions: any[] = [inArray(usersTable.id, friendIds)];
@@ -129,7 +129,7 @@ router.get("/users/search", requireAuth, async (req, res): Promise<void> => {
   }
 
   // ── Non-friend email search (only when query looks like an email) ──────────
-  let nonFriends: { id: number; name: string; email: string; avatarUrl: string | null }[] = [];
+  let nonFriends: { id: string; name: string; email: string; avatarUrl: string | null }[] = [];
   if (q && q.includes("@")) {
     const pattern = `%${q.replace(/[%_]/g, "\\$&")}%`;
     const nfConditions: any[] = [

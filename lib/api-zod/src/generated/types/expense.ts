@@ -9,13 +9,13 @@ import type { SplitType } from "./splitType";
 import type { User } from "./user";
 
 export interface Expense {
-  id: number;
-  groupId: number;
+  id: string;
+  groupId: string;
   description: string;
   totalAmount: number;
   currency: string;
   splitType: SplitType;
-  paidByUserId: number;
+  paidByUserId: string;
   paidByUser: User;
   date: Date;
   createdAt: Date;

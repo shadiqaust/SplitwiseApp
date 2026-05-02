@@ -14,7 +14,7 @@ export interface ErrorResponse {
 }
 
 export interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   avatarUrl?: string | null;
@@ -27,11 +27,11 @@ export interface UpdateUserBody {
 }
 
 export interface Group {
-  id: number;
+  id: string;
   name: string;
   description?: string | null;
   category?: string | null;
-  createdByUserId: number;
+  createdByUserId: string;
   createdAt: string;
 }
 
@@ -42,9 +42,9 @@ export type GroupWithBalance = Group & {
 };
 
 export interface GroupMember {
-  id: number;
-  groupId: number;
-  userId: number;
+  id: string;
+  groupId: string;
+  userId: string;
   user: User;
   joinedAt: string;
 }
@@ -73,9 +73,9 @@ export interface AddMemberBody {
  * fromUser owes toUser the given amount
  */
 export interface Balance {
-  fromUserId: number;
+  fromUserId: string;
   fromUser: User;
-  toUserId: number;
+  toUserId: string;
   toUser: User;
   amount: number;
 }
@@ -89,9 +89,9 @@ export const SplitType = {
 } as const;
 
 export interface ExpenseSplit {
-  id: number;
-  expenseId: number;
-  userId: number;
+  id: string;
+  expenseId: string;
+  userId: string;
   user: User;
   /** Amount this user owes */
   amount: number;
@@ -99,13 +99,13 @@ export interface ExpenseSplit {
 }
 
 export interface Expense {
-  id: number;
-  groupId: number;
+  id: string;
+  groupId: string;
   description: string;
   totalAmount: number;
   currency: string;
   splitType: SplitType;
-  paidByUserId: number;
+  paidByUserId: string;
   paidByUser: User;
   date: string;
   createdAt: string;
@@ -116,7 +116,7 @@ export type ExpenseWithSplits = Expense & {
 };
 
 export interface ExpenseSplitInput {
-  userId: number;
+  userId: string;
   amount?: number | null;
   percentage?: number | null;
 }
@@ -126,7 +126,7 @@ export interface CreateExpenseBody {
   totalAmount: number;
   currency?: string;
   splitType: SplitType;
-  paidByUserId: number;
+  paidByUserId: string;
   date: string;
   splits: ExpenseSplitInput[];
 }
@@ -136,17 +136,17 @@ export interface UpdateExpenseBody {
   totalAmount?: number;
   currency?: string;
   splitType?: SplitType;
-  paidByUserId?: number;
+  paidByUserId?: string;
   date?: string;
   splits?: ExpenseSplitInput[];
 }
 
 export interface Payment {
-  id: number;
-  groupId: number;
-  fromUserId: number;
+  id: string;
+  groupId: string;
+  fromUserId: string;
   fromUser: User;
-  toUserId: number;
+  toUserId: string;
   toUser: User;
   amount: number;
   note?: string | null;
@@ -155,15 +155,15 @@ export interface Payment {
 }
 
 export interface CreatePaymentBody {
-  fromUserId: number;
-  toUserId: number;
+  fromUserId: string;
+  toUserId: string;
   amount: number;
   note?: string | null;
   date: string;
 }
 
 export interface GroupBalanceSummary {
-  groupId: number;
+  groupId: string;
   groupName: string;
   myNetBalance: number;
 }
@@ -191,12 +191,12 @@ export interface ActivityItem {
   /** Unique ID like "expense-42" or "payment-12" */
   id: string;
   type: ActivityItemType;
-  groupId: number;
+  groupId: string;
   groupName: string;
   description: string;
   amount: number;
   /** The paidBy user (expense) or fromUser (payment) */
-  involvedUserId: number;
+  involvedUserId: string;
   involvedUser: User;
   date: string;
   createdAt: string;

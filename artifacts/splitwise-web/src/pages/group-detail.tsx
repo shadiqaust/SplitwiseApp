@@ -24,6 +24,7 @@ import {
 import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight } from "lucide-react";
 
 import { Layout } from "@/components/layout";
+import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -142,7 +143,7 @@ function GroupAvatarDialog({
   currentUrl,
   groupName,
 }: {
-  groupId: number;
+  groupId: string;
   currentUrl?: string | null;
   groupName: string;
 }) {
@@ -303,7 +304,7 @@ function GroupAvatarDialog({
   );
 }
 
-function invalidateGroupData(groupId: number) {
+function invalidateGroupData(groupId: string) {
   queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
   queryClient.invalidateQueries({
     queryKey: getGetGroupBalancesQueryKey(groupId),
@@ -316,7 +317,7 @@ function invalidateGroupData(groupId: number) {
 }
 
 interface UserResult {
-  id: number;
+  id: string;
   name: string;
   email: string;
   avatarUrl: string | null;
@@ -335,10 +336,10 @@ function UserAvatar({ name, size = 32 }: { name: string; size?: number }) {
   );
 }
 
-function AddMemberDialog({ groupId }: { groupId: number }) {
+function AddMemberDialog({ groupId }: { groupId: string }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [addingId, setAddingId] = useState<number | null>(null);
+  const [addingId, setAddingId] = useState<string | null>(null);
   const { toast } = useToast();
   const addMember = useAddGroupMember();
 
@@ -457,20 +458,20 @@ function AddExpenseDialog({
   members,
   currentUserId,
 }: {
-  groupId: number;
+  groupId: string;
   members: GroupMember[];
-  currentUserId: number;
+  currentUserId: string;
 }) {
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [paidByUserId, setPaidByUserId] = useState<number>(currentUserId);
+  const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
   const [splitType, setSplitType] = useState<SplitType>(SplitType.equal);
-  const [participantIds, setParticipantIds] = useState<Set<number>>(
+  const [participantIds, setParticipantIds] = useState<Set<string>>(
     new Set(members.map((m) => m.userId)),
   );
-  const [exactAmounts, setExactAmounts] = useState<Record<number, string>>({});
-  const [percentages, setPercentages] = useState<Record<number, string>>({});
+  const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
+  const [percentages, setPercentages] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const createExpense = useCreateExpense();
 
@@ -486,7 +487,7 @@ function AddExpenseDialog({
     }
   }, [open, currentUserId, members]);
 
-  const toggleParticipant = (userId: number) => {
+  const toggleParticipant = (userId: string) => {
     const next = new Set(participantIds);
     if (next.has(userId)) next.delete(userId);
     else next.add(userId);
@@ -494,7 +495,7 @@ function AddExpenseDialog({
   };
 
   const buildSplits = (): Array<{
-    userId: number;
+    userId: string;
     amount: number;
     percentage?: number;
   }> => {
@@ -634,7 +635,7 @@ function AddExpenseDialog({
               <Label>Paid by</Label>
               <Select
                 value={String(paidByUserId)}
-                onValueChange={(v) => setPaidByUserId(Number(v))}
+                onValueChange={(v) => setPaidByUserId(v)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -737,7 +738,7 @@ function AddExpenseDialog({
   );
 }
 
-type Balance = { fromUserId: number; toUserId: number; amount: number; fromUser: { name: string }; toUser: { name: string } };
+type Balance = { fromUserId: string; toUserId: string; amount: number; fromUser: { name: string }; toUser: { name: string } };
 
 function SettleUpDialog({
   groupId,
@@ -745,14 +746,14 @@ function SettleUpDialog({
   currentUserId,
   balances,
 }: {
-  groupId: number;
+  groupId: string;
   members: GroupMember[];
-  currentUserId: number;
+  currentUserId: string;
   balances: Balance[];
 }) {
   const [open, setOpen] = useState(false);
-  const [fromUserId, setFromUserId] = useState<number>(currentUserId);
-  const [toUserId, setToUserId] = useState<number | null>(null);
+  const [fromUserId, setFromUserId] = useState<string>(currentUserId);
+  const [toUserId, setToUserId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const { toast } = useToast();
@@ -840,7 +841,7 @@ function SettleUpDialog({
               <Label>From</Label>
               <Select
                 value={String(fromUserId)}
-                onValueChange={(v) => setFromUserId(Number(v))}
+                onValueChange={(v) => setFromUserId(v)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -866,7 +867,7 @@ function SettleUpDialog({
               <Label>To</Label>
               <Select
                 value={toUserId !== null ? String(toUserId) : ""}
-                onValueChange={(v) => setToUserId(Number(v))}
+                onValueChange={(v) => setToUserId(v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select" />
@@ -933,7 +934,7 @@ function SettleUpDialog({
   );
 }
 
-type ProfileMember = { userId: number; user: { name: string; email: string; avatarUrl: string | null } };
+type ProfileMember = { userId: string; user: { name: string; email: string; avatarUrl: string | null } };
 
 function MemberProfileDialog({
   member,
@@ -947,8 +948,8 @@ function MemberProfileDialog({
   member: ProfileMember;
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  groupId: number;
-  myUserId: number;
+  groupId: string;
+  myUserId: string;
   balances: Balance[];
   members: GroupMember[];
 }) {
@@ -1076,7 +1077,7 @@ function MemberProfileDialog({
 
 export function GroupDetailPage() {
   const params = useParams<{ groupId: string }>();
-  const groupId = Number(params.groupId);
+  const groupId = params.groupId!;
 
   const POLL = { query: { refetchInterval: 15_000 } } as const;
   const me = useGetMe(POLL);
@@ -1085,10 +1086,10 @@ export function GroupDetailPage() {
   const payments = useListPayments(groupId, POLL);
   const balances = useGetGroupBalances(groupId, POLL);
 
-  const myUserId = me.data?.id ?? -1;
+  const myUserId = me.data?.id ?? "";
   const members = group.data?.members ?? [];
 
-  const [filterMemberId, setFilterMemberId] = useState<number | "all">("all");
+  const [filterMemberId, setFilterMemberId] = useState<string | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"all" | "7d" | "30d">("all");
   const [profileMember, setProfileMember] = useState<ProfileMember | null>(null);
 
@@ -1138,6 +1139,10 @@ export function GroupDetailPage() {
     }
     return items;
   }, [combined, filterMemberId, filterPeriod]);
+
+  if (group.isError) {
+    return <NotFound />;
+  }
 
   if (group.isLoading || !group.data) {
     return (
@@ -1267,7 +1272,7 @@ export function GroupDetailPage() {
           <TabsContent value="activity" className="space-y-3">
             {/* Filters */}
             <div className="flex flex-wrap gap-2 items-center">
-              <Select value={String(filterMemberId)} onValueChange={(v) => setFilterMemberId(v === "all" ? "all" : Number(v))}>
+              <Select value={filterMemberId} onValueChange={(v) => setFilterMemberId(v)}>
                 <SelectTrigger className="w-40 h-8 text-xs">
                   <SelectValue placeholder="All members" />
                 </SelectTrigger>

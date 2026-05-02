@@ -7,7 +7,7 @@
  */
 
 export interface ExpenseSplitInput {
-  userId: number;
+  userId: string;
   amount?: number | null;
   percentage?: number | null;
 }

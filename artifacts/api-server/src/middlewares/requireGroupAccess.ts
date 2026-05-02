@@ -10,20 +10,21 @@ import {
 declare global {
   namespace Express {
     interface Request {
-      authorizedGroupId?: number;
+      authorizedGroupId?: string;
     }
   }
 }
 
-function paramId(req: Request, name: string): number | null {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function paramId(req: Request, name: string): string | null {
   const raw = req.params[name];
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (typeof value !== "string") return null;
-  const n = parseInt(value, 10);
-  return Number.isFinite(n) ? n : null;
+  return UUID_RE.test(value) ? value : null;
 }
 
-async function isMember(groupId: number, userId: number): Promise<boolean> {
+async function isMember(groupId: string, userId: string): Promise<boolean> {
   const [row] = await db
     .select({ id: groupMembersTable.id })
     .from(groupMembersTable)
@@ -45,11 +46,11 @@ export function requireGroupMember(paramName = "groupId") {
     }
     const groupId = paramId(req, paramName);
     if (groupId === null) {
-      res.status(400).json({ error: "Invalid group id" });
+      res.status(404).json({ error: "Group not found" });
       return;
     }
     if (!(await isMember(groupId, userId))) {
-      res.status(403).json({ error: "Forbidden" });
+      res.status(404).json({ error: "Group not found" });
       return;
     }
     req.authorizedGroupId = groupId;
@@ -66,7 +67,7 @@ export function requireExpenseAccess(paramName = "expenseId") {
     }
     const expenseId = paramId(req, paramName);
     if (expenseId === null) {
-      res.status(400).json({ error: "Invalid expense id" });
+      res.status(404).json({ error: "Expense not found" });
       return;
     }
     const [expense] = await db
@@ -78,7 +79,7 @@ export function requireExpenseAccess(paramName = "expenseId") {
       return;
     }
     if (!(await isMember(expense.groupId, userId))) {
-      res.status(403).json({ error: "Forbidden" });
+      res.status(404).json({ error: "Expense not found" });
       return;
     }
     req.authorizedGroupId = expense.groupId;
@@ -95,7 +96,7 @@ export function requirePaymentAccess(paramName = "paymentId") {
     }
     const paymentId = paramId(req, paramName);
     if (paymentId === null) {
-      res.status(400).json({ error: "Invalid payment id" });
+      res.status(404).json({ error: "Payment not found" });
       return;
     }
     const [payment] = await db
@@ -107,7 +108,7 @@ export function requirePaymentAccess(paramName = "paymentId") {
       return;
     }
     if (!(await isMember(payment.groupId, userId))) {
-      res.status(403).json({ error: "Forbidden" });
+      res.status(404).json({ error: "Payment not found" });
       return;
     }
     req.authorizedGroupId = payment.groupId;
@@ -124,7 +125,7 @@ export function requireGroupMemberByMember(paramName = "memberId") {
     }
     const memberId = paramId(req, paramName);
     if (memberId === null) {
-      res.status(400).json({ error: "Invalid member id" });
+      res.status(404).json({ error: "Member not found" });
       return;
     }
     const [target] = await db
@@ -136,7 +137,7 @@ export function requireGroupMemberByMember(paramName = "memberId") {
       return;
     }
     if (!(await isMember(target.groupId, userId))) {
-      res.status(403).json({ error: "Forbidden" });
+      res.status(404).json({ error: "Member not found" });
       return;
     }
     req.authorizedGroupId = target.groupId;

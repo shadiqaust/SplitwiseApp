@@ -7,8 +7,8 @@
  */
 
 export interface CreatePaymentBody {
-  fromUserId: number;
-  toUserId: number;
+  fromUserId: string;
+  toUserId: string;
   amount: number;
   note?: string | null;
   date: Date;
