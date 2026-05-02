@@ -321,7 +321,7 @@ export function FriendsPage() {
 
         {expenseFriend && me.data?.id && (
           <AddExpenseWithFriendDialog
-            friends={[expenseFriend]}
+            friend={expenseFriend}
             currentUserId={me.data.id}
             open
             onOpenChange={(o) => {

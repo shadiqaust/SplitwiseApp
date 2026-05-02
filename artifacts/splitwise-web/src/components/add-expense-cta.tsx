@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useGetMe } from "@workspace/api-client-react";
 
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,10 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import {
   AddExpenseWithFriendDialog,
   type FriendLike,
@@ -34,9 +32,8 @@ function authHeaders(): HeadersInit {
 export function AddExpenseCTA() {
   const me = useGetMe();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [chosenFriends, setChosenFriends] = useState<FriendLike[] | null>(null);
+  const [chosenFriend, setChosenFriend] = useState<FriendLike | null>(null);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Map<string, FriendLike>>(new Map());
 
   const friendsQuery = useQuery<ApiFriend[]>({
     queryKey: ["friends"],
@@ -49,10 +46,7 @@ export function AddExpenseCTA() {
   });
 
   useEffect(() => {
-    if (!pickerOpen) {
-      setSearch("");
-      setSelected(new Map());
-    }
+    if (!pickerOpen) setSearch("");
   }, [pickerOpen]);
 
   const filtered = useMemo(() => {
@@ -65,27 +59,10 @@ export function AddExpenseCTA() {
     );
   }, [friendsQuery.data, search]);
 
-  const onPickerChange = (o: boolean) => {
-    setPickerOpen(o);
-  };
-
-  const toggleFriend = (f: ApiFriend) => {
-    const key = String(f.id);
-    setSelected((prev) => {
-      const next = new Map(prev);
-      if (next.has(key)) next.delete(key);
-      else next.set(key, { id: f.id, name: f.name });
-      return next;
-    });
-  };
-
-  const onNext = () => {
-    if (selected.size === 0) return;
-    setChosenFriends(Array.from(selected.values()));
+  const pickFriend = (f: ApiFriend) => {
+    setChosenFriend({ id: f.id, name: f.name });
     setPickerOpen(false);
   };
-
-  const selectedCount = selected.size;
 
   return (
     <>
@@ -98,12 +75,13 @@ export function AddExpenseCTA() {
         Add expense
       </Button>
 
-      <Dialog open={pickerOpen} onOpenChange={onPickerChange}>
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
             <DialogTitle>Add expense</DialogTitle>
             <DialogDescription>
-              Select one or more friends to split a non-group expense with.
+              Pick a friend to split a non-group expense with. For more than two
+              people, create a group.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -130,69 +108,37 @@ export function AddExpenseCTA() {
               </p>
             ) : (
               <div className="max-h-[320px] overflow-y-auto -mx-2 pr-1">
-                {filtered.map((f) => {
-                  const key = String(f.id);
-                  const isSelected = selected.has(key);
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted rounded-md text-left transition-colors"
-                      onClick={() => toggleFriend(f)}
-                    >
-                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
-                        {f.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{f.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {f.email}
-                        </p>
-                      </div>
-                      <div
-                        className={cn(
-                          "w-5 h-5 rounded-md border flex items-center justify-center shrink-0",
-                          isSelected
-                            ? "bg-primary border-primary"
-                            : "border-border bg-transparent",
-                        )}
-                      >
-                        {isSelected && (
-                          <Check className="w-3 h-3 text-primary-foreground" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                {filtered.map((f) => (
+                  <button
+                    key={String(f.id)}
+                    type="button"
+                    className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted rounded-md text-left transition-colors"
+                    onClick={() => pickFriend(f)}
+                  >
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
+                      {f.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{f.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {f.email}
+                      </p>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setPickerOpen(false)}
-              type="button"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={onNext}
-              disabled={selectedCount === 0}
-            >
-              {selectedCount > 0 ? `Next (${selectedCount})` : "Next"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {chosenFriends && me.data?.id && (
+      {chosenFriend && me.data?.id && (
         <AddExpenseWithFriendDialog
-          friends={chosenFriends}
+          friend={chosenFriend}
           currentUserId={me.data.id}
           open
           onOpenChange={(o) => {
-            if (!o) setChosenFriends(null);
+            if (!o) setChosenFriend(null);
           }}
         />
       )}

@@ -296,7 +296,7 @@ export default function FriendsScreen() {
       {showAdd && <AddFriendModal existingIds={existingIds} onClose={() => setShowAdd(false)} />}
       {expenseFriend && me.data?.id && (
         <AddExpenseWithFriendModal
-          friends={[expenseFriend]}
+          friend={expenseFriend}
           currentUserId={me.data.id}
           onClose={() => setExpenseFriend(null)}
         />
