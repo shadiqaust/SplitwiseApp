@@ -1098,7 +1098,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/GroupBalanceSummary"
-      required: [totalOwed, totalIOwe, netBalance, groupCount, groupSummaries]
+        nonGroupNetBalance:
+          type: number
+          description: Net balance from non-group (friend-only) expenses. Positive = you are owed.
+        nonGroupExpenseCount:
+          type: integer
+          description: Number of non-group expenses involving the current user.
+      required:
+        [totalOwed, totalIOwe, netBalance, groupCount, groupSummaries, nonGroupNetBalance, nonGroupExpenseCount]
 
     GroupBalanceSummary:
       type: object

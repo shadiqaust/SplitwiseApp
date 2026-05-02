@@ -131,6 +131,8 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     netBalance: Math.round((totalOwed - totalIOwe) * 100) / 100,
     groupCount: groups.length,
     groupSummaries,
+    nonGroupNetBalance: Math.round((nonGroupOwed - nonGroupIOwe) * 100) / 100,
+    nonGroupExpenseCount: nonGroupExpenseIds.length,
   });
 });
 

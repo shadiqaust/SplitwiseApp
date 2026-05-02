@@ -119,9 +119,50 @@ export default function DashboardScreen() {
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
           Groups
         </Text>
-        {data?.groupSummaries && data.groupSummaries.length > 0 ? (
-          <View style={{ gap: 8 }}>
-            {data.groupSummaries.map((g) => (
+        <View style={{ gap: 8 }}>
+          {/* Virtual "Non-group expenses" entry — always visible, like Splitwise */}
+          <Pressable
+            onPress={() => router.push("/non-group-expenses")}
+            android_ripple={{ color: colors.accent }}
+            style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Card style={styles.groupRow}>
+              <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
+                <Feather name="dollar-sign" size={18} color={colors.accentForeground} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.groupName, { color: colors.foreground }]}
+                  numberOfLines={1}
+                >
+                  Non-group expenses
+                </Text>
+                <Text
+                  style={[
+                    styles.groupBalance,
+                    {
+                      color:
+                        (data?.nonGroupNetBalance ?? 0) > 0
+                          ? colors.positive
+                          : (data?.nonGroupNetBalance ?? 0) < 0
+                            ? colors.negative
+                            : colors.mutedForeground,
+                    },
+                  ]}
+                >
+                  {(data?.nonGroupNetBalance ?? 0) > 0
+                    ? `you are owed ${formatCurrency(data!.nonGroupNetBalance!)}`
+                    : (data?.nonGroupNetBalance ?? 0) < 0
+                      ? `you owe ${formatCurrency(Math.abs(data!.nonGroupNetBalance!))}`
+                      : "settled up"}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+            </Card>
+          </Pressable>
+
+          {data?.groupSummaries && data.groupSummaries.length > 0 ? (
+            data.groupSummaries.map((g) => (
               // Use Pressable instead of onTouchEnd so a pull-to-refresh swipe
               // that starts on this row does NOT navigate. Pressable cancels
               // the press when the touch moves beyond a threshold (e.g. when
@@ -172,17 +213,9 @@ export default function DashboardScreen() {
                   <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
                 </Card>
               </Pressable>
-            ))}
-          </View>
-        ) : (
-          <Card>
-            <EmptyState
-              icon="users"
-              title="No groups yet"
-              message="Create a group to start tracking shared expenses."
-            />
-          </Card>
-        )}
+            ))
+          ) : null}
+        </View>
       </View>
 
       <View>

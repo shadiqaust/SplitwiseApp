@@ -16,4 +16,8 @@ export interface DashboardSummary {
   netBalance: number;
   groupCount: number;
   groupSummaries: GroupBalanceSummary[];
+  /** Net balance from non-group (friend-only) expenses. Positive = you are owed. */
+  nonGroupNetBalance: number;
+  /** Number of non-group expenses involving the current user. */
+  nonGroupExpenseCount: number;
 }

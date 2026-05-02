@@ -750,6 +750,14 @@ export const GetDashboardSummaryResponse = zod.object({
       myNetBalance: zod.number(),
     }),
   ),
+  nonGroupNetBalance: zod
+    .number()
+    .describe(
+      "Net balance from non-group (friend-only) expenses. Positive = you are owed.",
+    ),
+  nonGroupExpenseCount: zod
+    .number()
+    .describe("Number of non-group expenses involving the current user."),
 });
 
 /**
