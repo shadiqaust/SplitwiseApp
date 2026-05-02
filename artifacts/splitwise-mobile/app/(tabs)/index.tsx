@@ -64,7 +64,27 @@ export default function DashboardScreen() {
         />
       }
     >
-      <AddExpenseCTA />
+      <View style={styles.ctaRow}>
+        <Pressable
+          onPress={() => router.push("/groups/new")}
+          style={({ pressed }) => [
+            styles.addGroupBtn,
+            {
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Feather name="users" size={16} color={colors.foreground} />
+          <Text style={[styles.addGroupText, { color: colors.foreground }]}>
+            Add group
+          </Text>
+        </Pressable>
+        <View style={{ flex: 1 }}>
+          <AddExpenseCTA />
+        </View>
+      </View>
 
       <Card style={styles.heroCard}>
         <Text style={[styles.heroLabel, { color: colors.mutedForeground }]}>
@@ -273,6 +293,18 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { padding: 16, gap: 24, paddingBottom: 80 },
+  ctaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  addGroupBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+  },
+  addGroupText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   heroCard: { gap: 4 },
   heroLabel: { fontFamily: "Inter_500Medium", fontSize: 13 },
   heroAmount: { fontFamily: "Inter_700Bold", fontSize: 36 },

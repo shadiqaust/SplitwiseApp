@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Layout } from "@/components/layout";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpRight, ArrowDownRight, Activity, DollarSign } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Activity, DollarSign, Users } from "lucide-react";
 import { AddExpenseCTA } from "@/components/add-expense-cta";
+import { Button } from "@/components/ui/button";
 
 const PAGE_SIZE = 8;
 
@@ -84,7 +85,15 @@ export function DashboardPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <AddExpenseCTA />
+          <div className="flex items-center gap-2">
+            <Link href="/groups/new">
+              <Button size="sm" variant="outline">
+                <Users className="w-4 h-4 mr-1" />
+                Add group
+              </Button>
+            </Link>
+            <AddExpenseCTA />
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
