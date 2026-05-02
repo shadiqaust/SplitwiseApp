@@ -87,7 +87,10 @@ export function DashboardPage() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
           <div className="flex items-center gap-2">
             <Link href="/groups/new">
-              <Button size="sm" variant="outline">
+              <Button
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
                 <Users className="w-4 h-4 mr-1" />
                 <span className="hidden sm:inline">Add group</span>
                 <span className="inline sm:hidden">Group</span>

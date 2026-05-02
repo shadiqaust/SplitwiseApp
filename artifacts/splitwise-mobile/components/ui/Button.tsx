@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
-type Variant = "primary" | "secondary" | "outline" | "destructive" | "ghost";
+type Variant = "primary" | "secondary" | "outline" | "destructive" | "ghost" | "indigo";
 
 interface Props {
   title: string;
@@ -31,9 +31,11 @@ export function Button({
         ? colors.secondary
         : variant === "destructive"
           ? colors.destructive
-          : "transparent";
+          : variant === "indigo"
+            ? "#4f46e5"
+            : "transparent";
   const fg =
-    variant === "primary" || variant === "destructive"
+    variant === "primary" || variant === "destructive" || variant === "indigo"
       ? "#ffffff"
       : variant === "secondary"
         ? colors.secondaryForeground

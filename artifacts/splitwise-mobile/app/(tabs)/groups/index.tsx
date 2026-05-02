@@ -149,6 +149,7 @@ export default function GroupsScreen() {
           <View style={{ flex: 1 }}>
             <Button
               title="New group"
+              variant="indigo"
               icon={<Feather name="plus" size={18} color="#fff" />}
               onPress={() => router.push("/groups/new")}
               fullWidth

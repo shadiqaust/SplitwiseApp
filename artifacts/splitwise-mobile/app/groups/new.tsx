@@ -87,6 +87,7 @@ export default function NewGroupScreen() {
           <View style={{ gap: 8, marginTop: 24 }}>
             <Button
               title="Create group"
+              variant="indigo"
               onPress={onSubmit}
               loading={createGroup.isPending}
               fullWidth

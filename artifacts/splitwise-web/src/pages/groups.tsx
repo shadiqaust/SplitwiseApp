@@ -95,7 +95,7 @@ export function GroupsPage() {
               </ToggleGroupItem>
             </ToggleGroup>
             <Link href="/groups/new">
-              <Button>
+              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 New Group
               </Button>
@@ -313,7 +313,9 @@ export function GroupsPage() {
               Create a group to start sharing expenses with friends, family, or roommates.
             </p>
             <Link href="/groups/new">
-              <Button>Create a Group</Button>
+              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                Create a Group
+              </Button>
             </Link>
           </div>
         )}
