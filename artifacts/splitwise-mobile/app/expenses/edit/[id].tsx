@@ -10,7 +10,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { getCategoryIcon } from "@/lib/expenseCategories";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useQueryClient } from "@tanstack/react-query";
@@ -355,6 +356,7 @@ export default function EditExpenseScreen() {
             <View style={styles.chipsWrap}>
               {EXPENSE_CATEGORIES.map((c) => {
                 const active = c === category;
+                const fg = active ? colors.primaryForeground : colors.foreground;
                 return (
                   <Pressable
                     key={c}
@@ -364,14 +366,20 @@ export default function EditExpenseScreen() {
                       {
                         backgroundColor: active ? colors.primary : colors.muted,
                         opacity: pressed ? 0.85 : 1,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
                       },
                     ]}
                   >
+                    <MaterialCommunityIcons
+                      name={getCategoryIcon(c)}
+                      size={14}
+                      color={fg}
+                    />
                     <Text
                       style={{
-                        color: active
-                          ? colors.primaryForeground
-                          : colors.foreground,
+                        color: fg,
                         fontFamily: "Inter_500Medium",
                         fontSize: 12,
                       }}

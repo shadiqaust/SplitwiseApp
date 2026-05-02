@@ -914,9 +914,17 @@ function AddExpenseDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {EXPENSE_CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
+                  {EXPENSE_CATEGORIES.map((c) => {
+                    const Icon = getCategoryIcon(c);
+                    return (
+                      <SelectItem key={c} value={c}>
+                        <span className="inline-flex items-center gap-2">
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                          {c}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

@@ -10,7 +10,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { getCategoryIcon } from "@/lib/expenseCategories";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -244,9 +245,17 @@ export default function NewExpenseScreen() {
                       backgroundColor:
                         category === c ? colors.accent : colors.card,
                       borderRadius: colors.radius,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
                     },
                   ]}
                 >
+                  <MaterialCommunityIcons
+                    name={getCategoryIcon(c)}
+                    size={14}
+                    color={colors.foreground}
+                  />
                   <Text style={[styles.chipText, { color: colors.foreground }]}>
                     {c}
                   </Text>
