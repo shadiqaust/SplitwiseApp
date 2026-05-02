@@ -31,6 +31,19 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
 
+const EXPENSE_CATEGORIES = [
+  "General",
+  "Food",
+  "Groceries",
+  "Transport",
+  "Rent",
+  "Utilities",
+  "Entertainment",
+  "Travel",
+  "Shopping",
+  "Other",
+];
+
 export default function NewExpenseScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -43,6 +56,7 @@ export default function NewExpenseScreen() {
   const createExpense = useCreateExpense();
 
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<string>("General");
   const [amount, setAmount] = useState("");
   const [paidByUserId, setPaidByUserId] = useState<string | null>(null);
   const [splitType, setSplitType] = useState<SplitType>(SplitType.equal);
@@ -131,6 +145,7 @@ export default function NewExpenseScreen() {
         groupId,
         data: {
           description: description.trim(),
+          category: category && category !== "General" ? category : null,
           totalAmount: total,
           currency: "USD",
           splitType,
@@ -207,6 +222,38 @@ export default function NewExpenseScreen() {
             onChangeText={setAmount}
             keyboardType="decimal-pad"
           />
+
+          <View style={{ gap: 8 }}>
+            <Text style={[styles.label, { color: colors.foreground }]}>
+              Category
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8 }}
+            >
+              {EXPENSE_CATEGORIES.map((c) => (
+                <Pressable
+                  key={c}
+                  onPress={() => setCategory(c)}
+                  style={[
+                    styles.chip,
+                    {
+                      borderColor:
+                        category === c ? colors.primary : colors.border,
+                      backgroundColor:
+                        category === c ? colors.accent : colors.card,
+                      borderRadius: colors.radius,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.chipText, { color: colors.foreground }]}>
+                    {c}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
 
           <View style={{ gap: 8 }}>
             <Text style={[styles.label, { color: colors.foreground }]}>
