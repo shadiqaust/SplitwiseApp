@@ -37,6 +37,8 @@ const EXPENSE_CATEGORIES = [
   "Other",
 ];
 
+const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
+
 import { Layout } from "@/components/layout";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
@@ -1251,6 +1253,22 @@ export function GroupDetailPage() {
     return items;
   }, [combined, filterMemberId, filterPeriod]);
 
+  const groupedActivity = useMemo(() => {
+    const buckets = new Map<string, typeof filteredCombined>();
+    const labels = new Map<string, string>();
+    for (const it of filteredCombined) {
+      const d = new Date(String(it.date));
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = MONTH_FMT.format(d);
+      if (!buckets.has(key)) buckets.set(key, [] as typeof filteredCombined);
+      buckets.get(key)!.push(it);
+      labels.set(key, label);
+    }
+    return Array.from(buckets.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
+  }, [filteredCombined]);
+
   if (group.isError) {
     return <NotFound />;
   }
@@ -1426,8 +1444,14 @@ export function GroupDetailPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-2">
-              {filteredCombined.map((item) => {
+              <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-4">
+              {groupedActivity.map((bucket) => (
+                <div key={bucket.key} className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground sticky top-0 bg-background py-1 z-10">
+                    {bucket.label}
+                  </p>
+                  <div className="space-y-2">
+              {bucket.items.map((item) => {
                 if (item.kind === "expense") {
                   const e = item.data;
                   const youPaid = e.paidByUserId === myUserId;
@@ -1501,6 +1525,9 @@ export function GroupDetailPage() {
                   </Card>
                 );
               })}
+                  </div>
+                </div>
+              ))}
               </div>
             )}
           </TabsContent>
