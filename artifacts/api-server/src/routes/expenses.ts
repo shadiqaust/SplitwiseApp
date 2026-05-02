@@ -4,6 +4,7 @@ import {
   db,
   expensesTable,
   expenseSplitsTable,
+  expenseCommentsTable,
   usersTable,
   groupMembersTable,
   friendshipsTable,
@@ -656,6 +657,7 @@ router.delete(
       ? req.params.expenseId[0]
       : req.params.expenseId;
     const expenseId = raw;
+    await db.delete(expenseCommentsTable).where(eq(expenseCommentsTable.expenseId, expenseId));
     await db.delete(expenseSplitsTable).where(eq(expenseSplitsTable.expenseId, expenseId));
     const [expense] = await db
       .delete(expensesTable)
@@ -665,6 +667,142 @@ router.delete(
       res.status(404).json({ error: "Expense not found" });
       return;
     }
+    res.sendStatus(204);
+  },
+);
+
+// ─── Comments on an expense ────────────────────────────────────────────────
+router.get(
+  "/expenses/:expenseId/comments",
+  requireAuth,
+  requireExpenseAccess(),
+  async (req, res): Promise<void> => {
+    const raw = Array.isArray(req.params.expenseId)
+      ? req.params.expenseId[0]
+      : req.params.expenseId;
+    const expenseId = raw;
+    const rows = await db
+      .select({
+        id: expenseCommentsTable.id,
+        expenseId: expenseCommentsTable.expenseId,
+        userId: expenseCommentsTable.userId,
+        body: expenseCommentsTable.body,
+        createdAt: expenseCommentsTable.createdAt,
+        userName: usersTable.name,
+        userEmail: usersTable.email,
+        userAvatarUrl: usersTable.avatarUrl,
+      })
+      .from(expenseCommentsTable)
+      .innerJoin(usersTable, eq(usersTable.id, expenseCommentsTable.userId))
+      .where(eq(expenseCommentsTable.expenseId, expenseId))
+      .orderBy(expenseCommentsTable.createdAt);
+    res.json(
+      rows.map((r) => ({
+        id: r.id,
+        expenseId: r.expenseId,
+        userId: r.userId,
+        user: {
+          id: r.userId,
+          name: r.userName,
+          email: r.userEmail,
+          avatarUrl: r.userAvatarUrl,
+        },
+        body: r.body,
+        createdAt: r.createdAt,
+      })),
+    );
+  },
+);
+
+router.post(
+  "/expenses/:expenseId/comments",
+  requireAuth,
+  requireExpenseAccess(),
+  async (req, res): Promise<void> => {
+    const userId = req.dbUserId;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const raw = Array.isArray(req.params.expenseId)
+      ? req.params.expenseId[0]
+      : req.params.expenseId;
+    const expenseId = raw;
+    const body =
+      typeof req.body?.body === "string" ? req.body.body.trim() : "";
+    if (!body) {
+      res.status(400).json({ error: "Comment body required" });
+      return;
+    }
+    if (body.length > 2000) {
+      res.status(400).json({ error: "Comment too long (max 2000 chars)" });
+      return;
+    }
+    const [inserted] = await db
+      .insert(expenseCommentsTable)
+      .values({ expenseId, userId, body })
+      .returning();
+    const author = await getUserById(userId);
+    res.status(201).json({
+      id: inserted.id,
+      expenseId: inserted.expenseId,
+      userId: inserted.userId,
+      user: author
+        ? {
+            id: author.id,
+            name: author.name,
+            email: author.email,
+            avatarUrl: author.avatarUrl,
+          }
+        : null,
+      body: inserted.body,
+      createdAt: inserted.createdAt,
+    });
+  },
+);
+
+router.delete(
+  "/expenses/:expenseId/comments/:commentId",
+  requireAuth,
+  requireExpenseAccess(),
+  async (req, res): Promise<void> => {
+    const userId = req.dbUserId;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const expenseId = Array.isArray(req.params.expenseId)
+      ? req.params.expenseId[0]
+      : req.params.expenseId;
+    const commentId = Array.isArray(req.params.commentId)
+      ? req.params.commentId[0]
+      : req.params.commentId;
+    const UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!commentId || !UUID_RE.test(commentId)) {
+      res.status(400).json({ error: "Invalid comment id" });
+      return;
+    }
+    const [comment] = await db
+      .select()
+      .from(expenseCommentsTable)
+      .where(
+        and(
+          eq(expenseCommentsTable.id, commentId),
+          eq(expenseCommentsTable.expenseId, expenseId),
+        ),
+      );
+    if (!comment) {
+      res.status(404).json({ error: "Comment not found" });
+      return;
+    }
+    if (comment.userId !== userId) {
+      res.status(403).json({ error: "You can only delete your own comments" });
+      return;
+    }
+    await db
+      .delete(expenseCommentsTable)
+      .where(eq(expenseCommentsTable.id, commentId));
     res.sendStatus(204);
   },
 );

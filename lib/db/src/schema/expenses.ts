@@ -37,10 +37,25 @@ export const expenseSplitsTable = pgTable("expense_splits", {
   percentage: numeric("percentage", { precision: 5, scale: 2 }),
 });
 
+export const expenseCommentsTable = pgTable("expense_comments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  expenseId: uuid("expense_id")
+    .notNull()
+    .references(() => expensesTable.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => usersTable.id),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertExpenseSchema = createInsertSchema(expensesTable).omit({ id: true, createdAt: true });
 export const insertExpenseSplitSchema = createInsertSchema(expenseSplitsTable).omit({ id: true });
+export const insertExpenseCommentSchema = createInsertSchema(expenseCommentsTable).omit({ id: true, createdAt: true });
 
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type InsertExpenseSplit = z.infer<typeof insertExpenseSplitSchema>;
+export type InsertExpenseComment = z.infer<typeof insertExpenseCommentSchema>;
 export type Expense = typeof expensesTable.$inferSelect;
 export type ExpenseSplit = typeof expenseSplitsTable.$inferSelect;
+export type ExpenseComment = typeof expenseCommentsTable.$inferSelect;

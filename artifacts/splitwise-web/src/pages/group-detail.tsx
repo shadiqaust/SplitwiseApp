@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "wouter";
+import { useLocation, useParams } from "wouter";
 import {
   getGetActivityQueryKey,
   getGetDashboardSummaryQueryKey,
@@ -1298,6 +1298,7 @@ function MemberProfileDialog({
 export function GroupDetailPage() {
   const params = useParams<{ groupId: string }>();
   const groupId = params.groupId!;
+  const [, navigate] = useLocation();
 
   // Polling cadence + background-polling are configured globally on the
   // QueryClient (5s, even when the tab is unfocused).
@@ -1584,7 +1585,11 @@ export function GroupDetailPage() {
                     ? e.totalAmount - yourShare
                     : -yourShare;
                   return (
-                    <Card key={item.id}>
+                    <Card
+                      key={item.id}
+                      onClick={() => navigate(`/expenses/${e.id}`)}
+                      className="cursor-pointer hover:bg-accent/40 transition-colors"
+                    >
                       <CardContent className="py-4 flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
                           <Receipt className="w-5 h-5 text-muted-foreground" />

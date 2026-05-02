@@ -142,6 +142,23 @@ export type ExpenseWithSplits = Expense & {
   splits: ExpenseSplit[];
 };
 
+export interface ExpenseComment {
+  id: string;
+  expenseId: string;
+  userId: string;
+  user?: User | null;
+  body: string;
+  createdAt: string;
+}
+
+export interface CreateExpenseCommentBody {
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  body: string;
+}
+
 export interface ExpenseSplitInput {
   userId: string;
   amount?: number | null;

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ChevronLeft, DollarSign, HandCoins, Users } from "lucide-react";
 import {
   type ExpenseWithSplits,
@@ -337,6 +337,7 @@ function ExpenseRow({
   myId: string | undefined;
   friendNets: Record<string, number>;
 }) {
+  const [, navigate] = useLocation();
   const total = Number(expense.totalAmount);
   const iPaid = myId && expense.paidByUserId === myId;
   const mySplit = myId
@@ -363,7 +364,10 @@ function ExpenseRow({
     typeof counterpartyNet === "number" && Math.abs(counterpartyNet) < 0.01;
 
   return (
-    <Card>
+    <Card
+      onClick={() => navigate(`/expenses/${expense.id}`)}
+      className="cursor-pointer hover:bg-accent/40 transition-colors"
+    >
       <CardContent className="p-4 flex items-center gap-4">
         <div className="flex-1 min-w-0">
           <p className="font-semibold truncate">{expense.description}</p>

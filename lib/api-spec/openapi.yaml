@@ -494,6 +494,77 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /expenses/{expenseId}/comments:
+    get:
+      operationId: listExpenseComments
+      tags: [expenses]
+      summary: List comments on an expense
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ExpenseId"
+      responses:
+        "200":
+          description: Comments ordered by createdAt asc
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExpenseComment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createExpenseComment
+      tags: [expenses]
+      summary: Add a comment to an expense
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ExpenseId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExpenseCommentBody"
+      responses:
+        "201":
+          description: Created comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseComment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /expenses/{expenseId}/comments/{commentId}:
+    delete:
+      operationId: deleteExpenseComment
+      tags: [expenses]
+      summary: Delete one of your own comments
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ExpenseId"
+        - $ref: "#/components/parameters/CommentId"
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # ─── Payments ─────────────────────────────────────────────────────────────
   /groups/{groupId}/payments:
     get:
@@ -645,6 +716,13 @@ components:
         format: uuid
     ExpenseId:
       name: expenseId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CommentId:
+      name: commentId
       in: path
       required: true
       schema:
@@ -961,6 +1039,37 @@ components:
               items:
                 $ref: "#/components/schemas/ExpenseSplit"
           required: [splits]
+
+    ExpenseComment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        expenseId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        user:
+          $ref: "#/components/schemas/User"
+          nullable: true
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, expenseId, userId, body, createdAt]
+
+    CreateExpenseCommentBody:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required: [body]
 
     ExpenseSplitInput:
       type: object

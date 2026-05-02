@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   type ExpenseWithSplits,
@@ -289,6 +289,7 @@ function ExpenseRow({
   friendId: string;
 }) {
   const colors = useColors();
+  const router = useRouter();
   const total = Number(expense.totalAmount);
   const iPaid = myId && expense.paidByUserId === myId;
   const friendPaid = expense.paidByUserId === friendId;
@@ -306,6 +307,11 @@ function ExpenseRow({
   }
 
   return (
+    <Pressable
+      onPress={() => router.push(`/expenses/${expense.id}`)}
+      android_ripple={{ color: colors.accent }}
+      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+    >
     <Card style={styles.row}>
       <View style={{ flex: 1 }}>
         <Text style={[styles.itemTitle, { color: colors.foreground }]} numberOfLines={1}>
@@ -336,6 +342,7 @@ function ExpenseRow({
         )}
       </View>
     </Card>
+    </Pressable>
   );
 }
 

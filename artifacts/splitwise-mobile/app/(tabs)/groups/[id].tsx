@@ -687,7 +687,13 @@ export default function GroupDetailScreen() {
                   const yourShare = yourSplit?.amount ?? 0;
                   const lentOrBorrowed = youPaid ? e.totalAmount - yourShare : -yourShare;
                   return (
-                    <Card key={item.id} style={styles.activityRow}>
+                    <Pressable
+                      key={item.id}
+                      onPress={() => router.push(`/expenses/${e.id}`)}
+                      android_ripple={{ color: colors.accent }}
+                      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                    >
+                    <Card style={styles.activityRow}>
                       <View style={[styles.bubble, { backgroundColor: colors.muted, borderRadius: 100 }]}>
                         <Feather name="file-text" size={18} color={colors.mutedForeground} />
                       </View>
@@ -712,6 +718,7 @@ export default function GroupDetailScreen() {
                             : formatCurrency(0)}
                       </Text>
                     </Card>
+                    </Pressable>
                   );
                 }
                 const p = item.data;

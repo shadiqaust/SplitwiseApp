@@ -22,12 +22,14 @@ import type {
   BadRequestResponse,
   Balance,
   CreateExpenseBody,
+  CreateExpenseCommentBody,
   CreateFriendExpenseBody,
   CreateGroupBody,
   CreateNonGroupPaymentBody,
   CreatePaymentBody,
   DashboardSummary,
   ErrorResponse,
+  ExpenseComment,
   ExpenseWithSplits,
   GetActivityParams,
   GetFriendActivity200,
@@ -1799,6 +1801,281 @@ export const useDeleteExpense = <
   TContext
 > => {
   return useMutation(getDeleteExpenseMutationOptions(options));
+};
+
+/**
+ * @summary List comments on an expense
+ */
+export const getListExpenseCommentsUrl = (expenseId: string) => {
+  return `/api/expenses/${expenseId}/comments`;
+};
+
+export const listExpenseComments = async (
+  expenseId: string,
+  options?: RequestInit,
+): Promise<ExpenseComment[]> => {
+  return customFetch<ExpenseComment[]>(getListExpenseCommentsUrl(expenseId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListExpenseCommentsQueryKey = (expenseId: string) => {
+  return [`/api/expenses/${expenseId}/comments`] as const;
+};
+
+export const getListExpenseCommentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listExpenseComments>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  expenseId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listExpenseComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListExpenseCommentsQueryKey(expenseId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listExpenseComments>>
+  > = ({ signal }) =>
+    listExpenseComments(expenseId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!expenseId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listExpenseComments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListExpenseCommentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listExpenseComments>>
+>;
+export type ListExpenseCommentsQueryError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary List comments on an expense
+ */
+
+export function useListExpenseComments<
+  TData = Awaited<ReturnType<typeof listExpenseComments>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  expenseId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listExpenseComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListExpenseCommentsQueryOptions(expenseId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a comment to an expense
+ */
+export const getCreateExpenseCommentUrl = (expenseId: string) => {
+  return `/api/expenses/${expenseId}/comments`;
+};
+
+export const createExpenseComment = async (
+  expenseId: string,
+  createExpenseCommentBody: CreateExpenseCommentBody,
+  options?: RequestInit,
+): Promise<ExpenseComment> => {
+  return customFetch<ExpenseComment>(getCreateExpenseCommentUrl(expenseId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createExpenseCommentBody),
+  });
+};
+
+export const getCreateExpenseCommentMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createExpenseComment>>,
+    TError,
+    { expenseId: string; data: BodyType<CreateExpenseCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createExpenseComment>>,
+  TError,
+  { expenseId: string; data: BodyType<CreateExpenseCommentBody> },
+  TContext
+> => {
+  const mutationKey = ["createExpenseComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createExpenseComment>>,
+    { expenseId: string; data: BodyType<CreateExpenseCommentBody> }
+  > = (props) => {
+    const { expenseId, data } = props ?? {};
+
+    return createExpenseComment(expenseId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateExpenseCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createExpenseComment>>
+>;
+export type CreateExpenseCommentMutationBody =
+  BodyType<CreateExpenseCommentBody>;
+export type CreateExpenseCommentMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Add a comment to an expense
+ */
+export const useCreateExpenseComment = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createExpenseComment>>,
+    TError,
+    { expenseId: string; data: BodyType<CreateExpenseCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createExpenseComment>>,
+  TError,
+  { expenseId: string; data: BodyType<CreateExpenseCommentBody> },
+  TContext
+> => {
+  return useMutation(getCreateExpenseCommentMutationOptions(options));
+};
+
+/**
+ * @summary Delete one of your own comments
+ */
+export const getDeleteExpenseCommentUrl = (
+  expenseId: string,
+  commentId: string,
+) => {
+  return `/api/expenses/${expenseId}/comments/${commentId}`;
+};
+
+export const deleteExpenseComment = async (
+  expenseId: string,
+  commentId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteExpenseCommentUrl(expenseId, commentId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteExpenseCommentMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | ErrorResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteExpenseComment>>,
+    TError,
+    { expenseId: string; commentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteExpenseComment>>,
+  TError,
+  { expenseId: string; commentId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteExpenseComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteExpenseComment>>,
+    { expenseId: string; commentId: string }
+  > = (props) => {
+    const { expenseId, commentId } = props ?? {};
+
+    return deleteExpenseComment(expenseId, commentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteExpenseCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteExpenseComment>>
+>;
+
+export type DeleteExpenseCommentMutationError = ErrorType<
+  UnauthorizedResponse | ErrorResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Delete one of your own comments
+ */
+export const useDeleteExpenseComment = <
+  TError = ErrorType<UnauthorizedResponse | ErrorResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteExpenseComment>>,
+    TError,
+    { expenseId: string; commentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteExpenseComment>>,
+  TError,
+  { expenseId: string; commentId: string },
+  TContext
+> => {
+  return useMutation(getDeleteExpenseCommentMutationOptions(options));
 };
 
 /**

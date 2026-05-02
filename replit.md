@@ -132,3 +132,13 @@ After success, both clients invalidate group + balances queries so the recalcula
 - Friend balances (`/api/friends`) and dashboard summary (`/api/dashboard/summary`) both aggregate non-group expenses (`groupId IS NULL`) in addition to group expenses; the dashboard correctly handles users with zero group memberships but existing friend expenses.
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+
+### Expense Detail page + comments
+
+Every expense row across the apps is clickable and routes to a dedicated Expense Detail screen.
+
+- Web route: `/expenses/:expenseId` → `artifacts/splitwise-web/src/pages/expense-detail.tsx`. Wired sites: `friend-detail.tsx`, `non-group-expenses.tsx`, `group-detail.tsx` (inline expense Card).
+- Mobile route: `app/expenses/[id].tsx`. Wired sites: `friends/[friendId].tsx`, `non-group-expenses.tsx`, `(tabs)/groups/[id].tsx`.
+- Detail page shows: description, total, who paid, date, category, group/non-group label, per-person split breakdown (with "(paid)" tag and percentage when present), and a comments thread.
+- Comments thread: list (oldest→newest), add (Cmd/Ctrl+Enter on web), delete-own only. Authors are returned as `{ id, name, email, avatarUrl }`.
+- Backend: `expense_comments` table (FK to `expenses` cascade) in `lib/db/src/schema/expenses.ts`. Endpoints in `artifacts/api-server/src/routes/expenses.ts`: `GET /expenses/:expenseId/comments`, `POST /expenses/:expenseId/comments` (body trimmed, max 2000 chars), `DELETE /expenses/:expenseId/comments/:commentId` (UUID-validated, author-only 403). All gated by `requireExpenseAccess()`. Deleting an expense also clears its comments (via FK cascade; explicit delete kept for safety).

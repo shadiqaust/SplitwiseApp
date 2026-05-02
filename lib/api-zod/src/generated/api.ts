@@ -698,6 +698,56 @@ export const DeleteExpenseParams = zod.object({
 });
 
 /**
+ * @summary List comments on an expense
+ */
+export const ListExpenseCommentsParams = zod.object({
+  expenseId: zod.coerce.string().uuid(),
+});
+
+export const ListExpenseCommentsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  expenseId: zod.string().uuid(),
+  userId: zod.string().uuid(),
+  user: zod
+    .object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+      email: zod.string(),
+      avatarUrl: zod.string().nullish(),
+      country: zod.string().nullish(),
+      location: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .nullish(),
+  body: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const ListExpenseCommentsResponse = zod.array(
+  ListExpenseCommentsResponseItem,
+);
+
+/**
+ * @summary Add a comment to an expense
+ */
+export const CreateExpenseCommentParams = zod.object({
+  expenseId: zod.coerce.string().uuid(),
+});
+
+export const createExpenseCommentBodyBodyMax = 2000;
+
+export const CreateExpenseCommentBody = zod.object({
+  body: zod.string().min(1).max(createExpenseCommentBodyBodyMax),
+});
+
+/**
+ * @summary Delete one of your own comments
+ */
+export const DeleteExpenseCommentParams = zod.object({
+  expenseId: zod.coerce.string().uuid(),
+  commentId: zod.coerce.string().uuid(),
+});
+
+/**
  * @summary List settle-up payments in a group
  */
 export const ListPaymentsParams = zod.object({
