@@ -6,7 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Slot, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { configureApi, configureUnauthorizedHandler } from "@/lib/api";
 import { AuthProvider, useAuth, getToken } from "@/lib/auth";
+import { useColors } from "@/hooks/useColors";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -36,6 +37,7 @@ function AuthGate() {
   const { isLoaded, isSignedIn, signOut } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const colors = useColors();
 
   useEffect(() => {
     configureApi(() => getToken());
@@ -61,7 +63,23 @@ function AuthGate() {
     }
   }, [isLoaded, isSignedIn, segments, router]);
 
-  return <Slot />;
+  // Root Stack so non-tab screens (groups/new, expenses/new, payments/new,
+  // +not-found) get a header with an automatic back button. Tab screens and
+  // sign-in render their own chrome and hide this header.
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.background },
+        headerTitleStyle: { fontFamily: "Inter_700Bold", color: colors.foreground },
+        headerShadowVisible: false,
+        headerTintColor: colors.primary,
+        headerBackTitle: "Back",
+      }}
+    >
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {
