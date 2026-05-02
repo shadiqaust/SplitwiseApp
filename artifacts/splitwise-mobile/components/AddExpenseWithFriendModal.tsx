@@ -233,7 +233,11 @@ export function AddExpenseWithFriendModal({
 
           <View style={{ gap: 6 }}>
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Category</Text>
-            <View style={styles.chipsWrap}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8 }}
+            >
               {EXPENSE_CATEGORIES.map((c) => {
                 const selected = category === c;
                 const Icon = getCategoryIcon(c);
@@ -269,7 +273,7 @@ export function AddExpenseWithFriendModal({
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
           </View>
 
           <View style={{ gap: 6 }}>

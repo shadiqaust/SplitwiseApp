@@ -363,7 +363,11 @@ export default function EditExpenseScreen() {
             <Text style={[styles.label, { color: colors.foreground }]}>
               Category
             </Text>
-            <View style={styles.chipsWrap}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8 }}
+            >
               {EXPENSE_CATEGORIES.map((c) => {
                 const active = c === category;
                 const fg = active ? colors.primaryForeground : colors.foreground;
@@ -399,7 +403,7 @@ export default function EditExpenseScreen() {
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
           </Card>
 
           <Card>
