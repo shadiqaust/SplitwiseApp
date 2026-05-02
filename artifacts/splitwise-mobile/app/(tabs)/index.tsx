@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -23,16 +24,17 @@ import { formatCurrency, formatDate } from "@/lib/format";
 export default function DashboardScreen() {
   const colors = useColors();
   const router = useRouter();
-  const POLL = { query: { refetchInterval: 15_000 } } as const;
+  const POLL = { query: { refetchInterval: 5_000, staleTime: 4_000, refetchIntervalInBackground: false } } as const;
   const summary = useGetDashboardSummary(POLL);
   const activity = useGetActivity({ limit: 20 }, POLL);
 
-  const refreshing = summary.isFetching || activity.isFetching;
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const onRefresh = () => {
-    summary.refetch();
-    activity.refetch();
-  };
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([summary.refetch(), activity.refetch()]);
+    setIsRefreshing(false);
+  }, [summary, activity]);
 
   if (summary.isLoading && !summary.data) {
     return (
@@ -53,7 +55,7 @@ export default function DashboardScreen() {
       contentContainerStyle={styles.scroll}
       refreshControl={
         <RefreshControl
-          refreshing={refreshing}
+          refreshing={isRefreshing}
           onRefresh={onRefresh}
           tintColor={colors.primary}
         />

@@ -151,16 +151,24 @@ export default function FriendsScreen() {
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
 
-  const { data: friends, isLoading, isFetching, refetch } = useQuery<Friend[]>({
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { data: friends, isLoading, refetch } = useQuery<Friend[]>({
     queryKey: ["friends-mobile"],
     queryFn: async () => {
       const res = await authFetch("/api/friends");
       if (!res.ok) throw new Error("Failed to load friends");
       return res.json();
     },
-    refetchInterval: 15_000,
-    staleTime: 30_000,
+    refetchInterval: 5_000,
+    staleTime: 4_000,
+    refetchIntervalInBackground: false,
   });
+
+  const onRefreshFriends = useCallback(async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  }, [refetch]);
 
   const filtered = useMemo(() => {
     if (!friends) return [];
@@ -185,7 +193,7 @@ export default function FriendsScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefreshFriends} tintColor={colors.primary} />}
       >
         {/* Search + Add button */}
         <View style={styles.topRow}>

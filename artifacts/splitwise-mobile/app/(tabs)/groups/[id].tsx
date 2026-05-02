@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import {
   ActivityIndicator,
@@ -101,7 +101,7 @@ export default function GroupDetailScreen() {
   const [profileMember, setProfileMember] = useState<{ userId: number; user: { name: string; email: string; avatarUrl: string | null } } | null>(null);
 
   const me = useGetMe();
-  const POLL = { query: { refetchInterval: 15_000 } } as const;
+  const POLL = { query: { refetchInterval: 5_000, staleTime: 4_000, refetchIntervalInBackground: false } } as const;
   const group = useGetGroup(groupId, POLL);
   const expenses = useListExpenses(groupId, POLL);
   const payments = useListPayments(groupId, POLL);
@@ -109,18 +109,13 @@ export default function GroupDetailScreen() {
   const addMember = useAddGroupMember();
   const updateGroup = useUpdateGroup();
 
-  const refreshing =
-    group.isFetching ||
-    expenses.isFetching ||
-    payments.isFetching ||
-    balances.isFetching;
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const onRefresh = () => {
-    group.refetch();
-    expenses.refetch();
-    payments.refetch();
-    balances.refetch();
-  };
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([group.refetch(), expenses.refetch(), payments.refetch(), balances.refetch()]);
+    setIsRefreshing(false);
+  }, [group, expenses, payments, balances]);
 
   const { data: searchResults = [], isFetching: isSearching } = useQuery<UserResult[]>({
     queryKey: ["add-member-search", memberSearch, groupId],
@@ -346,7 +341,7 @@ export default function GroupDetailScreen() {
         style={{ backgroundColor: colors.background }}
         contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
         <Card>

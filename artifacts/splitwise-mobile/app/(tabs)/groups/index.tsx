@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -21,7 +22,14 @@ import { formatCurrency } from "@/lib/format";
 export default function GroupsScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { data, isLoading, isFetching, refetch } = useListGroups();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { data, isLoading, refetch } = useListGroups({ query: { refetchInterval: 5_000, staleTime: 4_000, refetchIntervalInBackground: false } });
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  }, [refetch]);
 
   if (isLoading && !data) {
     return (
@@ -40,8 +48,8 @@ export default function GroupsScreen() {
       contentContainerStyle={styles.scroll}
       refreshControl={
         <RefreshControl
-          refreshing={isFetching}
-          onRefresh={refetch}
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
           tintColor={colors.primary}
         />
       }
