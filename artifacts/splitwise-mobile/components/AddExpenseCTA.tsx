@@ -82,7 +82,7 @@ export function AddExpenseCTA() {
           },
         ]}
       >
-        <Feather name="plus" size={16} color="#fff" />
+        <Feather name="plus" size={18} color="#fff" />
         <Text style={styles.ctaBtnText}>Add expense</Text>
       </Pressable>
 
@@ -199,12 +199,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     borderRadius: 10,
-    gap: 6,
+    gap: 8,
   },
-  ctaBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: "#fff" },
+  ctaBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 16, color: "#fff" },
   sheet: { flex: 1 },
   sheetHeader: {
     flexDirection: "row",

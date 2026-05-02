@@ -17,6 +17,7 @@ import {
 } from "@workspace/api-client-react";
 
 import { Avatar } from "@/components/ui/Avatar";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useColors } from "@/hooks/useColors";
@@ -65,22 +66,15 @@ export default function DashboardScreen() {
       }
     >
       <View style={styles.ctaRow}>
-        <Pressable
-          onPress={() => router.push("/groups/new")}
-          style={({ pressed }) => [
-            styles.addGroupBtn,
-            {
-              borderColor: "#4f46e5",
-              backgroundColor: "#4f46e5",
-              opacity: pressed ? 0.85 : 1,
-            },
-          ]}
-        >
-          <Feather name="users" size={16} color="#fff" />
-          <Text style={[styles.addGroupText, { color: "#fff" }]}>
-            Add group
-          </Text>
-        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Button
+            title="Add group"
+            variant="indigo"
+            icon={<Feather name="users" size={18} color="#fff" />}
+            onPress={() => router.push("/groups/new")}
+            fullWidth
+          />
+        </View>
         <View style={{ flex: 1 }}>
           <AddExpenseCTA />
         </View>
