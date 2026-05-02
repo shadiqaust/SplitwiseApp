@@ -1237,7 +1237,7 @@ export function GroupDetailPage() {
 
   return (
     <Layout>
-      <div className="space-y-6 pb-16">
+      <div className="space-y-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-4">
             <GroupAvatarDialog
