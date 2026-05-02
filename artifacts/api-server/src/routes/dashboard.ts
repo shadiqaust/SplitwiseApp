@@ -21,7 +21,7 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
   const groupIds = memberships.map(m => m.groupId);
   const groups = groupIds.length === 0
     ? []
-    : await db.select().from(groupsTable).where(and(inArray(groupsTable.id, groupIds), isNull(groupsTable.deletedAt)));
+    : await db.select().from(groupsTable).where(and(inArray(groupsTable.id, groupIds), isNull(groupsTable.deletedAt))).orderBy(desc(groupsTable.createdAt));
 
   let totalOwed = 0;
   let totalIOwe = 0;

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "node:crypto";
-import { eq, and, inArray, sql, or, isNull } from "drizzle-orm";
+import { eq, and, inArray, sql, or, isNull, desc } from "drizzle-orm";
 import {
   db,
   groupsTable,
@@ -132,7 +132,8 @@ router.get("/groups", requireAuth, async (req, res): Promise<void> => {
   const groups = await db
     .select()
     .from(groupsTable)
-    .where(and(inArray(groupsTable.id, groupIds), isNull(groupsTable.deletedAt)));
+    .where(and(inArray(groupsTable.id, groupIds), isNull(groupsTable.deletedAt)))
+    .orderBy(desc(groupsTable.createdAt));
 
   const result = await Promise.all(
     groups.map(async (group) => {
