@@ -1,8 +1,8 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -13,8 +13,12 @@ import { Feather } from "@expo/vector-icons";
 
 import {
   getGetGroupByInviteQueryKey,
+  getGetGroupBalancesQueryKey,
+  getGetGroupQueryKey,
   getListGroupsQueryKey,
   useGetGroupByInvite,
+  useGetMe,
+  useIncludeMemberInPastExpenses,
   useJoinGroup,
 } from "@workspace/api-client-react";
 
@@ -34,9 +38,83 @@ export default function GroupJoinScreen() {
     query: { enabled: Boolean(code), retry: false },
   });
 
+  const me = useGetMe();
   const join = useJoinGroup();
+  const includeInPast = useIncludeMemberInPastExpenses();
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const goToGroup = (groupId: string) => router.replace(`/(tabs)/groups/${groupId}`);
+
+  const promptIncludeSelfInPast = (groupId: string, myUserId: string) => {
+    // Tracks whether the user made an explicit Yes/No choice. On Android,
+    // `onDismiss` may fire after button taps as well — this guard ensures
+    // dismiss-only navigation never races with the chosen action.
+    let didChoose = false;
+    Alert.alert(
+      "Include yourself in past expenses?",
+      "Re-split every existing equal-split expense in this group to include you, and recalculate balances. Expenses with exact or percentage splits will be left unchanged.",
+      [
+        {
+          text: "No, only future expenses",
+          style: "cancel",
+          onPress: () => {
+            didChoose = true;
+            goToGroup(groupId);
+          },
+        },
+        {
+          text: "Yes, re-split",
+          onPress: () => {
+            didChoose = true;
+            includeInPast.mutate(
+              { groupId, data: { userId: myUserId } },
+              {
+                onSuccess: (result) => {
+                  queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
+                  queryClient.invalidateQueries({ queryKey: getGetGroupBalancesQueryKey(groupId) });
+                  if (result.updatedCount === 0 && result.totalCount === 0) {
+                    Alert.alert("Done", "No past expenses to update.", [
+                      { text: "OK", onPress: () => goToGroup(groupId) },
+                    ]);
+                  } else if (result.updatedCount === 0) {
+                    Alert.alert(
+                      "Nothing to update",
+                      `All ${result.totalCount} expense(s) use exact or percentage splits and were left unchanged.`,
+                      [{ text: "OK", onPress: () => goToGroup(groupId) }],
+                    );
+                  } else {
+                    const skipNote = result.skippedNonEqualCount > 0
+                      ? `\n\n${result.skippedNonEqualCount} exact/percentage split(s) left unchanged.`
+                      : "";
+                    Alert.alert(
+                      "Updated",
+                      `You were added to ${result.updatedCount} past expense(s). Balances recalculated.${skipNote}`,
+                      [{ text: "OK", onPress: () => goToGroup(groupId) }],
+                    );
+                  }
+                },
+                onError: (err) => {
+                  Alert.alert("Failed to update past expenses", getErrorMessage(err), [
+                    { text: "OK", onPress: () => goToGroup(groupId) },
+                  ]);
+                },
+              },
+            );
+          },
+        },
+      ],
+      // cancelable + onDismiss covers Android tap-outside / hardware back so
+      // dismiss == "No" deterministically — but only when no explicit choice
+      // was made.
+      {
+        cancelable: true,
+        onDismiss: () => {
+          if (!didChoose) goToGroup(groupId);
+        },
+      },
+    );
+  };
 
   const onJoin = async () => {
     setSubmitting(true);
@@ -45,7 +123,24 @@ export default function GroupJoinScreen() {
       const group = await join.mutateAsync({ data: { inviteCode: code } });
       await queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
       await queryClient.invalidateQueries({ queryKey: getGetGroupByInviteQueryKey(code) });
-      router.replace(`/(tabs)/groups/${group.id}`);
+      // Make sure we have the joiner's own DB user id before deciding
+      // whether to prompt — falls back to a refetch if `me` hasn't resolved.
+      let myUserId = me.data?.id;
+      if (!myUserId) {
+        try {
+          const refetched = await me.refetch();
+          myUserId = refetched.data?.id;
+        } catch {
+          // ignore — handled below
+        }
+      }
+      if (myUserId) {
+        promptIncludeSelfInPast(group.id, myUserId);
+      } else {
+        // Couldn't resolve current user — open the group anyway rather than
+        // leaving the user stranded on this screen.
+        goToGroup(group.id);
+      }
     } catch (err) {
       setErrorMsg(getErrorMessage(err));
     } finally {
@@ -108,7 +203,7 @@ export default function GroupJoinScreen() {
                 {preview.data.alreadyMember ? (
                   <Button
                     title="Open group"
-                    onPress={() => router.replace(`/(tabs)/groups/${preview.data!.id}`)}
+                    onPress={() => goToGroup(preview.data!.id)}
                   />
                 ) : (
                   <Button

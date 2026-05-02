@@ -232,6 +232,12 @@ Full expense edit (group + non-group) and optional receipt photo upload per expe
 - Scan handler accepts three QR payload formats: a full web URL (`https://.../groups/join/<CODE>`), the deep-link scheme (`splitwise-mobile://groups/join/<CODE>`), or a bare invite code. Code is uppercased and the user is `router.replace()`d to `/groups/join/<CODE>`, which renders the existing `app/groups/join/[code].tsx` preview/join screen.
 - Includes camera-permission-denied state with "Open settings" fallback (uses `expo-linking`'s `openSettings()`), a viewfinder overlay, error toast for non-Splitix QR codes, and haptic feedback on success/warning via `expo-haptics`.
 
+### "Include in past expenses?" prompt on join
+- After a user successfully joins a group via invite link / QR / deep-link, both web (`pages/group-join.tsx`) and mobile (`app/groups/join/[code].tsx`) prompt them: **"Include yourself in past expenses?"** — mirrors the existing add-member flow but from the joiner's own perspective.
+- "Yes, re-split past expenses" calls the same `useIncludeMemberInPastExpenses` mutation with the joiner's own DB user id (from `useGetMe().data.id`) and shows the same updated/skipped/no-op summary toasts.
+- "No, only future expenses" (or closing the dialog) just opens the group. Either way the user lands on the group page afterwards.
+- Web uses the shared `AlertDialog` from `@/components/ui/alert-dialog`; mobile uses RN's native `Alert.alert` with cancel + action buttons.
+
 ### Web → mobile-app deep-link bounce
 - Web `pages/group-join.tsx` detects mobile user-agent (`/android|iphone|ipad|ipod/i`) and on mount sets `window.location.href = "splitwise-mobile://groups/join/<code>"`. If the mobile app is installed, the OS hijacks and routes to `app/groups/join/[code].tsx` (expo-router maps the scheme automatically — `scheme: "splitwise-mobile"` in `app.json`). If not installed, the page silently stays on the web fallback.
 - The same scheme call is also wired to an "Open in app" button shown on mobile, in case browsers block auto-launch on first visit.
