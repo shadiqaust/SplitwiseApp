@@ -51,7 +51,16 @@ export function GroupsPage() {
     if (!groups) return [];
     const q = search.trim().toLowerCase();
     return groups.filter((g) => {
-      if (q && !g.name.toLowerCase().includes(q)) return false;
+      if (q) {
+        const haystack: string[] = [g.name.toLowerCase()];
+        if (g.createdAt) {
+          const d = new Date(g.createdAt);
+          haystack.push(formatDate(g.createdAt).toLowerCase());
+          haystack.push(MONTH_FMT.format(d).toLowerCase());
+          haystack.push(String(d.getFullYear()));
+        }
+        if (!haystack.some((h) => h.includes(q))) return false;
+      }
       if (status === "owed" && !(g.myNetBalance > 0)) return false;
       if (status === "owe" && !(g.myNetBalance < 0)) return false;
       if (status === "settled" && g.myNetBalance !== 0) return false;
@@ -99,7 +108,7 @@ export function GroupsPage() {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
               type="search"
-              placeholder="Search groups…"
+              placeholder="Search by name or date…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"

@@ -63,7 +63,16 @@ export default function GroupsScreen() {
     if (!data) return [];
     const q = search.trim().toLowerCase();
     return data.filter((g) => {
-      if (q && !g.name.toLowerCase().includes(q)) return false;
+      if (q) {
+        const haystack: string[] = [g.name.toLowerCase()];
+        if (g.createdAt) {
+          const d = new Date(g.createdAt);
+          haystack.push(formatDate(g.createdAt).toLowerCase());
+          haystack.push(MONTH_FMT.format(d).toLowerCase());
+          haystack.push(String(d.getFullYear()));
+        }
+        if (!haystack.some((h) => h.includes(q))) return false;
+      }
       if (status === "owed" && !(g.myNetBalance > 0)) return false;
       if (status === "owe" && !(g.myNetBalance < 0)) return false;
       if (status === "settled" && g.myNetBalance !== 0) return false;
@@ -154,7 +163,7 @@ export default function GroupsScreen() {
             <Input
               value={search}
               onChangeText={setSearch}
-              placeholder="Search groups…"
+              placeholder="Search by name or date…"
               autoCapitalize="none"
               autoCorrect={false}
               style={{ paddingLeft: 36 }}
