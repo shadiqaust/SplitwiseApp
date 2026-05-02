@@ -27,6 +27,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -48,7 +59,6 @@ export function ExpenseDetailPage() {
   const deleteComment = useDeleteExpenseComment();
   const deleteExpenseMutation = useDeleteExpense();
   const [draft, setDraft] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
 
   const expense = expenseQ.data;
@@ -110,10 +120,6 @@ export function ExpenseDetailPage() {
   };
 
   const deleteExpenseFn = () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
     if (!expenseId || !expense) return;
     deleteExpenseMutation.mutate(
       { expenseId },
@@ -147,7 +153,6 @@ export function ExpenseDetailPage() {
             description: getErrorMessage(err),
             variant: "destructive",
           });
-          setConfirmDelete(false);
         },
       },
     );
@@ -211,25 +216,38 @@ export function ExpenseDetailPage() {
             >
               <Pencil className="w-4 h-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={deleteExpenseFn}
-              disabled={deleteExpenseMutation.isPending}
-              aria-label={
-                confirmDelete ? "Confirm delete expense" : "Delete expense"
-              }
-              title={
-                confirmDelete ? "Click again to confirm" : "Delete expense"
-              }
-              className={
-                confirmDelete
-                  ? "text-destructive hover:text-destructive"
-                  : "text-muted-foreground hover:text-destructive"
-              }
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={deleteExpenseMutation.isPending}
+                  aria-label="Delete expense"
+                  title="Delete expense"
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this expense?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will remove the expense and update everyone's balance.
+                    You can't undo this from the app.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={deleteExpenseFn}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
@@ -394,12 +412,6 @@ export function ExpenseDetailPage() {
           </CardContent>
         </Card>
 
-        {confirmDelete && (
-          <p className="text-xs text-destructive text-right">
-            Tap the trash icon again to confirm deletion.
-          </p>
-        )}
-
         {expense.photoUrl && photoSrc(expense.photoUrl) && (
           <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
             <DialogContent className="max-w-3xl p-2 bg-black/95 border-0">
@@ -458,15 +470,35 @@ function CommentItem({
         </p>
       </div>
       {canDelete && (
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={deleting}
-          className="text-muted-foreground hover:text-destructive p-1"
-          aria-label="Delete comment"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              type="button"
+              disabled={deleting}
+              className="text-muted-foreground hover:text-destructive p-1"
+              aria-label="Delete comment"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this comment?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This comment will be removed for everyone on this expense.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={onDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );

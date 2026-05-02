@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -52,7 +53,6 @@ export default function ExpenseDetailScreen() {
   const deleteExpenseMutation = useDeleteExpense();
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
 
   const expense = expenseQ.data;
@@ -91,53 +91,72 @@ export default function ExpenseDetailScreen() {
 
   const removeComment = (commentId: string) => {
     if (!expenseId) return;
-    deleteComment.mutate(
-      { expenseId, commentId },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({
-            queryKey: getListExpenseCommentsQueryKey(expenseId),
-          });
+    Alert.alert(
+      "Delete this comment?",
+      "This comment will be removed for everyone on this expense.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteComment.mutate(
+              { expenseId, commentId },
+              {
+                onSuccess: () => {
+                  queryClient.invalidateQueries({
+                    queryKey: getListExpenseCommentsQueryKey(expenseId),
+                  });
+                },
+                onError: (err) => setError(getErrorMessage(err)),
+              },
+            );
+          },
         },
-        onError: (err) => setError(getErrorMessage(err)),
-      },
+      ],
     );
   };
 
   const onDeleteExpense = () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
     if (!expenseId || !expense) return;
-    deleteExpenseMutation.mutate(
-      { expenseId },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey() });
-          queryClient.invalidateQueries({
-            queryKey: getGetDashboardSummaryQueryKey(),
-          });
-          queryClient.invalidateQueries({ queryKey: ["non-group-expenses"] });
-          queryClient.invalidateQueries({ queryKey: ["friend-activity"] });
-          queryClient.invalidateQueries({ queryKey: ["friends"] });
-          queryClient.invalidateQueries({ queryKey: ["friends-mobile"] });
-          if (expense.groupId) {
-            queryClient.invalidateQueries({
-              queryKey: getListExpensesQueryKey(expense.groupId),
-            });
-            queryClient.invalidateQueries({
-              queryKey: getGetGroupBalancesQueryKey(expense.groupId),
-            });
-          }
-          if (router.canGoBack()) router.back();
-          else router.replace("/");
+    Alert.alert(
+      "Delete this expense?",
+      "This will remove the expense and update everyone's balance.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteExpenseMutation.mutate(
+              { expenseId },
+              {
+                onSuccess: () => {
+                  queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey() });
+                  queryClient.invalidateQueries({
+                    queryKey: getGetDashboardSummaryQueryKey(),
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["non-group-expenses"] });
+                  queryClient.invalidateQueries({ queryKey: ["friend-activity"] });
+                  queryClient.invalidateQueries({ queryKey: ["friends"] });
+                  queryClient.invalidateQueries({ queryKey: ["friends-mobile"] });
+                  if (expense.groupId) {
+                    queryClient.invalidateQueries({
+                      queryKey: getListExpensesQueryKey(expense.groupId),
+                    });
+                    queryClient.invalidateQueries({
+                      queryKey: getGetGroupBalancesQueryKey(expense.groupId),
+                    });
+                  }
+                  if (router.canGoBack()) router.back();
+                  else router.replace("/");
+                },
+                onError: (err) => setError(getErrorMessage(err)),
+              },
+            );
+          },
         },
-        onError: (err) => {
-          setError(getErrorMessage(err));
-          setConfirmDelete(false);
-        },
-      },
+      ],
     );
   };
 
@@ -191,15 +210,11 @@ export default function ExpenseDetailScreen() {
                 onPress={onDeleteExpense}
                 disabled={deleteExpenseMutation.isPending}
                 hitSlop={8}
-                accessibilityLabel={
-                  confirmDelete ? "Confirm delete expense" : "Delete expense"
-                }
+                accessibilityLabel="Delete expense"
                 style={({ pressed }) => [
                   styles.headerIconBtn,
                   {
-                    backgroundColor: confirmDelete
-                      ? colors.negative
-                      : colors.muted,
+                    backgroundColor: colors.muted,
                     opacity: deleteExpenseMutation.isPending
                       ? 0.5
                       : pressed
@@ -211,7 +226,7 @@ export default function ExpenseDetailScreen() {
                 <Feather
                   name="trash-2"
                   size={15}
-                  color={confirmDelete ? "#fff" : colors.negative}
+                  color={colors.negative}
                 />
               </Pressable>
             </View>
@@ -271,19 +286,6 @@ export default function ExpenseDetailScreen() {
                 </Pressable>
               )}
             </View>
-
-            {confirmDelete && (
-              <Text
-                style={{
-                  color: colors.negative,
-                  fontSize: 11,
-                  marginTop: 8,
-                  textAlign: "right",
-                }}
-              >
-                Tap the trash icon again to confirm.
-              </Text>
-            )}
 
             <View style={styles.amountRow}>
               <View>

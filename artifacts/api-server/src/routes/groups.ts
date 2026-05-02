@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, inArray, sql, or } from "drizzle-orm";
+import { eq, and, inArray, sql, or, isNull } from "drizzle-orm";
 import {
   db,
   groupsTable,
@@ -47,7 +47,7 @@ async function computeMyNetBalance(groupId: string, userId: string): Promise<num
       totalAmount: expensesTable.totalAmount,
     })
     .from(expensesTable)
-    .where(eq(expensesTable.groupId, groupId));
+    .where(and(eq(expensesTable.groupId, groupId), isNull(expensesTable.deletedAt)));
 
   let net = 0;
 
@@ -69,11 +69,11 @@ async function computeMyNetBalance(groupId: string, userId: string): Promise<num
   const receivedPayments = await db
     .select()
     .from(paymentsTable)
-    .where(and(eq(paymentsTable.groupId, groupId), eq(paymentsTable.toUserId, userId)));
+    .where(and(eq(paymentsTable.groupId, groupId), eq(paymentsTable.toUserId, userId), isNull(paymentsTable.deletedAt)));
   const sentPayments = await db
     .select()
     .from(paymentsTable)
-    .where(and(eq(paymentsTable.groupId, groupId), eq(paymentsTable.fromUserId, userId)));
+    .where(and(eq(paymentsTable.groupId, groupId), eq(paymentsTable.fromUserId, userId), isNull(paymentsTable.deletedAt)));
 
   for (const p of receivedPayments) net -= parseFloat(p.amount);
   for (const p of sentPayments) net += parseFloat(p.amount);
@@ -85,7 +85,7 @@ router.get("/groups", requireAuth, async (req, res): Promise<void> => {
   const memberships = await db
     .select()
     .from(groupMembersTable)
-    .where(eq(groupMembersTable.userId, req.dbUserId!));
+    .where(and(eq(groupMembersTable.userId, req.dbUserId!), isNull(groupMembersTable.deletedAt)));
 
   if (memberships.length === 0) {
     res.json([]);
@@ -93,13 +93,16 @@ router.get("/groups", requireAuth, async (req, res): Promise<void> => {
   }
 
   const groupIds = memberships.map((m) => m.groupId);
-  const groups = await db.select().from(groupsTable).where(inArray(groupsTable.id, groupIds));
+  const groups = await db
+    .select()
+    .from(groupsTable)
+    .where(and(inArray(groupsTable.id, groupIds), isNull(groupsTable.deletedAt)));
 
   const result = await Promise.all(
     groups.map(async (group) => {
       const memberCount = await db.$count(
         groupMembersTable,
-        eq(groupMembersTable.groupId, group.id),
+        and(eq(groupMembersTable.groupId, group.id), isNull(groupMembersTable.deletedAt)),
       );
       const myNetBalance = await computeMyNetBalance(group.id, req.dbUserId!);
       return {
@@ -142,7 +145,10 @@ router.get(
   requireGroupMember(),
   async (req, res): Promise<void> => {
     const groupId = req.authorizedGroupId!;
-    const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, groupId));
+    const [group] = await db
+      .select()
+      .from(groupsTable)
+      .where(and(eq(groupsTable.id, groupId), isNull(groupsTable.deletedAt)));
     if (!group) {
       res.status(404).json({ error: "Group not found" });
       return;
@@ -150,7 +156,7 @@ router.get(
     const memberRows = await db
       .select()
       .from(groupMembersTable)
-      .where(eq(groupMembersTable.groupId, groupId));
+      .where(and(eq(groupMembersTable.groupId, groupId), isNull(groupMembersTable.deletedAt)));
     const members = await Promise.all(memberRows.map(buildMember));
     res.json({ ...group, createdAt: group.createdAt.toISOString(), members });
   },
@@ -177,7 +183,7 @@ router.put(
     const [group] = await db
       .update(groupsTable)
       .set(updateData)
-      .where(eq(groupsTable.id, groupId))
+      .where(and(eq(groupsTable.id, groupId), isNull(groupsTable.deletedAt)))
       .returning();
 
     if (!group) {
@@ -194,7 +200,10 @@ router.delete(
   requireGroupMember(),
   async (req, res): Promise<void> => {
     const groupId = req.authorizedGroupId!;
-    const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, groupId));
+    const [group] = await db
+      .select()
+      .from(groupsTable)
+      .where(and(eq(groupsTable.id, groupId), isNull(groupsTable.deletedAt)));
     if (!group) {
       res.status(404).json({ error: "Group not found" });
       return;
@@ -203,18 +212,24 @@ router.delete(
       res.status(403).json({ error: "Only the group creator can delete this group" });
       return;
     }
-    await db.delete(expenseSplitsTable).where(
-      inArray(
-        expenseSplitsTable.expenseId,
-        db
-          .select({ id: expensesTable.id })
-          .from(expensesTable)
-          .where(eq(expensesTable.groupId, groupId)),
-      ),
-    );
-    await db.delete(expensesTable).where(eq(expensesTable.groupId, groupId));
-    await db.delete(paymentsTable).where(eq(paymentsTable.groupId, groupId));
-    await db.delete(groupsTable).where(eq(groupsTable.id, groupId));
+    const now = new Date();
+    // Cascade soft-delete: mark group's expenses, payments, and memberships as deleted.
+    await db
+      .update(expensesTable)
+      .set({ deletedAt: now })
+      .where(and(eq(expensesTable.groupId, groupId), isNull(expensesTable.deletedAt)));
+    await db
+      .update(paymentsTable)
+      .set({ deletedAt: now })
+      .where(and(eq(paymentsTable.groupId, groupId), isNull(paymentsTable.deletedAt)));
+    await db
+      .update(groupMembersTable)
+      .set({ deletedAt: now })
+      .where(and(eq(groupMembersTable.groupId, groupId), isNull(groupMembersTable.deletedAt)));
+    await db
+      .update(groupsTable)
+      .set({ deletedAt: now })
+      .where(and(eq(groupsTable.id, groupId), isNull(groupsTable.deletedAt)));
     res.sendStatus(204);
   },
 );
@@ -255,6 +270,20 @@ router.post(
       );
 
     if (existing) {
+      // If previously soft-deleted, re-enable; else reject as already a member.
+      if (existing.deletedAt !== null) {
+        const [member] = await db
+          .update(groupMembersTable)
+          .set({ deletedAt: null, joinedAt: new Date() })
+          .where(eq(groupMembersTable.id, existing.id))
+          .returning();
+        res.status(201).json({
+          ...member,
+          user: { ...targetUser, createdAt: targetUser.createdAt.toISOString() },
+          joinedAt: member.joinedAt.toISOString(),
+        });
+        return;
+      }
       res.status(400).json({ error: "User is already a member" });
       return;
     }
@@ -271,13 +300,22 @@ router.post(
         .select()
         .from(friendshipsTable)
         .where(
-          or(
-            and(eq(friendshipsTable.userId, currentUserId), eq(friendshipsTable.friendId, targetUser.id)),
-            and(eq(friendshipsTable.userId, targetUser.id), eq(friendshipsTable.friendId, currentUserId)),
-          )!,
+          and(
+            isNull(friendshipsTable.deletedAt),
+            or(
+              and(eq(friendshipsTable.userId, currentUserId), eq(friendshipsTable.friendId, targetUser.id)),
+              and(eq(friendshipsTable.userId, targetUser.id), eq(friendshipsTable.friendId, currentUserId)),
+            )!,
+          ),
         );
       if (!existingFriendship) {
-        await db.insert(friendshipsTable).values({ userId: currentUserId, friendId: targetUser.id }).onConflictDoNothing();
+        await db
+          .insert(friendshipsTable)
+          .values({ userId: currentUserId, friendId: targetUser.id })
+          .onConflictDoUpdate({
+            target: [friendshipsTable.userId, friendshipsTable.friendId],
+            set: { deletedAt: null },
+          });
       }
     }
 
@@ -310,6 +348,7 @@ router.post(
         and(
           eq(groupMembersTable.groupId, groupId),
           eq(groupMembersTable.userId, targetUserId),
+          isNull(groupMembersTable.deletedAt),
         ),
       );
     if (!targetMember) {
@@ -327,7 +366,7 @@ router.post(
       const expenses = await tx
         .select()
         .from(expensesTable)
-        .where(eq(expensesTable.groupId, groupId));
+        .where(and(eq(expensesTable.groupId, groupId), isNull(expensesTable.deletedAt)));
       totalCount = expenses.length;
 
       for (const expense of expenses) {
@@ -384,8 +423,9 @@ router.delete(
       : req.params.memberId;
     const memberId = memberIdRaw;
     const [member] = await db
-      .delete(groupMembersTable)
-      .where(eq(groupMembersTable.id, memberId))
+      .update(groupMembersTable)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(groupMembersTable.id, memberId), isNull(groupMembersTable.deletedAt)))
       .returning();
     if (!member) {
       res.status(404).json({ error: "Member not found" });
@@ -404,7 +444,7 @@ router.get(
     const memberRows = await db
       .select()
       .from(groupMembersTable)
-      .where(eq(groupMembersTable.groupId, groupId));
+      .where(and(eq(groupMembersTable.groupId, groupId), isNull(groupMembersTable.deletedAt)));
     if (memberRows.length === 0) {
       res.json([]);
       return;
@@ -420,7 +460,7 @@ router.get(
     const expenses = await db
       .select()
       .from(expensesTable)
-      .where(eq(expensesTable.groupId, groupId));
+      .where(and(eq(expensesTable.groupId, groupId), isNull(expensesTable.deletedAt)));
     for (const expense of expenses) {
       const splits = await db
         .select()
@@ -437,7 +477,7 @@ router.get(
     const payments = await db
       .select()
       .from(paymentsTable)
-      .where(eq(paymentsTable.groupId, groupId));
+      .where(and(eq(paymentsTable.groupId, groupId), isNull(paymentsTable.deletedAt)));
     for (const payment of payments) {
       const amount = parseFloat(payment.amount);
       net.set(payment.fromUserId, (net.get(payment.fromUserId) ?? 0) + amount);

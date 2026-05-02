@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetActivityQueryKey,
@@ -18,6 +17,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -36,7 +46,6 @@ export function PaymentDetailDialog({
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const deleteMutation = useDeletePayment();
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const fromMe = currentUserId && payment.fromUserId === currentUserId;
   const toMe = currentUserId && payment.toUserId === currentUserId;
@@ -45,10 +54,6 @@ export function PaymentDetailDialog({
   const amount = Number(payment.amount);
 
   const onDelete = () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
     deleteMutation.mutate(
       { paymentId: payment.id },
       {
@@ -69,7 +74,6 @@ export function PaymentDetailDialog({
             });
           }
           toast({ title: "Payment deleted" });
-          setConfirmDelete(false);
           onOpenChange(false);
         },
         onError: (err) => {
@@ -78,20 +82,13 @@ export function PaymentDetailDialog({
             description: getErrorMessage(err),
             variant: "destructive",
           });
-          setConfirmDelete(false);
         },
       },
     );
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (!v) setConfirmDelete(false);
-        onOpenChange(v);
-      }}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Payment details</DialogTitle>
@@ -126,22 +123,38 @@ export function PaymentDetailDialog({
             <Row label="Recorded" value={formatDate(payment.createdAt)} />
           </div>
 
-          {confirmDelete && (
-            <p className="text-sm text-destructive">
-              Tap delete again to permanently remove this payment.
-            </p>
-          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button
-            variant="destructive"
-            onClick={onDelete}
-            disabled={deleteMutation.isPending}
-          >
-            <Trash2 className="w-4 h-4 mr-1" />
-            {confirmDelete ? "Confirm delete" : "Delete"}
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="destructive"
+                disabled={deleteMutation.isPending}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Removing this payment will recalculate balances for everyone
+                  involved.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={onDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Close
           </Button>

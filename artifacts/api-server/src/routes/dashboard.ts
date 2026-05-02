@@ -16,18 +16,18 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
   const userId = req.dbUserId!;
 
   // Get all groups the user belongs to
-  const memberships = await db.select().from(groupMembersTable).where(eq(groupMembersTable.userId, userId));
+  const memberships = await db.select().from(groupMembersTable).where(and(eq(groupMembersTable.userId, userId), isNull(groupMembersTable.deletedAt)));
 
   const groupIds = memberships.map(m => m.groupId);
   const groups = groupIds.length === 0
     ? []
-    : await db.select().from(groupsTable).where(inArray(groupsTable.id, groupIds));
+    : await db.select().from(groupsTable).where(and(inArray(groupsTable.id, groupIds), isNull(groupsTable.deletedAt)));
 
   let totalOwed = 0;
   let totalIOwe = 0;
 
   const groupSummaries = await Promise.all(groups.map(async (group) => {
-    const expenses = await db.select().from(expensesTable).where(eq(expensesTable.groupId, group.id));
+    const expenses = await db.select().from(expensesTable).where(and(eq(expensesTable.groupId, group.id), isNull(expensesTable.deletedAt)));
 
     let groupOwed = 0;
     let groupIOwe = 0;
@@ -50,9 +50,9 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
 
     // Subtract payments
     const receivedPayments = await db.select().from(paymentsTable)
-      .where(and(eq(paymentsTable.groupId, group.id), eq(paymentsTable.toUserId, userId)));
+      .where(and(eq(paymentsTable.groupId, group.id), eq(paymentsTable.toUserId, userId), isNull(paymentsTable.deletedAt)));
     const sentPayments = await db.select().from(paymentsTable)
-      .where(and(eq(paymentsTable.groupId, group.id), eq(paymentsTable.fromUserId, userId)));
+      .where(and(eq(paymentsTable.groupId, group.id), eq(paymentsTable.fromUserId, userId), isNull(paymentsTable.deletedAt)));
 
     for (const p of receivedPayments) groupOwed -= parseFloat(p.amount);
     for (const p of sentPayments) groupIOwe -= parseFloat(p.amount);
@@ -75,13 +75,13 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
   const nonGroupAsPayer = await db
     .select()
     .from(expensesTable)
-    .where(and(isNull(expensesTable.groupId), eq(expensesTable.paidByUserId, userId)));
+    .where(and(isNull(expensesTable.groupId), isNull(expensesTable.deletedAt), eq(expensesTable.paidByUserId, userId)));
 
   const myNonGroupSplitRows = await db
     .select({ expenseId: expenseSplitsTable.expenseId })
     .from(expenseSplitsTable)
     .innerJoin(expensesTable, eq(expensesTable.id, expenseSplitsTable.expenseId))
-    .where(and(isNull(expensesTable.groupId), eq(expenseSplitsTable.userId, userId)));
+    .where(and(isNull(expensesTable.groupId), isNull(expensesTable.deletedAt), eq(expenseSplitsTable.userId, userId)));
 
   const nonGroupExpenseIds = Array.from(
     new Set<string>([
@@ -97,7 +97,7 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     const expenses = await db
       .select()
       .from(expensesTable)
-      .where(inArray(expensesTable.id, nonGroupExpenseIds));
+      .where(and(inArray(expensesTable.id, nonGroupExpenseIds), isNull(expensesTable.deletedAt)));
     const splits = await db
       .select()
       .from(expenseSplitsTable)
@@ -129,6 +129,7 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     .where(
       and(
         isNull(paymentsTable.groupId),
+        isNull(paymentsTable.deletedAt),
         eq(paymentsTable.toUserId, userId),
       ),
     );
@@ -138,6 +139,7 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     .where(
       and(
         isNull(paymentsTable.groupId),
+        isNull(paymentsTable.deletedAt),
         eq(paymentsTable.fromUserId, userId),
       ),
     );
@@ -166,7 +168,7 @@ router.get("/dashboard/activity", requireAuth, async (req, res): Promise<void> =
   const queryParams = GetActivityQueryParams.safeParse(req.query);
   const limit = queryParams.success ? (queryParams.data.limit ?? 20) : 20;
 
-  const memberships = await db.select().from(groupMembersTable).where(eq(groupMembersTable.userId, userId));
+  const memberships = await db.select().from(groupMembersTable).where(and(eq(groupMembersTable.userId, userId), isNull(groupMembersTable.deletedAt)));
 
   if (memberships.length === 0) {
     res.json([]);
@@ -174,18 +176,18 @@ router.get("/dashboard/activity", requireAuth, async (req, res): Promise<void> =
   }
 
   const groupIds = memberships.map(m => m.groupId);
-  const groups = await db.select().from(groupsTable).where(inArray(groupsTable.id, groupIds));
+  const groups = await db.select().from(groupsTable).where(and(inArray(groupsTable.id, groupIds), isNull(groupsTable.deletedAt)));
   const groupMap = new Map(groups.map(g => [g.id, g]));
 
   // Fetch recent expenses
   const expenses = await db.select().from(expensesTable)
-    .where(inArray(expensesTable.groupId, groupIds))
+    .where(and(inArray(expensesTable.groupId, groupIds), isNull(expensesTable.deletedAt)))
     .orderBy(desc(expensesTable.createdAt))
     .limit(limit);
 
   // Fetch recent payments
   const payments = await db.select().from(paymentsTable)
-    .where(inArray(paymentsTable.groupId, groupIds))
+    .where(and(inArray(paymentsTable.groupId, groupIds), isNull(paymentsTable.deletedAt)))
     .orderBy(desc(paymentsTable.createdAt))
     .limit(limit);
 

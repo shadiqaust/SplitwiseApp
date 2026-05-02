@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, ilike, or, notInArray, and, ne, sql, inArray } from "drizzle-orm";
+import { eq, ilike, or, notInArray, and, ne, sql, inArray, isNull } from "drizzle-orm";
 import { db, usersTable, groupMembersTable, friendshipsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { UpdateMeBody, GetMeResponse, UpdateMeResponse } from "@workspace/api-zod";
@@ -45,7 +45,7 @@ async function resolveFriendIds(currentUserId: string): Promise<{ allIds: string
   const myMemberships = await db
     .select({ groupId: groupMembersTable.groupId })
     .from(groupMembersTable)
-    .where(eq(groupMembersTable.userId, currentUserId));
+    .where(and(eq(groupMembersTable.userId, currentUserId), isNull(groupMembersTable.deletedAt)));
   const myGroupIds = myMemberships.map((m) => m.groupId);
 
   // 2. Co-members from shared groups
@@ -58,6 +58,7 @@ async function resolveFriendIds(currentUserId: string): Promise<{ allIds: string
         and(
           inArray(groupMembersTable.groupId, myGroupIds),
           ne(groupMembersTable.userId, currentUserId),
+          isNull(groupMembersTable.deletedAt),
         ),
       );
     for (const r of others) groupFriendSet.add(r.userId);
@@ -68,10 +69,13 @@ async function resolveFriendIds(currentUserId: string): Promise<{ allIds: string
     .select({ friendId: friendshipsTable.friendId, userId: friendshipsTable.userId })
     .from(friendshipsTable)
     .where(
-      or(
-        eq(friendshipsTable.userId, currentUserId),
-        eq(friendshipsTable.friendId, currentUserId),
-      )!,
+      and(
+        isNull(friendshipsTable.deletedAt),
+        or(
+          eq(friendshipsTable.userId, currentUserId),
+          eq(friendshipsTable.friendId, currentUserId),
+        )!,
+      ),
     );
   const directIds = new Set<string>();
   for (const r of friendRows) {
@@ -104,7 +108,7 @@ router.get("/users/search", requireAuth, async (req, res): Promise<void> => {
     ? db
         .select({ userId: groupMembersTable.userId })
         .from(groupMembersTable)
-        .where(eq(groupMembersTable.groupId, excludeGroupId))
+        .where(and(eq(groupMembersTable.groupId, excludeGroupId), isNull(groupMembersTable.deletedAt)))
     : null;
 
   // ── Friends section ────────────────────────────────────────────────────────

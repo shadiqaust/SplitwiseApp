@@ -185,3 +185,20 @@ Full expense edit (group + non-group) and optional receipt photo upload per expe
 - `lib/upload.ts` — `uploadPhotoFromUri(uri)` (uses `FileSystem.uploadAsync` BINARY mode against the presigned URL) and `photoUri(objectPath)` (returns `${BASE_URL}/api/storage<objectPath>`).
 - Image picking via `expo-image-picker` (already installed). Same payer-in-participants invariant enforced.
 - Mobile `Button` component takes `title=` (not children); also has `fullWidth` and `loading` props.
+
+## Soft-delete & confirmation dialogs
+
+### DB schema (lib/db/src/schema)
+- Added nullable `deletedAt: timestamp("deleted_at")` to: `expensesTable`, `expenseCommentsTable`, `groupsTable`, `groupMembersTable`, `paymentsTable`, `friendshipsTable`. (`expenseSplitsTable` unchanged — child of `expensesTable`, lifecycle follows the parent.)
+- Pushed via `pnpm --filter @workspace/db run push`.
+
+### Backend invariants
+- **Never hard-delete** primary entities. All `DELETE` route handlers use `db.update(...).set({ deletedAt: new Date() })`.
+- **Cascade soft-delete on group**: `DELETE /api/groups/:groupId` also marks the group's expenses, payments, and members as deleted.
+- **Re-add re-enables**: re-adding a friend or a group member clears `deletedAt` (via `onConflictDoUpdate` / explicit update).
+- **Every read filters deleted rows**: every `SELECT` / `UPDATE` touching the affected tables — including joins, balance/activity calculations, `requireGroupAccess`/`requireExpenseAccess` middleware, `areFriends`, dashboard summary, and friend balance aggregations — adds `isNull(table.deletedAt)`.
+
+### Frontend confirmation UX
+- **Web**: shadcn `AlertDialog` (`@/components/ui/alert-dialog`) wraps every destructive button (expense delete, expense-comment delete, payment delete). The trigger is the original button via `asChild`; action button uses `bg-destructive`.
+- **Mobile**: `Alert.alert(title, message, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress }])` for every destructive action (expense delete in screen header, expense-comment delete, payment delete).
+- The legacy "click trash icon twice / Tap delete again" flow has been fully removed.

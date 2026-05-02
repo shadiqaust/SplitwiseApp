@@ -19,6 +19,7 @@ export const paymentsTable = pgTable("payments", {
   note: text("note"),
   date: date("date").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const insertPaymentSchema = createInsertSchema(paymentsTable).omit({ id: true, createdAt: true });

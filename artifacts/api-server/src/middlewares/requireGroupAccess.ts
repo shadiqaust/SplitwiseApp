@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import {
   db,
   expensesTable,
@@ -33,6 +33,7 @@ async function isMember(groupId: string, userId: string): Promise<boolean> {
       and(
         eq(groupMembersTable.groupId, groupId),
         eq(groupMembersTable.userId, userId),
+        isNull(groupMembersTable.deletedAt),
       ),
     );
   return Boolean(row);
@@ -78,7 +79,7 @@ export function requireExpenseAccess(paramName = "expenseId") {
         paidByUserId: expensesTable.paidByUserId,
       })
       .from(expensesTable)
-      .where(eq(expensesTable.id, expenseId));
+      .where(and(eq(expensesTable.id, expenseId), isNull(expensesTable.deletedAt)));
     if (!expense) {
       res.status(404).json({ error: "Expense not found" });
       return;
@@ -134,7 +135,7 @@ export function requirePaymentAccess(paramName = "paymentId") {
         toUserId: paymentsTable.toUserId,
       })
       .from(paymentsTable)
-      .where(eq(paymentsTable.id, paymentId));
+      .where(and(eq(paymentsTable.id, paymentId), isNull(paymentsTable.deletedAt)));
     if (!payment) {
       res.status(404).json({ error: "Payment not found" });
       return;
@@ -171,7 +172,7 @@ export function requireGroupMemberByMember(paramName = "memberId") {
     const [target] = await db
       .select({ id: groupMembersTable.id, groupId: groupMembersTable.groupId })
       .from(groupMembersTable)
-      .where(eq(groupMembersTable.id, memberId));
+      .where(and(eq(groupMembersTable.id, memberId), isNull(groupMembersTable.deletedAt)));
     if (!target) {
       res.status(404).json({ error: "Member not found" });
       return;

@@ -24,7 +24,7 @@ async function buildFriendList(me: string) {
   const myMemberships = await db
     .select({ groupId: groupMembersTable.groupId })
     .from(groupMembersTable)
-    .where(eq(groupMembersTable.userId, me));
+    .where(and(eq(groupMembersTable.userId, me), isNull(groupMembersTable.deletedAt)));
 
   const myGroupIds = myMemberships.map((m) => m.groupId);
 
@@ -35,7 +35,7 @@ async function buildFriendList(me: string) {
     const otherMembers = await db
       .select({ userId: groupMembersTable.userId, groupId: groupMembersTable.groupId })
       .from(groupMembersTable)
-      .where(and(inArray(groupMembersTable.groupId, myGroupIds), ne(groupMembersTable.userId, me)));
+      .where(and(inArray(groupMembersTable.groupId, myGroupIds), ne(groupMembersTable.userId, me), isNull(groupMembersTable.deletedAt)));
 
     for (const m of otherMembers) {
       groupFriendIds.add(m.userId);
@@ -48,7 +48,7 @@ async function buildFriendList(me: string) {
   const directFriendships = await db
     .select()
     .from(friendshipsTable)
-    .where(or(eq(friendshipsTable.userId, me), eq(friendshipsTable.friendId, me)));
+    .where(and(isNull(friendshipsTable.deletedAt), or(eq(friendshipsTable.userId, me), eq(friendshipsTable.friendId, me))));
 
   const directFriendIds = new Set<string>();
   for (const f of directFriendships) {
@@ -95,7 +95,7 @@ async function buildFriendList(me: string) {
 
   // ── 4a. Group-based expenses & payments ───────────────────────────────────
   if (myGroupIds.length > 0) {
-    const expenses = await db.select().from(expensesTable).where(inArray(expensesTable.groupId, myGroupIds));
+    const expenses = await db.select().from(expensesTable).where(and(inArray(expensesTable.groupId, myGroupIds), isNull(expensesTable.deletedAt)));
     const expenseIds = expenses.map((e) => e.id);
     const splits = expenseIds.length > 0
       ? await db.select().from(expenseSplitsTable).where(inArray(expenseSplitsTable.expenseId, expenseIds))
@@ -109,7 +109,7 @@ async function buildFriendList(me: string) {
 
     applyExpenses(expenses, splitsMap);
 
-    const payments = await db.select().from(paymentsTable).where(inArray(paymentsTable.groupId, myGroupIds));
+    const payments = await db.select().from(paymentsTable).where(and(inArray(paymentsTable.groupId, myGroupIds), isNull(paymentsTable.deletedAt)));
     for (const p of payments) {
       if (p.fromUserId === me && friendIdSet.has(p.toUserId)) {
         netBalances.set(p.toUserId, (netBalances.get(p.toUserId) ?? 0) + parseFloat(p.amount));
@@ -124,13 +124,13 @@ async function buildFriendList(me: string) {
   const nonGroupAsPayer = await db
     .select()
     .from(expensesTable)
-    .where(and(isNull(expensesTable.groupId), eq(expensesTable.paidByUserId, me)));
+    .where(and(isNull(expensesTable.groupId), isNull(expensesTable.deletedAt), eq(expensesTable.paidByUserId, me)));
 
   const myNonGroupSplitRows = await db
     .select({ expenseId: expenseSplitsTable.expenseId })
     .from(expenseSplitsTable)
     .innerJoin(expensesTable, eq(expensesTable.id, expenseSplitsTable.expenseId))
-    .where(and(isNull(expensesTable.groupId), eq(expenseSplitsTable.userId, me)));
+    .where(and(isNull(expensesTable.groupId), isNull(expensesTable.deletedAt), eq(expenseSplitsTable.userId, me)));
 
   const nonGroupExpenseIds = new Set<string>([
     ...nonGroupAsPayer.map((e) => e.id),
@@ -142,7 +142,7 @@ async function buildFriendList(me: string) {
     const expenses = await db
       .select()
       .from(expensesTable)
-      .where(inArray(expensesTable.id, ids));
+      .where(and(inArray(expensesTable.id, ids), isNull(expensesTable.deletedAt)));
     const splits = await db
       .select()
       .from(expenseSplitsTable)
@@ -164,6 +164,7 @@ async function buildFriendList(me: string) {
     .where(
       and(
         isNull(paymentsTable.groupId),
+        isNull(paymentsTable.deletedAt),
         or(
           eq(paymentsTable.fromUserId, me),
           eq(paymentsTable.toUserId, me),
@@ -186,7 +187,7 @@ async function buildFriendList(me: string) {
 
   // ── 5. Groups info ─────────────────────────────────────────────────────────
   const groups = myGroupIds.length > 0
-    ? await db.select({ id: groupsTable.id, name: groupsTable.name }).from(groupsTable).where(inArray(groupsTable.id, myGroupIds))
+    ? await db.select({ id: groupsTable.id, name: groupsTable.name }).from(groupsTable).where(and(inArray(groupsTable.id, myGroupIds), isNull(groupsTable.deletedAt)))
     : [];
   const groupMap = new Map(groups.map((g) => [g.id, g]));
 
@@ -228,9 +229,12 @@ async function isMyFriend(me: string, other: string): Promise<boolean> {
     .select()
     .from(friendshipsTable)
     .where(
-      or(
-        and(eq(friendshipsTable.userId, me), eq(friendshipsTable.friendId, other)),
-        and(eq(friendshipsTable.userId, other), eq(friendshipsTable.friendId, me)),
+      and(
+        isNull(friendshipsTable.deletedAt),
+        or(
+          and(eq(friendshipsTable.userId, me), eq(friendshipsTable.friendId, other)),
+          and(eq(friendshipsTable.userId, other), eq(friendshipsTable.friendId, me)),
+        ),
       ),
     )
     .limit(1);
@@ -239,7 +243,7 @@ async function isMyFriend(me: string, other: string): Promise<boolean> {
   const myGroups = await db
     .select({ groupId: groupMembersTable.groupId })
     .from(groupMembersTable)
-    .where(eq(groupMembersTable.userId, me));
+    .where(and(eq(groupMembersTable.userId, me), isNull(groupMembersTable.deletedAt)));
   if (myGroups.length === 0) return false;
 
   const shared = await db
@@ -248,6 +252,7 @@ async function isMyFriend(me: string, other: string): Promise<boolean> {
     .where(
       and(
         eq(groupMembersTable.userId, other),
+        isNull(groupMembersTable.deletedAt),
         inArray(
           groupMembersTable.groupId,
           myGroups.map((g) => g.groupId),
@@ -321,12 +326,16 @@ router.get(
     const splitRows = await db
       .select({ expenseId: expenseSplitsTable.expenseId })
       .from(expenseSplitsTable)
-      .where(inArray(expenseSplitsTable.userId, [me, friendId]));
+      .innerJoin(expensesTable, eq(expensesTable.id, expenseSplitsTable.expenseId))
+      .where(and(inArray(expenseSplitsTable.userId, [me, friendId]), isNull(expensesTable.deletedAt)));
     const paidRows = await db
       .select({ id: expensesTable.id })
       .from(expensesTable)
       .where(
-        or(eq(expensesTable.paidByUserId, me), eq(expensesTable.paidByUserId, friendId)),
+        and(
+          isNull(expensesTable.deletedAt),
+          or(eq(expensesTable.paidByUserId, me), eq(expensesTable.paidByUserId, friendId)),
+        ),
       );
     const candidateIds = Array.from(
       new Set<string>([
@@ -340,7 +349,7 @@ router.get(
       ? await db
           .select()
           .from(expensesTable)
-          .where(inArray(expensesTable.id, candidateIds))
+          .where(and(inArray(expensesTable.id, candidateIds), isNull(expensesTable.deletedAt)))
       : [];
     const allSplits = candidateIds.length
       ? await db
@@ -376,9 +385,12 @@ router.get(
       .select()
       .from(paymentsTable)
       .where(
-        or(
-          and(eq(paymentsTable.fromUserId, me), eq(paymentsTable.toUserId, friendId)),
-          and(eq(paymentsTable.fromUserId, friendId), eq(paymentsTable.toUserId, me)),
+        and(
+          isNull(paymentsTable.deletedAt),
+          or(
+            and(eq(paymentsTable.fromUserId, me), eq(paymentsTable.toUserId, friendId)),
+            and(eq(paymentsTable.fromUserId, friendId), eq(paymentsTable.toUserId, me)),
+          ),
         ),
       );
     payments.sort((a, b) => {
@@ -463,6 +475,15 @@ router.post("/friends", requireAuth, async (req, res): Promise<void> => {
     );
 
   if (existing) {
+    if (existing.deletedAt !== null) {
+      // Re-activate previously soft-deleted friendship.
+      await db
+        .update(friendshipsTable)
+        .set({ deletedAt: null, createdAt: new Date() })
+        .where(eq(friendshipsTable.id, existing.id));
+      res.status(201).json({ ok: true });
+      return;
+    }
     res.status(409).json({ error: "Already friends" });
     return;
   }
@@ -481,11 +502,15 @@ router.delete("/friends/:friendId", requireAuth, async (req, res): Promise<void>
   }
 
   await db
-    .delete(friendshipsTable)
+    .update(friendshipsTable)
+    .set({ deletedAt: new Date() })
     .where(
-      or(
-        and(eq(friendshipsTable.userId, me), eq(friendshipsTable.friendId, friendId)),
-        and(eq(friendshipsTable.userId, friendId), eq(friendshipsTable.friendId, me)),
+      and(
+        isNull(friendshipsTable.deletedAt),
+        or(
+          and(eq(friendshipsTable.userId, me), eq(friendshipsTable.friendId, friendId)),
+          and(eq(friendshipsTable.userId, friendId), eq(friendshipsTable.friendId, me)),
+        ),
       ),
     );
 

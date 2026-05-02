@@ -8,6 +8,7 @@ export const friendshipsTable = pgTable(
     userId: uuid("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
     friendId: uuid("friend_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at"),
   },
   (t) => [unique("friendships_unique").on(t.userId, t.friendId)],
 );

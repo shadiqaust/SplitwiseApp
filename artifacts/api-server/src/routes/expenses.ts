@@ -65,7 +65,7 @@ async function getMemberIds(groupId: string): Promise<Set<string>> {
   const rows = await db
     .select({ userId: groupMembersTable.userId })
     .from(groupMembersTable)
-    .where(eq(groupMembersTable.groupId, groupId));
+    .where(and(eq(groupMembersTable.groupId, groupId), isNull(groupMembersTable.deletedAt)));
   return new Set(rows.map((r) => r.userId));
 }
 
@@ -152,14 +152,17 @@ async function areFriends(userA: string, userB: string): Promise<boolean> {
     .select({ id: friendshipsTable.id })
     .from(friendshipsTable)
     .where(
-      or(
-        and(
-          eq(friendshipsTable.userId, userA),
-          eq(friendshipsTable.friendId, userB),
-        ),
-        and(
-          eq(friendshipsTable.userId, userB),
-          eq(friendshipsTable.friendId, userA),
+      and(
+        isNull(friendshipsTable.deletedAt),
+        or(
+          and(
+            eq(friendshipsTable.userId, userA),
+            eq(friendshipsTable.friendId, userB),
+          ),
+          and(
+            eq(friendshipsTable.userId, userB),
+            eq(friendshipsTable.friendId, userA),
+          ),
         ),
       ),
     );
@@ -169,7 +172,7 @@ async function areFriends(userA: string, userB: string): Promise<boolean> {
   const aGroups = await db
     .select({ groupId: groupMembersTable.groupId })
     .from(groupMembersTable)
-    .where(eq(groupMembersTable.userId, userA));
+    .where(and(eq(groupMembersTable.userId, userA), isNull(groupMembersTable.deletedAt)));
   if (aGroups.length === 0) return false;
   const aGroupIds = aGroups.map((g) => g.groupId);
   const [sharedRow] = await db
@@ -178,6 +181,7 @@ async function areFriends(userA: string, userB: string): Promise<boolean> {
     .where(
       and(
         eq(groupMembersTable.userId, userB),
+        isNull(groupMembersTable.deletedAt),
         inArray(groupMembersTable.groupId, aGroupIds),
       ),
     );
@@ -195,7 +199,11 @@ router.get(
       .select()
       .from(expensesTable)
       .where(
-        and(isNull(expensesTable.groupId), eq(expensesTable.paidByUserId, me)),
+        and(
+          isNull(expensesTable.groupId),
+          isNull(expensesTable.deletedAt),
+          eq(expensesTable.paidByUserId, me),
+        ),
       );
 
     const asSplit = await db
@@ -203,7 +211,11 @@ router.get(
       .from(expenseSplitsTable)
       .innerJoin(expensesTable, eq(expensesTable.id, expenseSplitsTable.expenseId))
       .where(
-        and(isNull(expensesTable.groupId), eq(expenseSplitsTable.userId, me)),
+        and(
+          isNull(expensesTable.groupId),
+          isNull(expensesTable.deletedAt),
+          eq(expenseSplitsTable.userId, me),
+        ),
       );
 
     const expenseIds = Array.from(
@@ -221,7 +233,7 @@ router.get(
     const expenses = await db
       .select()
       .from(expensesTable)
-      .where(inArray(expensesTable.id, expenseIds))
+      .where(and(inArray(expensesTable.id, expenseIds), isNull(expensesTable.deletedAt)))
       .orderBy(desc(expensesTable.date), desc(expensesTable.createdAt));
 
     const allSplits = await db
@@ -269,6 +281,7 @@ router.get(
       .where(
         and(
           isNull(paymentsTable.groupId),
+          isNull(paymentsTable.deletedAt),
           or(
             eq(paymentsTable.fromUserId, me),
             eq(paymentsTable.toUserId, me),
@@ -448,7 +461,7 @@ router.get(
     const expenses = await db
       .select()
       .from(expensesTable)
-      .where(eq(expensesTable.groupId, groupId))
+      .where(and(eq(expensesTable.groupId, groupId), isNull(expensesTable.deletedAt)))
       .orderBy(desc(expensesTable.date), desc(expensesTable.createdAt))
       .limit(limit)
       .offset(offset);
@@ -535,7 +548,7 @@ router.get(
     const [expense] = await db
       .select()
       .from(expensesTable)
-      .where(eq(expensesTable.id, expenseId));
+      .where(and(eq(expensesTable.id, expenseId), isNull(expensesTable.deletedAt)));
     if (!expense) {
       res.status(404).json({ error: "Expense not found" });
       return;
@@ -563,7 +576,7 @@ router.put(
     const [current] = await db
       .select()
       .from(expensesTable)
-      .where(eq(expensesTable.id, expenseId));
+      .where(and(eq(expensesTable.id, expenseId), isNull(expensesTable.deletedAt)));
     if (!current) {
       res.status(404).json({ error: "Expense not found" });
       return;
@@ -664,7 +677,7 @@ router.put(
     const [expense] = await db
       .update(expensesTable)
       .set(updateData)
-      .where(eq(expensesTable.id, expenseId))
+      .where(and(eq(expensesTable.id, expenseId), isNull(expensesTable.deletedAt)))
       .returning();
 
     res.json(await buildExpenseWithSplits(expense));
@@ -680,11 +693,10 @@ router.delete(
       ? req.params.expenseId[0]
       : req.params.expenseId;
     const expenseId = raw;
-    await db.delete(expenseCommentsTable).where(eq(expenseCommentsTable.expenseId, expenseId));
-    await db.delete(expenseSplitsTable).where(eq(expenseSplitsTable.expenseId, expenseId));
     const [expense] = await db
-      .delete(expensesTable)
-      .where(eq(expensesTable.id, expenseId))
+      .update(expensesTable)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(expensesTable.id, expenseId), isNull(expensesTable.deletedAt)))
       .returning();
     if (!expense) {
       res.status(404).json({ error: "Expense not found" });
@@ -717,7 +729,12 @@ router.get(
       })
       .from(expenseCommentsTable)
       .innerJoin(usersTable, eq(usersTable.id, expenseCommentsTable.userId))
-      .where(eq(expenseCommentsTable.expenseId, expenseId))
+      .where(
+        and(
+          eq(expenseCommentsTable.expenseId, expenseId),
+          isNull(expenseCommentsTable.deletedAt),
+        ),
+      )
       .orderBy(expenseCommentsTable.createdAt);
     res.json(
       rows.map((r) => ({
@@ -813,6 +830,7 @@ router.delete(
         and(
           eq(expenseCommentsTable.id, commentId),
           eq(expenseCommentsTable.expenseId, expenseId),
+          isNull(expenseCommentsTable.deletedAt),
         ),
       );
     if (!comment) {
@@ -824,7 +842,8 @@ router.delete(
       return;
     }
     await db
-      .delete(expenseCommentsTable)
+      .update(expenseCommentsTable)
+      .set({ deletedAt: new Date() })
       .where(eq(expenseCommentsTable.id, commentId));
     res.sendStatus(204);
   },

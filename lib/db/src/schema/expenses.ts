@@ -24,6 +24,7 @@ export const expensesTable = pgTable("expenses", {
   date: date("date").notNull(),
   photoUrl: text("photo_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const expenseSplitsTable = pgTable("expense_splits", {
@@ -48,6 +49,7 @@ export const expenseCommentsTable = pgTable("expense_comments", {
     .references(() => usersTable.id),
   body: text("body").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const insertExpenseSchema = createInsertSchema(expensesTable).omit({ id: true, createdAt: true });

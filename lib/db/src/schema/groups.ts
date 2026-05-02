@@ -13,6 +13,7 @@ export const groupsTable = pgTable("groups", {
     .notNull()
     .references(() => usersTable.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const groupMembersTable = pgTable("group_members", {
@@ -24,6 +25,7 @@ export const groupMembersTable = pgTable("group_members", {
     .notNull()
     .references(() => usersTable.id),
   joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const insertGroupSchema = createInsertSchema(groupsTable).omit({ id: true, createdAt: true });

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, or, and, inArray } from "drizzle-orm";
+import { eq, desc, or, and, inArray, isNull } from "drizzle-orm";
 import {
   db,
   paymentsTable,
@@ -37,7 +37,7 @@ async function getMemberIds(groupId: string): Promise<Set<string>> {
   const rows = await db
     .select({ userId: groupMembersTable.userId })
     .from(groupMembersTable)
-    .where(eq(groupMembersTable.groupId, groupId));
+    .where(and(eq(groupMembersTable.groupId, groupId), isNull(groupMembersTable.deletedAt)));
   return new Set(rows.map((r) => r.userId));
 }
 
@@ -50,7 +50,7 @@ router.get(
     const payments = await db
       .select()
       .from(paymentsTable)
-      .where(eq(paymentsTable.groupId, groupId))
+      .where(and(eq(paymentsTable.groupId, groupId), isNull(paymentsTable.deletedAt)))
       .orderBy(desc(paymentsTable.date), desc(paymentsTable.createdAt));
     const result = await Promise.all(payments.map(buildPayment));
     res.json(result);
@@ -139,14 +139,17 @@ router.post(
       .select({ id: friendshipsTable.id })
       .from(friendshipsTable)
       .where(
-        or(
-          and(
-            eq(friendshipsTable.userId, me),
-            eq(friendshipsTable.friendId, friendId),
-          ),
-          and(
-            eq(friendshipsTable.userId, friendId),
-            eq(friendshipsTable.friendId, me),
+        and(
+          isNull(friendshipsTable.deletedAt),
+          or(
+            and(
+              eq(friendshipsTable.userId, me),
+              eq(friendshipsTable.friendId, friendId),
+            ),
+            and(
+              eq(friendshipsTable.userId, friendId),
+              eq(friendshipsTable.friendId, me),
+            ),
           ),
         ),
       )
@@ -157,7 +160,7 @@ router.post(
       const myGroups = await db
         .select({ groupId: groupMembersTable.groupId })
         .from(groupMembersTable)
-        .where(eq(groupMembersTable.userId, me));
+        .where(and(eq(groupMembersTable.userId, me), isNull(groupMembersTable.deletedAt)));
       if (myGroups.length > 0) {
         const [shared] = await db
           .select({ id: groupMembersTable.id })
@@ -165,6 +168,7 @@ router.post(
           .where(
             and(
               eq(groupMembersTable.userId, friendId),
+              isNull(groupMembersTable.deletedAt),
               inArray(
                 groupMembersTable.groupId,
                 myGroups.map((g) => g.groupId),
@@ -209,8 +213,9 @@ router.delete(
       : req.params.paymentId;
     const paymentId = raw;
     const [payment] = await db
-      .delete(paymentsTable)
-      .where(eq(paymentsTable.id, paymentId))
+      .update(paymentsTable)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(paymentsTable.id, paymentId), isNull(paymentsTable.deletedAt)))
       .returning();
     if (!payment) {
       res.status(404).json({ error: "Payment not found" });

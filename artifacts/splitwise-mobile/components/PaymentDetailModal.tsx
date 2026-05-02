@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -34,7 +35,6 @@ export function PaymentDetailModal({
   const colors = useColors();
   const queryClient = useQueryClient();
   const deleteMutation = useDeletePayment();
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fromMe = currentUserId && payment.fromUserId === currentUserId;
@@ -44,38 +44,43 @@ export function PaymentDetailModal({
   const amount = Number(payment.amount);
 
   const onDelete = () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
-    deleteMutation.mutate(
-      { paymentId: payment.id },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey() });
-          queryClient.invalidateQueries({
-            queryKey: getGetDashboardSummaryQueryKey(),
-          });
-          queryClient.invalidateQueries({ queryKey: ["non-group-expenses"] });
-          queryClient.invalidateQueries({ queryKey: ["friends"] });
-          queryClient.invalidateQueries({ queryKey: ["friends-mobile"] });
-          queryClient.invalidateQueries({ queryKey: ["friend-activity"] });
-          if (payment.groupId) {
-            queryClient.invalidateQueries({
-              queryKey: getListPaymentsQueryKey(payment.groupId),
-            });
-            queryClient.invalidateQueries({
-              queryKey: getGetGroupBalancesQueryKey(payment.groupId),
-            });
-          }
-          setConfirmDelete(false);
-          onClose();
+    Alert.alert(
+      "Delete this payment?",
+      "Removing this payment will recalculate balances for everyone involved.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteMutation.mutate(
+              { paymentId: payment.id },
+              {
+                onSuccess: () => {
+                  queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey() });
+                  queryClient.invalidateQueries({
+                    queryKey: getGetDashboardSummaryQueryKey(),
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["non-group-expenses"] });
+                  queryClient.invalidateQueries({ queryKey: ["friends"] });
+                  queryClient.invalidateQueries({ queryKey: ["friends-mobile"] });
+                  queryClient.invalidateQueries({ queryKey: ["friend-activity"] });
+                  if (payment.groupId) {
+                    queryClient.invalidateQueries({
+                      queryKey: getListPaymentsQueryKey(payment.groupId),
+                    });
+                    queryClient.invalidateQueries({
+                      queryKey: getGetGroupBalancesQueryKey(payment.groupId),
+                    });
+                  }
+                  onClose();
+                },
+                onError: (err) => setError(getErrorMessage(err)),
+              },
+            );
+          },
         },
-        onError: (err) => {
-          setError(getErrorMessage(err));
-          setConfirmDelete(false);
-        },
-      },
+      ],
     );
   };
 
@@ -161,13 +166,6 @@ export function PaymentDetailModal({
               {error}
             </Text>
           )}
-          {confirmDelete && !error && (
-            <Text
-              style={[styles.confirmText, { color: colors.negative }]}
-            >
-              Tap delete again to permanently remove this payment.
-            </Text>
-          )}
 
           <Pressable
             onPress={onDelete}
@@ -181,9 +179,7 @@ export function PaymentDetailModal({
             ]}
           >
             <Feather name="trash-2" size={16} color="#fff" />
-            <Text style={styles.deleteBtnText}>
-              {confirmDelete ? "Confirm delete" : "Delete payment"}
-            </Text>
+            <Text style={styles.deleteBtnText}>Delete payment</Text>
           </Pressable>
         </ScrollView>
       </View>
