@@ -914,12 +914,20 @@ components:
     CreateFriendExpenseBody:
       type: object
       description: |
-        Create a non-group expense between the current user and a friend.
-        Splits must reference exactly the current user and the selected friend.
+        Create a non-group expense between the current user and one or more friends.
+        Splits must reference exactly the current user and the selected friends.
+        Provide either `friendUserId` (single friend) or `friendUserIds` (one or more friends).
       properties:
         friendUserId:
           type: string
           format: uuid
+          description: Single friend (legacy). Use `friendUserIds` for multi-friend expenses.
+        friendUserIds:
+          type: array
+          description: One or more friend user IDs. Takes precedence over `friendUserId` when provided.
+          items:
+            type: string
+            format: uuid
         description:
           type: string
         totalAmount:
@@ -939,7 +947,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ExpenseSplitInput"
-      required: [friendUserId, description, totalAmount, splitType, paidByUserId, date, splits]
+      required: [description, totalAmount, splitType, paidByUserId, date, splits]
 
     # ─── Payment ──────────────────────────────────────────────────────────
     Payment:

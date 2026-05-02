@@ -196,6 +196,7 @@ router.post(
 
     const {
       friendUserId,
+      friendUserIds,
       description,
       totalAmount,
       currency,
@@ -209,40 +210,74 @@ router.post(
       res.status(400).json({ error: "Total amount must be positive" });
       return;
     }
-    if (friendUserId === me) {
+
+    // Resolve friend list: prefer friendUserIds (multi), fall back to friendUserId (single).
+    const rawFriendIds: string[] =
+      friendUserIds && friendUserIds.length > 0
+        ? friendUserIds
+        : friendUserId
+          ? [friendUserId]
+          : [];
+
+    if (rawFriendIds.length === 0) {
+      res.status(400).json({
+        error: "Must include at least one friend (friendUserId or friendUserIds)",
+      });
+      return;
+    }
+    const friendIdSet = new Set(rawFriendIds);
+    if (friendIdSet.size !== rawFriendIds.length) {
+      res.status(400).json({ error: "Duplicate friends in request" });
+      return;
+    }
+    if (friendIdSet.has(me)) {
       res
         .status(400)
         .json({ error: "Cannot create an expense with yourself" });
       return;
     }
-    if (!(await areFriends(me, friendUserId))) {
-      res
-        .status(403)
-        .json({ error: "You can only add expenses with your friends" });
-      return;
+    for (const fid of rawFriendIds) {
+      if (!(await areFriends(me, fid))) {
+        res
+          .status(403)
+          .json({ error: "You can only add expenses with your friends" });
+        return;
+      }
     }
 
-    const allowed = new Set([me, friendUserId]);
+    const allowed = new Set([me, ...rawFriendIds]);
     if (!allowed.has(paidByUserId)) {
       res
         .status(400)
-        .json({ error: "Payer must be you or the selected friend" });
+        .json({ error: "Payer must be you or one of the selected friends" });
       return;
     }
-    // Splits must reference exactly both participants exactly once.
+    // Multi-friend non-group expenses must split equally (UI invariant + simpler UX).
+    if (rawFriendIds.length > 1 && splitType !== "equal") {
+      res.status(400).json({
+        error: "Multi-friend expenses must use equal split",
+      });
+      return;
+    }
+    // Splits must reference exactly all participants, each once.
     const splitUserIds = splits.map((s) => s.userId);
     const uniqueSplitUserIds = new Set(splitUserIds);
     if (
-      splitUserIds.length !== 2 ||
-      uniqueSplitUserIds.size !== 2 ||
-      !uniqueSplitUserIds.has(me) ||
-      !uniqueSplitUserIds.has(friendUserId)
+      splitUserIds.length !== allowed.size ||
+      uniqueSplitUserIds.size !== allowed.size
     ) {
       res.status(400).json({
-        error:
-          "Splits must include exactly you and the selected friend, each once",
+        error: "Splits must include each participant exactly once",
       });
       return;
+    }
+    for (const id of allowed) {
+      if (!uniqueSplitUserIds.has(id)) {
+        res.status(400).json({
+          error: "Splits must cover you and every selected friend",
+        });
+        return;
+      }
     }
 
     const computed = computeFinalSplits(splitType, totalAmount, splits);

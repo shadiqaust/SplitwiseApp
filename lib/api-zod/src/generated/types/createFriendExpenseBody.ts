@@ -9,12 +9,16 @@ import type { ExpenseSplitInput } from "./expenseSplitInput";
 import type { SplitType } from "./splitType";
 
 /**
- * Create a non-group expense between the current user and a friend.
-Splits must reference exactly the current user and the selected friend.
+ * Create a non-group expense between the current user and one or more friends.
+Splits must reference exactly the current user and the selected friends.
+Provide either `friendUserId` (single friend) or `friendUserIds` (one or more friends).
 
  */
 export interface CreateFriendExpenseBody {
-  friendUserId: string;
+  /** Single friend (legacy). Use `friendUserIds` for multi-friend expenses. */
+  friendUserId?: string;
+  /** One or more friend user IDs. Takes precedence over `friendUserId` when provided. */
+  friendUserIds?: string[];
   description: string;
   totalAmount: number;
   currency?: string;

@@ -240,7 +240,19 @@ export const createFriendExpenseBodyCurrencyDefault = `USD`;
 
 export const CreateFriendExpenseBody = zod
   .object({
-    friendUserId: zod.string().uuid(),
+    friendUserId: zod
+      .string()
+      .uuid()
+      .optional()
+      .describe(
+        "Single friend (legacy). Use `friendUserIds` for multi-friend expenses.",
+      ),
+    friendUserIds: zod
+      .array(zod.string().uuid())
+      .optional()
+      .describe(
+        "One or more friend user IDs. Takes precedence over `friendUserId` when provided.",
+      ),
     description: zod.string(),
     totalAmount: zod.number(),
     currency: zod.string().default(createFriendExpenseBodyCurrencyDefault),
@@ -256,7 +268,7 @@ export const CreateFriendExpenseBody = zod
     ),
   })
   .describe(
-    "Create a non-group expense between the current user and a friend.\nSplits must reference exactly the current user and the selected friend.\n",
+    "Create a non-group expense between the current user and one or more friends.\nSplits must reference exactly the current user and the selected friends.\nProvide either `friendUserId` (single friend) or `friendUserIds` (one or more friends).\n",
   );
 
 /**
