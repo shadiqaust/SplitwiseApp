@@ -18,6 +18,7 @@ import {
 
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Avatar } from "@/components/ui/Avatar";
 import {
   SettleUpWithFriendModal,
   type SettleFriend,
@@ -37,9 +38,18 @@ const NON_GROUP_KEY = ["non-group-expenses"] as const;
 
 const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
 
+interface FriendRow {
+  id: string;
+  name: string;
+  net: number;
+}
+
+type Tab = "expenses" | "friends";
+
 export default function NonGroupExpensesScreen() {
   const colors = useColors();
   const me = useGetMe();
+  const [tab, setTab] = useState<Tab>("expenses");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [settleTarget, setSettleTarget] = useState<{
     friend: SettleFriend;
@@ -61,19 +71,11 @@ export default function NonGroupExpensesScreen() {
     setIsRefreshing(false);
   }, [query]);
 
-  if (query.isLoading && !query.data) {
-    return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Stack.Screen options={{ title: "Non-group expenses" }} />
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
-  }
-
   const data = query.data;
   const expenses = data?.expenses ?? [];
   const net = data?.myNetBalance ?? 0;
   const myId = me.data?.id;
+  const friendNets = data?.friendNets ?? {};
 
   const grouped = useMemo(() => {
     const buckets = new Map<string, ExpenseWithSplits[]>();
@@ -93,6 +95,42 @@ export default function NonGroupExpensesScreen() {
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
   }, [expenses]);
+
+  const friends = useMemo<FriendRow[]>(() => {
+    if (!myId) return [];
+    const nameById = new Map<string, string>();
+    for (const e of expenses) {
+      if (e.paidByUserId !== myId && e.paidByUser) {
+        nameById.set(e.paidByUserId, e.paidByUser.name);
+      }
+      for (const s of e.splits) {
+        if (s.userId !== myId && s.user) {
+          nameById.set(s.userId, s.user.name);
+        }
+      }
+    }
+    const rows: FriendRow[] = [];
+    for (const [id, name] of nameById) {
+      rows.push({ id, name, net: friendNets[id] ?? 0 });
+    }
+    rows.sort((a, b) => {
+      const da = Math.abs(a.net), db = Math.abs(b.net);
+      if (da > 0.005 && db < 0.005) return -1;
+      if (db > 0.005 && da < 0.005) return 1;
+      if (Math.abs(da - db) > 0.005) return db - da;
+      return a.name.localeCompare(b.name);
+    });
+    return rows;
+  }, [expenses, friendNets, myId]);
+
+  if (query.isLoading && !query.data) {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <Stack.Screen options={{ title: "Non-group expenses" }} />
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <>
@@ -154,26 +192,75 @@ export default function NonGroupExpensesScreen() {
             />
           </Card>
         ) : (
-          <View style={{ gap: 16 }}>
-            {grouped.map((bucket) => (
-              <View key={bucket.key} style={{ gap: 8 }}>
-                <Text style={[styles.monthLabel, { color: colors.mutedForeground }]}>
-                  {bucket.label.toUpperCase()}
-                </Text>
-                {bucket.items.map((e) => (
-                  <ExpenseRow
-                    key={e.id}
-                    expense={e}
-                    myId={myId}
-                    friendNets={query.data?.friendNets}
-                    onSettle={(friend, impact) =>
-                      setSettleTarget({ friend, impact })
-                    }
-                  />
+          <>
+            <View
+              style={[
+                styles.tabBar,
+                { backgroundColor: colors.muted, borderColor: colors.border },
+              ]}
+            >
+              <TabButton
+                label="Expenses"
+                active={tab === "expenses"}
+                onPress={() => setTab("expenses")}
+              />
+              <TabButton
+                label={`Friends${friends.length ? ` (${friends.length})` : ""}`}
+                active={tab === "friends"}
+                onPress={() => setTab("friends")}
+              />
+            </View>
+
+            {tab === "expenses" ? (
+              <View style={{ gap: 16 }}>
+                {grouped.map((bucket) => (
+                  <View key={bucket.key} style={{ gap: 8 }}>
+                    <Text
+                      style={[
+                        styles.monthLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {bucket.label.toUpperCase()}
+                    </Text>
+                    {bucket.items.map((e) => (
+                      <ExpenseRow
+                        key={e.id}
+                        expense={e}
+                        myId={myId}
+                        friendNets={friendNets}
+                      />
+                    ))}
+                  </View>
                 ))}
               </View>
-            ))}
-          </View>
+            ) : (
+              <View style={{ gap: 8 }}>
+                {friends.length === 0 ? (
+                  <Card>
+                    <EmptyState
+                      icon="users"
+                      title="No friends yet"
+                      message="Once you add a non-group expense with a friend, they'll appear here."
+                    />
+                  </Card>
+                ) : (
+                  friends.map((f) => (
+                    <FriendBalanceRow
+                      key={f.id}
+                      friend={f}
+                      onSettle={(impact) =>
+                        setSettleTarget({
+                          friend: { id: f.id, name: f.name },
+                          impact,
+                        })
+                      }
+                    />
+                  ))
+                )}
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
       {settleTarget && myId && (
@@ -188,16 +275,104 @@ export default function NonGroupExpensesScreen() {
   );
 }
 
+function TabButton({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.tabButton,
+        active && { backgroundColor: colors.background },
+      ]}
+    >
+      <Text
+        style={[
+          styles.tabText,
+          {
+            color: active ? colors.foreground : colors.mutedForeground,
+            fontFamily: active ? "Inter_600SemiBold" : "Inter_500Medium",
+          },
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function FriendBalanceRow({
+  friend,
+  onSettle,
+}: {
+  friend: FriendRow;
+  onSettle: (impact: number) => void;
+}) {
+  const colors = useColors();
+  const settled = Math.abs(friend.net) < 0.01;
+  return (
+    <Card style={styles.friendRow}>
+      <Avatar name={friend.name} size={40} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text
+          style={[styles.friendName, { color: colors.foreground }]}
+          numberOfLines={1}
+        >
+          {friend.name}
+        </Text>
+        <Text
+          style={[
+            styles.friendBalance,
+            {
+              color: settled
+                ? colors.mutedForeground
+                : friend.net > 0
+                  ? colors.positive
+                  : colors.negative,
+            },
+          ]}
+          numberOfLines={1}
+        >
+          {settled
+            ? "All settled up"
+            : friend.net > 0
+              ? `owes you ${formatCurrency(friend.net)}`
+              : `you owe ${formatCurrency(Math.abs(friend.net))}`}
+        </Text>
+      </View>
+      {!settled && (
+        <Pressable
+          onPress={() => onSettle(friend.net)}
+          style={[
+            styles.settleBtn,
+            { borderColor: colors.border, backgroundColor: colors.background },
+          ]}
+        >
+          <Feather name="check-circle" size={14} color={colors.primary} />
+          <Text style={[styles.settleBtnText, { color: colors.primary }]}>
+            Settle up
+          </Text>
+        </Pressable>
+      )}
+    </Card>
+  );
+}
+
 function ExpenseRow({
   expense,
   myId,
   friendNets,
-  onSettle,
 }: {
   expense: ExpenseWithSplits;
   myId: string | undefined;
-  friendNets?: Record<string, number>;
-  onSettle: (friend: SettleFriend, impact: number) => void;
+  friendNets: Record<string, number>;
 }) {
   const colors = useColors();
   const total = Number(expense.totalAmount);
@@ -218,28 +393,11 @@ function ExpenseRow({
 
   const onlyCounterparty =
     otherSplits.length === 1 ? otherSplits[0] : null;
-  const counterpartyNet =
-    onlyCounterparty && friendNets ? friendNets[onlyCounterparty.userId] : undefined;
+  const counterpartyNet = onlyCounterparty
+    ? friendNets[onlyCounterparty.userId]
+    : undefined;
   const isSettled =
     typeof counterpartyNet === "number" && Math.abs(counterpartyNet) < 0.01;
-
-  let settleFriend: SettleFriend | null = null;
-  let settleImpact = 0;
-  if (onlyCounterparty && !isSettled) {
-    if (owedToMe > 0 && onlyCounterparty.user) {
-      settleFriend = {
-        id: onlyCounterparty.userId,
-        name: onlyCounterparty.user.name,
-      };
-      settleImpact = counterpartyNet ?? Number(onlyCounterparty.amount);
-    } else if (iOwe > 0 && expense.paidByUser) {
-      settleFriend = {
-        id: expense.paidByUserId,
-        name: expense.paidByUser.name,
-      };
-      settleImpact = counterpartyNet ?? -iOwe;
-    }
-  }
 
   return (
     <Card style={styles.row}>
@@ -256,24 +414,6 @@ function ExpenseRow({
         <Text style={[styles.date, { color: colors.mutedForeground }]}>
           {expense.category ?? "General"} · {expense.date}
         </Text>
-        {settleFriend && (
-          <Pressable
-            onPress={() => onSettle(settleFriend!, settleImpact)}
-            hitSlop={6}
-            style={{
-              marginTop: 6,
-              flexDirection: "row",
-              alignItems: "center",
-              alignSelf: "flex-start",
-              gap: 4,
-            }}
-          >
-            <Feather name="check-circle" size={13} color={colors.primary} />
-            <Text style={[styles.settleText, { color: colors.primary }]}>
-              Settle up
-            </Text>
-          </Pressable>
-        )}
       </View>
       <View style={{ alignItems: "flex-end" }}>
         {isSettled ? (
@@ -324,6 +464,20 @@ const styles = StyleSheet.create({
   summarySub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth, alignSelf: "stretch", marginVertical: 12 },
   countText: { fontFamily: "Inter_400Regular", fontSize: 12 },
+  tabBar: {
+    flexDirection: "row",
+    padding: 4,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 4,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 7,
+  },
+  tabText: { fontSize: 13 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   desc: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   meta: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
@@ -331,5 +485,17 @@ const styles = StyleSheet.create({
   monthLabel: { fontFamily: "Inter_600SemiBold", fontSize: 11, letterSpacing: 0.8 },
   balance: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   balanceSub: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
-  settleText: { fontFamily: "Inter_500Medium", fontSize: 12 },
+  friendRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  friendName: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  friendBalance: { fontFamily: "Inter_400Regular", fontSize: 13, marginTop: 2 },
+  settleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  settleBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
 });
