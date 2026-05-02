@@ -22,6 +22,7 @@ export * from "./expenseSplit";
 export * from "./expenseSplitInput";
 export * from "./expenseWithSplits";
 export * from "./getActivityParams";
+export * from "./getFriendActivity200";
 export * from "./group";
 export * from "./groupBalanceSummary";
 export * from "./groupDetail";

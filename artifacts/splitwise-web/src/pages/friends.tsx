@@ -18,6 +18,7 @@ import { cn, formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Search, Plus } from "lucide-react";
 import { AddExpenseWithFriendDialog } from "@/components/add-expense-with-friend-dialog";
+import { Link } from "wouter";
 
 interface Friend {
   id: number;
@@ -254,24 +255,39 @@ export function FriendsPage() {
         {filtered.length > 0 && (
           <div className="space-y-3">
             {filtered.map((friend) => (
-              <Card key={friend.id} className="hover:shadow-sm transition-shadow">
+              <Card
+                key={friend.id}
+                className="hover:shadow-sm transition-shadow"
+              >
                 <CardContent className="flex items-center gap-4 py-4">
-                  <FriendAvatar name={friend.name} avatarUrl={friend.avatarUrl} />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">{friend.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{friend.email}</p>
-                    {friend.sharedGroups.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {friend.sharedGroups.map((g) => g.name).join(", ")}
+                  <Link
+                    href={`/friends/${friend.id}`}
+                    className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
+                  >
+                    <FriendAvatar name={friend.name} avatarUrl={friend.avatarUrl} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate hover:underline">
+                        {friend.name}
                       </p>
-                    )}
-                  </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {friend.email}
+                      </p>
+                      {friend.sharedGroups.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {friend.sharedGroups.map((g) => g.name).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
                   <BalanceBadge amount={friend.netBalance} />
                   <Button
                     size="sm"
                     variant="outline"
                     disabled={!me.data?.id}
-                    onClick={() => setExpenseFriend(friend)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpenseFriend(friend);
+                    }}
                   >
                     <Plus className="w-4 h-4 mr-1" /> Add expense
                   </Button>

@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetMe } from "@workspace/api-client-react";
 
@@ -142,6 +143,7 @@ function AddFriendModal({ existingIds, onClose }: { existingIds: Set<number>; on
 
 export default function FriendsScreen() {
   const colors = useColors();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [expenseFriend, setExpenseFriend] = useState<Friend | null>(null);
@@ -228,41 +230,49 @@ export default function FriendsScreen() {
           const isOwed = friend.netBalance > 0;
           const isEven = Math.abs(friend.netBalance) < 0.01;
           return (
-            <Card key={friend.id} style={styles.friendRow}>
-              <Avatar name={friend.name} url={friend.avatarUrl} />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={[styles.userName, { color: colors.foreground }]} numberOfLines={1}>{friend.name}</Text>
-                <Text style={[styles.userEmail, { color: colors.mutedForeground }]} numberOfLines={1}>{friend.email}</Text>
-                {friend.sharedGroups.length > 0 && (
-                  <Text style={[styles.groupsText, { color: colors.mutedForeground }]} numberOfLines={1}>
-                    {friend.sharedGroups.map((g) => g.name).join(", ")}
-                  </Text>
-                )}
-                <Pressable
-                  onPress={() => setExpenseFriend(friend)}
-                  disabled={!me.data?.id}
-                  style={{ marginTop: 6, flexDirection: "row", alignItems: "center", alignSelf: "flex-start" }}
-                  hitSlop={6}
-                >
-                  <Feather name="plus" size={13} color={colors.primary} />
-                  <Text style={[styles.addExpenseText, { color: colors.primary }]}>Add expense</Text>
-                </Pressable>
-              </View>
-              <View style={{ alignItems: "flex-end" }}>
-                {isEven ? (
-                  <Text style={[styles.evenText, { color: colors.mutedForeground }]}>settled</Text>
-                ) : (
-                  <>
-                    <Text style={[styles.balanceLabel, { color: isOwed ? colors.positive : colors.negative }]}>
-                      {isOwed ? "owes you" : "you owe"}
+            <Pressable
+              key={friend.id}
+              onPress={() => router.push(`/friends/${friend.id}`)}
+            >
+              <Card style={styles.friendRow}>
+                <Avatar name={friend.name} url={friend.avatarUrl} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.userName, { color: colors.foreground }]} numberOfLines={1}>{friend.name}</Text>
+                  <Text style={[styles.userEmail, { color: colors.mutedForeground }]} numberOfLines={1}>{friend.email}</Text>
+                  {friend.sharedGroups.length > 0 && (
+                    <Text style={[styles.groupsText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                      {friend.sharedGroups.map((g) => g.name).join(", ")}
                     </Text>
-                    <Text style={[styles.balanceAmount, { color: isOwed ? colors.positive : colors.negative }]}>
-                      {formatCurrency(Math.abs(friend.netBalance))}
-                    </Text>
-                  </>
-                )}
-              </View>
-            </Card>
+                  )}
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setExpenseFriend(friend);
+                    }}
+                    disabled={!me.data?.id}
+                    style={{ marginTop: 6, flexDirection: "row", alignItems: "center", alignSelf: "flex-start" }}
+                    hitSlop={6}
+                  >
+                    <Feather name="plus" size={13} color={colors.primary} />
+                    <Text style={[styles.addExpenseText, { color: colors.primary }]}>Add expense</Text>
+                  </Pressable>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  {isEven ? (
+                    <Text style={[styles.evenText, { color: colors.mutedForeground }]}>settled</Text>
+                  ) : (
+                    <>
+                      <Text style={[styles.balanceLabel, { color: isOwed ? colors.positive : colors.negative }]}>
+                        {isOwed ? "owes you" : "you owe"}
+                      </Text>
+                      <Text style={[styles.balanceAmount, { color: isOwed ? colors.positive : colors.negative }]}>
+                        {formatCurrency(Math.abs(friend.netBalance))}
+                      </Text>
+                    </>
+                  )}
+                </View>
+              </Card>
+            </Pressable>
           );
         })}
       </ScrollView>

@@ -261,6 +261,14 @@ export type NotFoundResponse = ErrorResponse;
  */
 export type BadRequestResponse = ErrorResponse;
 
+export type GetFriendActivity200 = {
+  friend: User;
+  /** Positive = friend owes you, negative = you owe friend. */
+  netBalance: number;
+  expenses: ExpenseWithSplits[];
+  payments: Payment[];
+};
+
 export type ListNonGroupExpenses200 = {
   /** Positive = others owe you, negative = you owe. */
   myNetBalance: number;

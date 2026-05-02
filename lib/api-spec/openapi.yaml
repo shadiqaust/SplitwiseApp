@@ -270,6 +270,54 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # ─── Expenses ─────────────────────────────────────────────────────────────
+  /friends/{friendId}/activity:
+    get:
+      operationId: getFriendActivity
+      tags: [friends]
+      summary: Get all expenses and payments between current user and a specific friend
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: friendId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Friend activity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  friend:
+                    $ref: "#/components/schemas/User"
+                  netBalance:
+                    type: number
+                    description: Positive = friend owes you, negative = you owe friend.
+                  expenses:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ExpenseWithSplits"
+                  payments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Payment"
+                required: [friend, netBalance, expenses, payments]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Forbidden — user is not your friend
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /expenses/non-group:
     get:
       operationId: listNonGroupExpenses

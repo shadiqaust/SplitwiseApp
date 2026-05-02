@@ -29,6 +29,7 @@ import type {
   ErrorResponse,
   ExpenseWithSplits,
   GetActivityParams,
+  GetFriendActivity200,
   Group,
   GroupDetail,
   GroupMember,
@@ -1059,6 +1060,101 @@ export function useGetGroupBalances<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetGroupBalancesQueryOptions(groupId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get all expenses and payments between current user and a specific friend
+ */
+export const getGetFriendActivityUrl = (friendId: string) => {
+  return `/api/friends/${friendId}/activity`;
+};
+
+export const getFriendActivity = async (
+  friendId: string,
+  options?: RequestInit,
+): Promise<GetFriendActivity200> => {
+  return customFetch<GetFriendActivity200>(getGetFriendActivityUrl(friendId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFriendActivityQueryKey = (friendId: string) => {
+  return [`/api/friends/${friendId}/activity`] as const;
+};
+
+export const getGetFriendActivityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFriendActivity>>,
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | ErrorResponse | NotFoundResponse
+  >,
+>(
+  friendId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFriendActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFriendActivityQueryKey(friendId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFriendActivity>>
+  > = ({ signal }) =>
+    getFriendActivity(friendId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!friendId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFriendActivity>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFriendActivityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFriendActivity>>
+>;
+export type GetFriendActivityQueryError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | ErrorResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Get all expenses and payments between current user and a specific friend
+ */
+
+export function useGetFriendActivity<
+  TData = Awaited<ReturnType<typeof getFriendActivity>>,
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | ErrorResponse | NotFoundResponse
+  >,
+>(
+  friendId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFriendActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFriendActivityQueryOptions(friendId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

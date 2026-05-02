@@ -234,6 +234,111 @@ export const GetGroupBalancesResponseItem = zod
 export const GetGroupBalancesResponse = zod.array(GetGroupBalancesResponseItem);
 
 /**
+ * @summary Get all expenses and payments between current user and a specific friend
+ */
+export const GetFriendActivityParams = zod.object({
+  friendId: zod.coerce.string().uuid(),
+});
+
+export const getFriendActivityResponseExpensesItemOneCurrencyDefault = `USD`;
+
+export const GetFriendActivityResponse = zod.object({
+  friend: zod.object({
+    id: zod.string().uuid(),
+    name: zod.string(),
+    email: zod.string(),
+    avatarUrl: zod.string().nullish(),
+    country: zod.string().nullish(),
+    location: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+  }),
+  netBalance: zod
+    .number()
+    .describe("Positive = friend owes you, negative = you owe friend."),
+  expenses: zod.array(
+    zod
+      .object({
+        id: zod.string().uuid(),
+        groupId: zod
+          .string()
+          .uuid()
+          .nullish()
+          .describe("Null for non-group (friend-only) expenses."),
+        description: zod.string(),
+        totalAmount: zod.number(),
+        currency: zod
+          .string()
+          .default(getFriendActivityResponseExpensesItemOneCurrencyDefault),
+        splitType: zod.enum(["equal", "exact", "percentage"]),
+        paidByUserId: zod.string().uuid(),
+        paidByUser: zod.object({
+          id: zod.string().uuid(),
+          name: zod.string(),
+          email: zod.string(),
+          avatarUrl: zod.string().nullish(),
+          country: zod.string().nullish(),
+          location: zod.string().nullish(),
+          createdAt: zod.coerce.date(),
+        }),
+        date: zod.coerce.date(),
+        createdAt: zod.coerce.date(),
+      })
+      .and(
+        zod.object({
+          splits: zod.array(
+            zod.object({
+              id: zod.string().uuid(),
+              expenseId: zod.string().uuid(),
+              userId: zod.string().uuid(),
+              user: zod.object({
+                id: zod.string().uuid(),
+                name: zod.string(),
+                email: zod.string(),
+                avatarUrl: zod.string().nullish(),
+                country: zod.string().nullish(),
+                location: zod.string().nullish(),
+                createdAt: zod.coerce.date(),
+              }),
+              amount: zod.number().describe("Amount this user owes"),
+              percentage: zod.number().nullish(),
+            }),
+          ),
+        }),
+      ),
+  ),
+  payments: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      groupId: zod.string().uuid(),
+      fromUserId: zod.string().uuid(),
+      fromUser: zod.object({
+        id: zod.string().uuid(),
+        name: zod.string(),
+        email: zod.string(),
+        avatarUrl: zod.string().nullish(),
+        country: zod.string().nullish(),
+        location: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+      }),
+      toUserId: zod.string().uuid(),
+      toUser: zod.object({
+        id: zod.string().uuid(),
+        name: zod.string(),
+        email: zod.string(),
+        avatarUrl: zod.string().nullish(),
+        country: zod.string().nullish(),
+        location: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+      }),
+      amount: zod.number(),
+      note: zod.string().nullish(),
+      date: zod.coerce.date(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
  * Returns every non-group expense (`groupId` is null) where the current user
 is either the payer or appears in the splits, plus a summary balance.
 

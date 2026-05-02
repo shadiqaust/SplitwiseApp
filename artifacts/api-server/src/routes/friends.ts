@@ -195,6 +195,214 @@ router.get("/friends", requireAuth, async (req, res): Promise<void> => {
   res.json(friends);
 });
 
+// Helper: are `me` and `other` friends (direct or via shared group)?
+async function isMyFriend(me: string, other: string): Promise<boolean> {
+  const direct = await db
+    .select()
+    .from(friendshipsTable)
+    .where(
+      or(
+        and(eq(friendshipsTable.userId, me), eq(friendshipsTable.friendId, other)),
+        and(eq(friendshipsTable.userId, other), eq(friendshipsTable.friendId, me)),
+      ),
+    )
+    .limit(1);
+  if (direct.length > 0) return true;
+
+  const myGroups = await db
+    .select({ groupId: groupMembersTable.groupId })
+    .from(groupMembersTable)
+    .where(eq(groupMembersTable.userId, me));
+  if (myGroups.length === 0) return false;
+
+  const shared = await db
+    .select()
+    .from(groupMembersTable)
+    .where(
+      and(
+        eq(groupMembersTable.userId, other),
+        inArray(
+          groupMembersTable.groupId,
+          myGroups.map((g) => g.groupId),
+        ),
+      ),
+    )
+    .limit(1);
+  return shared.length > 0;
+}
+
+async function getUserById(id: string) {
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  return user;
+}
+
+async function buildExpenseWithSplits(
+  expense: typeof expensesTable.$inferSelect,
+  splits: Array<typeof expenseSplitsTable.$inferSelect>,
+) {
+  const paidByUser = await getUserById(expense.paidByUserId);
+  const splitsWithUsers = await Promise.all(
+    splits.map(async (split) => {
+      const u = await getUserById(split.userId);
+      return {
+        ...split,
+        user: { ...u, createdAt: u.createdAt.toISOString() },
+        amount: parseFloat(split.amount),
+        percentage: split.percentage !== null ? parseFloat(split.percentage) : null,
+      };
+    }),
+  );
+  return {
+    ...expense,
+    createdAt: expense.createdAt.toISOString(),
+    totalAmount: parseFloat(expense.totalAmount),
+    paidByUser: { ...paidByUser, createdAt: paidByUser.createdAt.toISOString() },
+    splits: splitsWithUsers,
+  };
+}
+
+// GET /friends/:friendId/activity
+// Returns all expenses + payments between current user and the given friend,
+// plus their net balance. Used by the per-friend detail page.
+router.get(
+  "/friends/:friendId/activity",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const me = req.dbUserId!;
+    const friendId = String(req.params.friendId ?? "");
+    if (!UUID_RE.test(friendId)) {
+      res.status(400).json({ error: "Invalid friendId" });
+      return;
+    }
+    if (friendId === me) {
+      res.status(400).json({ error: "Cannot view activity with yourself" });
+      return;
+    }
+
+    if (!(await isMyFriend(me, friendId))) {
+      res.status(403).json({ error: "User is not your friend" });
+      return;
+    }
+
+    const friendUser = await getUserById(friendId);
+    if (!friendUser) {
+      res.status(404).json({ error: "Friend not found" });
+      return;
+    }
+
+    // Candidate expense IDs: anything where me OR friend appears in splits OR paid.
+    const splitRows = await db
+      .select({ expenseId: expenseSplitsTable.expenseId })
+      .from(expenseSplitsTable)
+      .where(inArray(expenseSplitsTable.userId, [me, friendId]));
+    const paidRows = await db
+      .select({ id: expensesTable.id })
+      .from(expensesTable)
+      .where(
+        or(eq(expensesTable.paidByUserId, me), eq(expensesTable.paidByUserId, friendId)),
+      );
+    const candidateIds = Array.from(
+      new Set<string>([
+        ...splitRows.map((s) => s.expenseId),
+        ...paidRows.map((p) => p.id),
+      ]),
+    );
+
+    // Load full expenses + their splits.
+    const allExpenses = candidateIds.length
+      ? await db
+          .select()
+          .from(expensesTable)
+          .where(inArray(expensesTable.id, candidateIds))
+      : [];
+    const allSplits = candidateIds.length
+      ? await db
+          .select()
+          .from(expenseSplitsTable)
+          .where(inArray(expenseSplitsTable.expenseId, candidateIds))
+      : [];
+
+    const splitsByExp = new Map<string, typeof allSplits>();
+    for (const s of allSplits) {
+      if (!splitsByExp.has(s.expenseId)) splitsByExp.set(s.expenseId, []);
+      splitsByExp.get(s.expenseId)!.push(s);
+    }
+
+    // Filter to those where BOTH me and friend are participants (payer or split).
+    const relevant = allExpenses.filter((e) => {
+      const splits = splitsByExp.get(e.id) ?? [];
+      const participants = new Set<string>([
+        e.paidByUserId,
+        ...splits.map((s) => s.userId),
+      ]);
+      return participants.has(me) && participants.has(friendId);
+    });
+
+    relevant.sort((a, b) => {
+      const d = b.date.localeCompare(a.date);
+      if (d !== 0) return d;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+
+    // Payments directly between us.
+    const payments = await db
+      .select()
+      .from(paymentsTable)
+      .where(
+        or(
+          and(eq(paymentsTable.fromUserId, me), eq(paymentsTable.toUserId, friendId)),
+          and(eq(paymentsTable.fromUserId, friendId), eq(paymentsTable.toUserId, me)),
+        ),
+      );
+    payments.sort((a, b) => {
+      const d = b.date.localeCompare(a.date);
+      if (d !== 0) return d;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+
+    // Compute net balance: positive = friend owes me.
+    let net = 0;
+    for (const e of relevant) {
+      const splits = splitsByExp.get(e.id) ?? [];
+      if (e.paidByUserId === me) {
+        const fs = splits.find((s) => s.userId === friendId);
+        if (fs) net += parseFloat(fs.amount);
+      } else if (e.paidByUserId === friendId) {
+        const ms = splits.find((s) => s.userId === me);
+        if (ms) net -= parseFloat(ms.amount);
+      }
+    }
+    for (const p of payments) {
+      if (p.fromUserId === me) net += parseFloat(p.amount);
+      else net -= parseFloat(p.amount);
+    }
+
+    const expensesOut = await Promise.all(
+      relevant.map((e) => buildExpenseWithSplits(e, splitsByExp.get(e.id) ?? [])),
+    );
+    const paymentsOut = await Promise.all(
+      payments.map(async (p) => {
+        const fromUser = await getUserById(p.fromUserId);
+        const toUser = await getUserById(p.toUserId);
+        return {
+          ...p,
+          amount: parseFloat(p.amount),
+          createdAt: p.createdAt.toISOString(),
+          fromUser: { ...fromUser, createdAt: fromUser.createdAt.toISOString() },
+          toUser: { ...toUser, createdAt: toUser.createdAt.toISOString() },
+        };
+      }),
+    );
+
+    res.json({
+      friend: { ...friendUser, createdAt: friendUser.createdAt.toISOString() },
+      netBalance: Math.round(net * 100) / 100,
+      expenses: expensesOut,
+      payments: paymentsOut,
+    });
+  },
+);
+
 // POST /friends  { friendId }
 router.post("/friends", requireAuth, async (req, res): Promise<void> => {
   const me = req.dbUserId!;

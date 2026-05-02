@@ -1,0 +1,300 @@
+import { useCallback, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { Stack, useLocalSearchParams } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import {
+  type ExpenseWithSplits,
+  type Payment,
+  type User,
+  useGetMe,
+} from "@workspace/api-client-react";
+
+import { Avatar } from "@/components/ui/Avatar";
+import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useColors } from "@/hooks/useColors";
+import { authFetch } from "@/lib/api";
+import { formatCurrency } from "@/lib/format";
+
+interface FriendActivityResponse {
+  friend: User;
+  netBalance: number;
+  expenses: ExpenseWithSplits[];
+  payments: Payment[];
+}
+
+type Item =
+  | { kind: "expense"; date: string; data: ExpenseWithSplits }
+  | { kind: "payment"; date: string; data: Payment };
+
+const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
+
+export default function FriendDetailScreen() {
+  const { friendId } = useLocalSearchParams<{ friendId: string }>();
+  const colors = useColors();
+  const me = useGetMe();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const query = useQuery<FriendActivityResponse>({
+    queryKey: ["friend-activity", friendId],
+    queryFn: async () => {
+      const res = await authFetch(`/api/friends/${friendId}/activity`);
+      if (!res.ok) throw new Error("Failed to load activity");
+      return res.json();
+    },
+    enabled: typeof friendId === "string" && friendId.length > 0,
+  });
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await query.refetch();
+    setIsRefreshing(false);
+  }, [query]);
+
+  const grouped = useMemo(() => {
+    const data = query.data;
+    if (!data) return [] as Array<{ key: string; label: string; items: Item[] }>;
+    const items: Item[] = [
+      ...data.expenses.map((e) => ({ kind: "expense" as const, date: e.date, data: e })),
+      ...data.payments.map((p) => ({ kind: "payment" as const, date: p.date, data: p })),
+    ];
+    items.sort((a, b) => b.date.localeCompare(a.date));
+
+    const buckets = new Map<string, Item[]>();
+    const labels = new Map<string, string>();
+    for (const it of items) {
+      const d = new Date(it.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = MONTH_FMT.format(d);
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key)!.push(it);
+      labels.set(key, label);
+    }
+    return Array.from(buckets.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
+  }, [query.data]);
+
+  if (query.isLoading && !query.data) {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <Stack.Screen options={{ title: "Activity" }} />
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  const friend = query.data?.friend;
+  const net = query.data?.netBalance ?? 0;
+  const myId = me.data?.id;
+
+  return (
+    <>
+      <Stack.Screen options={{ title: friend?.name ?? "Activity" }} />
+      <ScrollView
+        style={{ backgroundColor: colors.background }}
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {friend && (
+          <Card style={styles.headerCard}>
+            <Avatar name={friend.name} url={friend.avatarUrl ?? null} size={56} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.friendName, { color: colors.foreground }]} numberOfLines={1}>
+                {friend.name}
+              </Text>
+              <Text style={[styles.friendEmail, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {friend.email}
+              </Text>
+            </View>
+            <View style={{ alignItems: "flex-end" }}>
+              {Math.abs(net) < 0.01 ? (
+                <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>settled</Text>
+              ) : (
+                <>
+                  <Text
+                    style={[
+                      styles.balanceAmount,
+                      { color: net > 0 ? colors.positive : colors.negative },
+                    ]}
+                  >
+                    {formatCurrency(Math.abs(net))}
+                  </Text>
+                  <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
+                    {net > 0 ? "owes you" : "you owe"}
+                  </Text>
+                </>
+              )}
+            </View>
+          </Card>
+        )}
+
+        {grouped.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon="activity"
+              title="No activity yet"
+              message={`Add an expense or record a payment with ${friend?.name ?? "this friend"} to get started.`}
+            />
+          </Card>
+        ) : (
+          grouped.map((bucket) => (
+            <View key={bucket.key} style={{ gap: 8 }}>
+              <Text style={[styles.monthHeader, { color: colors.mutedForeground }]}>
+                {bucket.label}
+              </Text>
+              {bucket.items.map((item) =>
+                item.kind === "expense" ? (
+                  <ExpenseRow key={`e-${item.data.id}`} expense={item.data} myId={myId} friendId={String(friendId)} />
+                ) : (
+                  <PaymentRow key={`p-${item.data.id}`} payment={item.data} myId={myId} />
+                ),
+              )}
+            </View>
+          ))
+        )}
+      </ScrollView>
+    </>
+  );
+}
+
+function ExpenseRow({
+  expense,
+  myId,
+  friendId,
+}: {
+  expense: ExpenseWithSplits;
+  myId: string | undefined;
+  friendId: string;
+}) {
+  const colors = useColors();
+  const total = Number(expense.totalAmount);
+  const iPaid = myId && expense.paidByUserId === myId;
+  const friendPaid = expense.paidByUserId === friendId;
+  const mySplit = myId ? expense.splits.find((s) => s.userId === myId) : undefined;
+  const friendSplit = expense.splits.find((s) => s.userId === friendId);
+
+  let impact = 0;
+  let label = "";
+  if (iPaid && friendSplit) {
+    impact = Number(friendSplit.amount);
+    label = `you lent`;
+  } else if (friendPaid && mySplit) {
+    impact = -Number(mySplit.amount);
+    label = `you owe`;
+  }
+
+  return (
+    <Card style={styles.row}>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.itemTitle, { color: colors.foreground }]} numberOfLines={1}>
+          {expense.description}
+        </Text>
+        <Text style={[styles.itemMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
+          {iPaid ? `You paid ${formatCurrency(total)}` : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total)}`}
+          {expense.groupId ? ` · group expense` : ""}
+        </Text>
+        <Text style={[styles.itemDate, { color: colors.mutedForeground }]}>{expense.date}</Text>
+      </View>
+      <View style={{ alignItems: "flex-end" }}>
+        {impact !== 0 ? (
+          <>
+            <Text
+              style={[
+                styles.itemAmount,
+                { color: impact > 0 ? colors.positive : colors.negative },
+              ]}
+            >
+              {impact > 0 ? "+" : "-"}
+              {formatCurrency(Math.abs(impact))}
+            </Text>
+            <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>{label}</Text>
+          </>
+        ) : (
+          <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>not split</Text>
+        )}
+      </View>
+    </Card>
+  );
+}
+
+function PaymentRow({
+  payment,
+  myId,
+}: {
+  payment: Payment;
+  myId: string | undefined;
+}) {
+  const colors = useColors();
+  const amount = Number(payment.amount);
+  const iPaid = myId && payment.fromUserId === myId;
+  const impact = iPaid ? amount : -amount;
+  return (
+    <Card style={styles.row}>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.itemTitle, { color: colors.foreground }]} numberOfLines={1}>
+          {iPaid
+            ? `You paid ${payment.toUser?.name ?? "friend"}`
+            : `${payment.fromUser?.name ?? "Friend"} paid you`}
+        </Text>
+        {payment.note && (
+          <Text style={[styles.itemMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {payment.note}
+          </Text>
+        )}
+        <Text style={[styles.itemDate, { color: colors.mutedForeground }]}>{payment.date}</Text>
+      </View>
+      <View style={{ alignItems: "flex-end" }}>
+        <Text
+          style={[
+            styles.itemAmount,
+            { color: impact > 0 ? colors.positive : colors.negative },
+          ]}
+        >
+          {impact > 0 ? "+" : "-"}
+          {formatCurrency(Math.abs(impact))}
+        </Text>
+        <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>
+          {iPaid ? "you settled" : "they settled"}
+        </Text>
+      </View>
+    </Card>
+  );
+}
+
+const styles = StyleSheet.create({
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  scroll: { padding: 16, gap: 16, paddingBottom: 32 },
+  headerCard: { flexDirection: "row", alignItems: "center", gap: 12 },
+  friendName: { fontFamily: "Inter_700Bold", fontSize: 17 },
+  friendEmail: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  balanceAmount: { fontFamily: "Inter_700Bold", fontSize: 18 },
+  balanceSub: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
+  monthHeader: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 6,
+    marginLeft: 2,
+  },
+  row: { flexDirection: "row", alignItems: "center", gap: 12 },
+  itemTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  itemMeta: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  itemDate: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
+  itemAmount: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  itemSub: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
+});

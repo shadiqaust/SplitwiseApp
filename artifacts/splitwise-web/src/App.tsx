@@ -15,6 +15,7 @@ import { NewGroupPage } from "./pages/group-new";
 import { GroupDetailPage } from "./pages/group-detail";
 import { ProfilePage } from "./pages/profile";
 import { FriendsPage } from "./pages/friends";
+import { FriendDetailPage } from "./pages/friend-detail";
 import { NonGroupExpensesPage } from "./pages/non-group-expenses";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -64,6 +65,9 @@ function Routes() {
       </Route>
       <Route path="/friends">
         <PrivateRoute><FriendsPage /></PrivateRoute>
+      </Route>
+      <Route path="/friends/:friendId">
+        <PrivateRoute><FriendDetailPage /></PrivateRoute>
       </Route>
       <Route path="/profile">
         <PrivateRoute><ProfilePage /></PrivateRoute>
