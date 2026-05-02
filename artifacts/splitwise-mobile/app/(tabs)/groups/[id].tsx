@@ -92,7 +92,7 @@ export default function GroupDetailScreen() {
   const [profileMember, setProfileMember] = useState<{ userId: string; user: { name: string; email: string; avatarUrl: string | null } } | null>(null);
 
   const me = useGetMe();
-  const POLL = { query: { refetchInterval: 5_000, staleTime: 4_000, refetchIntervalInBackground: false } } as const;
+  const POLL = { query: { refetchInterval: 5_000, staleTime: 4_000, refetchIntervalInBackground: true } } as const;
   const group = useGetGroup(groupId, POLL);
   const expenses = useListExpenses(groupId, POLL);
   const payments = useListPayments(groupId, POLL);

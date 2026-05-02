@@ -23,7 +23,7 @@ export default function GroupsScreen() {
   const colors = useColors();
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { data, isLoading, refetch } = useListGroups({ query: { refetchInterval: 5_000, staleTime: 4_000, refetchIntervalInBackground: false } });
+  const { data, isLoading, refetch } = useListGroups({ query: { refetchInterval: 5_000, staleTime: 4_000, refetchIntervalInBackground: true } });
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);

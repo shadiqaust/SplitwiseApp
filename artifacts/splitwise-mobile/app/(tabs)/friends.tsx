@@ -152,7 +152,7 @@ export default function FriendsScreen() {
     },
     refetchInterval: 5_000,
     staleTime: 4_000,
-    refetchIntervalInBackground: false,
+    refetchIntervalInBackground: true,
   });
 
   const onRefreshFriends = useCallback(async () => {

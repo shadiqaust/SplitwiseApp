@@ -1079,7 +1079,7 @@ export function GroupDetailPage() {
   const params = useParams<{ groupId: string }>();
   const groupId = params.groupId!;
 
-  const POLL = { query: { refetchInterval: 15_000 } } as const;
+  const POLL = { query: { refetchInterval: 15_000, refetchIntervalInBackground: true } } as const;
   const me = useGetMe(POLL);
   const group = useGetGroup(groupId, POLL);
   const expenses = useListExpenses(groupId, POLL);

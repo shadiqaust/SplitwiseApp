@@ -173,6 +173,7 @@ export function FriendsPage() {
       return res.json();
     },
     refetchInterval: 15_000,
+    refetchIntervalInBackground: true,
     staleTime: 30_000,
   });
 
