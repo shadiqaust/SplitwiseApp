@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "wouter";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Search, X } from "lucide-react";
 import {
   type ExpenseWithSplits,
   type Payment,
@@ -12,6 +12,7 @@ import {
 import { Layout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatCurrency } from "@/lib/format";
 
@@ -56,6 +57,7 @@ export function FriendDetailPage() {
   const friendId = params.friendId;
   const me = useGetMe();
   const myId = me.data?.id;
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery<FriendActivityResponse>({
     queryKey: ["friend-activity", friendId],
@@ -67,17 +69,43 @@ export function FriendDetailPage() {
     enabled: typeof friendId === "string" && friendId.length > 0,
   });
 
-  const grouped = useMemo(() => {
-    if (!data) return [] as Array<{ key: string; label: string; items: Item[] }>;
+  const allItems = useMemo<Item[]>(() => {
+    if (!data) return [];
     const items: Item[] = [
       ...data.expenses.map((e) => ({ kind: "expense" as const, date: e.date, data: e })),
       ...data.payments.map((p) => ({ kind: "payment" as const, date: p.date, data: p })),
     ];
     items.sort((a, b) => b.date.localeCompare(a.date));
+    return items;
+  }, [data]);
 
+  const filteredItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return allItems;
+    return allItems.filter((it) => {
+      const dateStr = it.date.toLowerCase();
+      const monthLabel = MONTH_FMT.format(new Date(it.date)).toLowerCase();
+      if (dateStr.includes(q) || monthLabel.includes(q)) return true;
+      if (it.kind === "expense") {
+        const e = it.data;
+        return (
+          e.description.toLowerCase().includes(q) ||
+          (e.paidByUser?.name ?? "").toLowerCase().includes(q)
+        );
+      }
+      const p = it.data;
+      return (
+        (p.note ?? "").toLowerCase().includes(q) ||
+        (p.fromUser?.name ?? "").toLowerCase().includes(q) ||
+        (p.toUser?.name ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [allItems, search]);
+
+  const grouped = useMemo(() => {
     const buckets = new Map<string, Item[]>();
     const labels = new Map<string, string>();
-    for (const it of items) {
+    for (const it of filteredItems) {
       const d = new Date(it.date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = MONTH_FMT.format(d);
@@ -88,7 +116,7 @@ export function FriendDetailPage() {
     return Array.from(buckets.entries())
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
-  }, [data]);
+  }, [filteredItems]);
 
   const friend = data?.friend;
   const net = data?.netBalance ?? 0;
@@ -146,7 +174,29 @@ export function FriendDetailPage() {
           </Card>
         ) : null}
 
-        {!isLoading && grouped.length === 0 ? (
+        {!isLoading && allItems.length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              className="pl-9 pr-9"
+              placeholder="Search by title, note, or date (e.g. May, 2026-05)…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {!isLoading && allItems.length === 0 ? (
           <div className="text-center py-12 px-4 border rounded-xl bg-card">
             <p className="text-lg font-semibold mb-1">No activity yet</p>
             <p className="text-sm text-muted-foreground">
@@ -154,6 +204,10 @@ export function FriendDetailPage() {
               {friend?.name ?? "this friend"} to get started.
             </p>
           </div>
+        ) : !isLoading && grouped.length === 0 ? (
+          <p className="text-muted-foreground text-sm text-center py-8">
+            No activity matches "{search}".
+          </p>
         ) : (
           grouped.map((bucket) => (
             <div key={bucket.key} className="space-y-2">

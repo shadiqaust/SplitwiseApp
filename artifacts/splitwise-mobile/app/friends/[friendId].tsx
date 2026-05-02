@@ -1,12 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -41,6 +44,7 @@ export default function FriendDetailScreen() {
   const colors = useColors();
   const me = useGetMe();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
 
   const query = useQuery<FriendActivityResponse>({
     queryKey: ["friend-activity", friendId],
@@ -58,18 +62,44 @@ export default function FriendDetailScreen() {
     setIsRefreshing(false);
   }, [query]);
 
-  const grouped = useMemo(() => {
+  const allItems = useMemo<Item[]>(() => {
     const data = query.data;
-    if (!data) return [] as Array<{ key: string; label: string; items: Item[] }>;
+    if (!data) return [];
     const items: Item[] = [
       ...data.expenses.map((e) => ({ kind: "expense" as const, date: e.date, data: e })),
       ...data.payments.map((p) => ({ kind: "payment" as const, date: p.date, data: p })),
     ];
     items.sort((a, b) => b.date.localeCompare(a.date));
+    return items;
+  }, [query.data]);
 
+  const filteredItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return allItems;
+    return allItems.filter((it) => {
+      const dateStr = it.date.toLowerCase();
+      const monthLabel = MONTH_FMT.format(new Date(it.date)).toLowerCase();
+      if (dateStr.includes(q) || monthLabel.includes(q)) return true;
+      if (it.kind === "expense") {
+        const e = it.data;
+        return (
+          e.description.toLowerCase().includes(q) ||
+          (e.paidByUser?.name ?? "").toLowerCase().includes(q)
+        );
+      }
+      const p = it.data;
+      return (
+        (p.note ?? "").toLowerCase().includes(q) ||
+        (p.fromUser?.name ?? "").toLowerCase().includes(q) ||
+        (p.toUser?.name ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [allItems, search]);
+
+  const grouped = useMemo(() => {
     const buckets = new Map<string, Item[]>();
     const labels = new Map<string, string>();
-    for (const it of items) {
+    for (const it of filteredItems) {
       const d = new Date(it.date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = MONTH_FMT.format(d);
@@ -80,7 +110,7 @@ export default function FriendDetailScreen() {
     return Array.from(buckets.entries())
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
-  }, [query.data]);
+  }, [filteredItems]);
 
   if (query.isLoading && !query.data) {
     return (
@@ -142,7 +172,35 @@ export default function FriendDetailScreen() {
           </Card>
         )}
 
-        {grouped.length === 0 ? (
+        {allItems.length > 0 && (
+          <View
+            style={[
+              styles.searchRow,
+              { backgroundColor: colors.muted, borderColor: colors.border },
+            ]}
+          >
+            <Feather
+              name="search"
+              size={16}
+              color={colors.mutedForeground}
+              style={{ marginRight: 8 }}
+            />
+            <TextInput
+              style={[styles.searchInput, { color: colors.foreground }]}
+              placeholder="Search by title, note, or date…"
+              placeholderTextColor={colors.mutedForeground}
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch("")} hitSlop={6}>
+                <Feather name="x" size={16} color={colors.mutedForeground} />
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {allItems.length === 0 ? (
           <Card>
             <EmptyState
               icon="activity"
@@ -150,6 +208,10 @@ export default function FriendDetailScreen() {
               message={`Add an expense or record a payment with ${friend?.name ?? "this friend"} to get started.`}
             />
           </Card>
+        ) : grouped.length === 0 ? (
+          <Text style={[styles.noMatch, { color: colors.mutedForeground }]}>
+            No activity matches "{search}".
+          </Text>
         ) : (
           grouped.map((bucket) => (
             <View key={bucket.key} style={{ gap: 8 }}>
@@ -297,4 +359,19 @@ const styles = StyleSheet.create({
   itemDate: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
   itemAmount: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   itemSub: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchInput: { flex: 1, fontFamily: "Inter_400Regular", fontSize: 14 },
+  noMatch: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    textAlign: "center",
+    paddingVertical: 24,
+  },
 });
