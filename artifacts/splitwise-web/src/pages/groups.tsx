@@ -6,9 +6,19 @@ import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Calendar, ChevronRight, DollarSign, LayoutGrid, List, Plus, Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar, ChevronRight, DollarSign, LayoutGrid, List, Plus, Search, Users } from "lucide-react";
 import { useViewMode, type ViewMode } from "@/hooks/use-view-mode";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+
+type StatusFilter = "all" | "owed" | "owe" | "settled";
 
 const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
 
@@ -34,7 +44,23 @@ function groupByMonth(items: GroupItem[]): { key: string; label: string; items: 
 export function GroupsPage() {
   const { data: groups, isLoading } = useListGroups();
   const [viewMode, setViewMode] = useViewMode("groups", "card");
-  const sections = useMemo(() => (groups ? groupByMonth(groups) : []), [groups]);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+
+  const filtered = useMemo(() => {
+    if (!groups) return [];
+    const q = search.trim().toLowerCase();
+    return groups.filter((g) => {
+      if (q && !g.name.toLowerCase().includes(q)) return false;
+      if (status === "owed" && !(g.myNetBalance > 0)) return false;
+      if (status === "owe" && !(g.myNetBalance < 0)) return false;
+      if (status === "settled" && g.myNetBalance !== 0) return false;
+      return true;
+    });
+  }, [groups, search, status]);
+
+  const sections = useMemo(() => groupByMonth(filtered), [filtered]);
+  const hasFilter = search.trim().length > 0 || status !== "all";
 
   return (
     <Layout>
@@ -66,6 +92,30 @@ export function GroupsPage() {
               </Button>
             </Link>
           </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              type="search"
+              placeholder="Search groups…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
+            <SelectTrigger className="sm:w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All balances</SelectItem>
+              <SelectItem value="owed">You are owed</SelectItem>
+              <SelectItem value="owe">You owe</SelectItem>
+              <SelectItem value="settled">Settled up</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <Link href="/non-group-expenses">
@@ -114,7 +164,7 @@ export function GroupsPage() {
               ))}
             </div>
           )
-        ) : groups?.length ? (
+        ) : groups?.length && filtered.length ? (
           <div className="space-y-8">
             {sections.map((section) => (
               <section key={section.key} className="space-y-3">
@@ -230,6 +280,21 @@ export function GroupsPage() {
                 )}
               </section>
             ))}
+          </div>
+        ) : groups?.length && hasFilter ? (
+          <div className="text-center py-12 px-4 border rounded-xl bg-card">
+            <Search className="w-10 h-10 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-lg font-semibold mb-2">No groups match your filters</h2>
+            <p className="text-muted-foreground mb-4">Try a different search term or balance filter.</p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearch("");
+                setStatus("all");
+              }}
+            >
+              Clear filters
+            </Button>
           </div>
         ) : (
           <div className="text-center py-12 px-4 border rounded-xl bg-card">

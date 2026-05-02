@@ -38,6 +38,16 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useColors } from "@/hooks/useColors";
 import { useViewMode, type ViewMode } from "@/hooks/useViewMode";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { Input } from "@/components/ui/Input";
+
+type StatusFilter = "all" | "owed" | "owe" | "settled";
+
+const STATUS_OPTIONS: { key: StatusFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "owed", label: "You're owed" },
+  { key: "owe", label: "You owe" },
+  { key: "settled", label: "Settled" },
+];
 
 export default function GroupsScreen() {
   const colors = useColors();
@@ -46,7 +56,23 @@ export default function GroupsScreen() {
   const [viewMode, setViewMode] = useViewMode("groups", "list");
   // Polling is configured globally on the QueryClient (5s, runs in background).
   const { data, isLoading, refetch } = useListGroups();
-  const sections = useMemo(() => (data ? groupByMonth(data) : []), [data]);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    const q = search.trim().toLowerCase();
+    return data.filter((g) => {
+      if (q && !g.name.toLowerCase().includes(q)) return false;
+      if (status === "owed" && !(g.myNetBalance > 0)) return false;
+      if (status === "owe" && !(g.myNetBalance < 0)) return false;
+      if (status === "settled" && g.myNetBalance !== 0) return false;
+      return true;
+    });
+  }, [data, search, status]);
+
+  const sections = useMemo(() => groupByMonth(filtered), [filtered]);
+  const hasFilter = search.trim().length > 0 || status !== "all";
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -117,6 +143,56 @@ export default function GroupsScreen() {
           fullWidth
         />
 
+        <View style={{ gap: 8 }}>
+          <View style={styles.searchWrap}>
+            <Feather
+              name="search"
+              size={16}
+              color={colors.mutedForeground}
+              style={styles.searchIcon}
+            />
+            <Input
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search groups…"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={{ paddingLeft: 36 }}
+            />
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 6 }}
+          >
+            {STATUS_OPTIONS.map((opt) => {
+              const active = status === opt.key;
+              return (
+                <Pressable
+                  key={opt.key}
+                  onPress={() => setStatus(opt.key)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: active ? colors.primary : colors.muted,
+                      borderColor: active ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      { color: active ? "#fff" : colors.foreground },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         <Pressable onPress={() => router.push("/non-group-expenses")}>
           <Card style={styles.row}>
             <View style={[styles.bubble, { backgroundColor: colors.accent }]}>
@@ -134,7 +210,7 @@ export default function GroupsScreen() {
           </Card>
         </Pressable>
 
-        {data && data.length > 0 ? (
+        {data && data.length > 0 && filtered.length > 0 ? (
           <View style={{ gap: 16 }}>
             {sections.map((section) => (
               <View key={section.key} style={{ gap: 8 }}>
@@ -269,6 +345,25 @@ export default function GroupsScreen() {
               </View>
             ))}
           </View>
+        ) : data && data.length > 0 && hasFilter ? (
+          <Card>
+            <EmptyState
+              icon="search"
+              title="No groups match your filters"
+              message="Try a different search or balance filter."
+            />
+            <Pressable
+              onPress={() => {
+                setSearch("");
+                setStatus("all");
+              }}
+              style={{ alignSelf: "center", paddingVertical: 8 }}
+            >
+              <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>
+                Clear filters
+              </Text>
+            </Pressable>
+          </Card>
         ) : (
           <Card>
             <EmptyState
@@ -332,4 +427,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     marginBottom: 2,
   },
+  searchWrap: { position: "relative", justifyContent: "center" },
+  searchIcon: { position: "absolute", left: 12, zIndex: 1 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  chipText: { fontFamily: "Inter_500Medium", fontSize: 13 },
 });
