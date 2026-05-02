@@ -70,14 +70,14 @@ export default function DashboardScreen() {
           style={({ pressed }) => [
             styles.addGroupBtn,
             {
-              borderColor: colors.border,
-              backgroundColor: colors.card,
-              opacity: pressed ? 0.7 : 1,
+              borderColor: "#4f46e5",
+              backgroundColor: "#4f46e5",
+              opacity: pressed ? 0.85 : 1,
             },
           ]}
         >
-          <Feather name="users" size={16} color={colors.foreground} />
-          <Text style={[styles.addGroupText, { color: colors.foreground }]}>
+          <Feather name="users" size={16} color="#fff" />
+          <Text style={[styles.addGroupText, { color: "#fff" }]}>
             Add group
           </Text>
         </Pressable>
