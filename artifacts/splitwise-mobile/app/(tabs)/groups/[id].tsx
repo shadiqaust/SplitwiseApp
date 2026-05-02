@@ -590,17 +590,23 @@ export default function GroupDetailScreen() {
           </View>
 
           <View style={styles.actionRow}>
-            <Button
-              title="Add expense"
-              icon={<Feather name="plus" size={16} color="#fff" />}
-              onPress={() => router.push({ pathname: "/expenses/new", params: { groupId: String(groupId) } })}
-            />
-            <Button
-              title="Settle up"
-              variant="outline"
-              icon={<Feather name="check" size={16} color={colors.foreground} />}
-              onPress={() => router.push({ pathname: "/payments/new", params: { groupId: String(groupId) } })}
-            />
+            <View style={{ flex: 1 }}>
+              <Button
+                title="Add expense"
+                icon={<Feather name="plus" size={16} color="#fff" />}
+                onPress={() => router.push({ pathname: "/expenses/new", params: { groupId: String(groupId) } })}
+                fullWidth
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                title="Settle up"
+                variant="outline"
+                icon={<Feather name="check" size={16} color={colors.foreground} />}
+                onPress={() => router.push({ pathname: "/payments/new", params: { groupId: String(groupId) } })}
+                fullWidth
+              />
+            </View>
           </View>
 
           <View style={[styles.spendRow, { borderTopColor: colors.border }]}>
