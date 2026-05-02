@@ -1,6 +1,7 @@
 import { useAuth } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Users, User, LogOut, UserCheck } from "lucide-react";
+import { useGetMe } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -40,12 +41,22 @@ function Logo({ className }: { className?: string }) {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { user, signOut } = useAuth();
+  const { user: authUser, signOut } = useAuth();
+  const { data: me } = useGetMe();
   const [location] = useLocation();
 
-  const initials = user?.name
+  // Prefer the freshest server-side profile (useGetMe) so the header avatar
+  // and name update immediately after a profile change anywhere in the app.
+  const user = {
+    name: me?.name ?? authUser?.name ?? "",
+    email: me?.email ?? authUser?.email ?? "",
+    avatarUrl: me?.avatarUrl ?? authUser?.avatarUrl ?? null,
+  };
+
+  const firstName = user.name ? user.name.split(" ")[0] : "";
+  const initials = user.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : user?.email?.[0]?.toUpperCase() ?? "?";
+    : user.email?.[0]?.toUpperCase() ?? "?";
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
@@ -54,10 +65,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Logo />
         <Link
           href="/profile"
-          className="flex items-center"
+          className="flex items-center gap-2 min-w-0"
           aria-label="Open profile"
         >
-          {user?.avatarUrl ? (
+          {firstName && (
+            <span className="text-sm font-medium truncate max-w-[120px]">
+              {firstName}
+            </span>
+          )}
+          {user.avatarUrl ? (
             <img
               src={user.avatarUrl}
               alt="Avatar"
@@ -97,7 +113,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             className="flex items-center gap-3 mb-4 rounded-md p-1 -m-1 hover:bg-accent transition-colors"
             aria-label="Open profile"
           >
-            {user?.avatarUrl ? (
+            {user.avatarUrl ? (
               <img
                 src={user.avatarUrl}
                 alt="Avatar"
@@ -110,9 +126,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">
-                {user?.name || user?.email}
+                {user.name || user.email}
               </p>
-              {user?.name && (
+              {user.name && (
                 <p className="text-xs text-muted-foreground truncate">
                   {user.email}
                 </p>
