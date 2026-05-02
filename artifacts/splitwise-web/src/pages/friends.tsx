@@ -144,9 +144,7 @@ function AddFriendDialog({ existingFriendIds }: { existingFriendIds: Set<number>
             const isPending = addMutation.isPending && addMutation.variables === user.id;
             return (
               <div key={user.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 transition-colors">
-                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-xs flex-shrink-0">
-                  {user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
-                </div>
+                <FriendAvatar name={user.name} avatarUrl={user.avatarUrl} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{user.name}</p>
                   <p className="text-xs text-muted-foreground truncate">{user.email}</p>
