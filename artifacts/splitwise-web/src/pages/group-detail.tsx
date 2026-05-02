@@ -23,7 +23,8 @@ import {
   type GroupMember,
   type Payment,
 } from "@workspace/api-client-react";
-import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight, Pencil } from "lucide-react";
+import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight, Pencil, QrCode, Copy } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 const EXPENSE_CATEGORIES = [
   "General",
@@ -467,6 +468,76 @@ function UserAvatar({ name, size = 32 }: { name: string; size?: number }) {
     >
       {initials}
     </div>
+  );
+}
+
+function InviteQRDialog({
+  groupName,
+  inviteCode,
+}: {
+  groupName: string;
+  inviteCode: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+
+  const inviteUrl = inviteCode
+    ? `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/groups/join/${inviteCode}`
+    : "";
+
+  const onCopy = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast({
+        title: "Could not copy link",
+        description: "Select the link and copy it manually.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" disabled={!inviteCode}>
+          <QrCode className="w-4 h-4 mr-2" /> Invite via QR
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Invite to {groupName}</DialogTitle>
+          <DialogDescription>
+            Anyone who scans this code (or opens the link) can join the group.
+          </DialogDescription>
+        </DialogHeader>
+        {inviteCode ? (
+          <div className="flex flex-col items-center gap-4">
+            <div className="bg-white p-4 rounded-lg border">
+              <QRCodeSVG value={inviteUrl} size={220} level="M" />
+            </div>
+            <div className="w-full space-y-2">
+              <Label className="text-xs text-muted-foreground">Invite link</Label>
+              <div className="flex gap-2">
+                <Input value={inviteUrl} readOnly onFocus={(e) => e.currentTarget.select()} />
+                <Button type="button" variant="secondary" onClick={onCopy} title="Copy link">
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+              <div className="text-xs text-muted-foreground text-center">
+                Code: <span className="font-mono tracking-wider">{inviteCode}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">No invite code available yet.</div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1490,6 +1561,10 @@ export function GroupDetailPage() {
                   </div>
                 );
               })}
+              <InviteQRDialog
+                groupName={group.data.name}
+                inviteCode={group.data.inviteCode ?? null}
+              />
               <AddMemberDialog groupId={groupId} />
             </div>
             {profileMember && (

@@ -9,11 +9,13 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -88,6 +90,7 @@ export default function GroupDetailScreen() {
 
   const [tab, setTab] = useState<Tab>("expenses");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [addingUserId, setAddingUserId] = useState<string | null>(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
@@ -411,6 +414,9 @@ export default function GroupDetailScreen() {
               <Pressable onPress={() => setShowAvatarSheet(true)} style={{ paddingHorizontal: 10 }}>
                 <Feather name="camera" size={20} color={colors.primary} />
               </Pressable>
+              <Pressable onPress={() => setShowInviteModal(true)} style={{ paddingHorizontal: 10 }}>
+                <MaterialCommunityIcons name="qrcode" size={22} color={colors.primary} />
+              </Pressable>
               <Pressable onPress={() => setShowAddModal(true)} style={{ paddingHorizontal: 10 }}>
                 <Feather name="user-plus" size={20} color={colors.primary} />
               </Pressable>
@@ -418,6 +424,15 @@ export default function GroupDetailScreen() {
           ),
         }}
       />
+
+      {/* Invite via QR Modal */}
+      <InviteQRModal
+        visible={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        groupName={group.data.name}
+        inviteCode={group.data.inviteCode ?? null}
+      />
+
 
       {/* Add Member Modal */}
       <Modal
@@ -1026,6 +1041,104 @@ export default function GroupDetailScreen() {
         />
       )}
     </>
+  );
+}
+
+function InviteQRModal({
+  visible,
+  onClose,
+  groupName,
+  inviteCode,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  groupName: string;
+  inviteCode: string | null;
+}) {
+  const colors = useColors();
+  const inviteUrl = inviteCode
+    ? `${API_BASE_URL || ""}/groups/join/${inviteCode}`
+    : "";
+
+  const onShare = async () => {
+    if (!inviteUrl) return;
+    try {
+      await Share.share({
+        message: `Join "${groupName}" on Splitix: ${inviteUrl}`,
+        url: inviteUrl,
+      });
+    } catch {
+      // user cancelled — ignore
+    }
+  };
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent
+      presentationStyle="pageSheet"
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+        <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+          <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Invite to {groupName}</Text>
+          <Pressable onPress={onClose} hitSlop={12}>
+            <Feather name="x" size={22} color={colors.foreground} />
+          </Pressable>
+        </View>
+
+        <View style={{ padding: 24, alignItems: "center" }}>
+          {inviteCode ? (
+            <>
+              <Text style={{ color: colors.mutedForeground, fontSize: 13, textAlign: "center", marginBottom: 16 }}>
+                Anyone who scans this code (or opens the link) can join the group.
+              </Text>
+              <View style={{ backgroundColor: "#fff", padding: 16, borderRadius: 12 }}>
+                <QRCode value={inviteUrl} size={220} />
+              </View>
+              <View style={{ marginTop: 20, alignItems: "center" }}>
+                <Text style={{ color: colors.mutedForeground, fontSize: 11, letterSpacing: 0.5 }}>CODE</Text>
+                <Text
+                  style={{
+                    color: colors.foreground,
+                    fontSize: 18,
+                    fontFamily: "Inter_600SemiBold",
+                    letterSpacing: 2,
+                    marginTop: 4,
+                  }}
+                  selectable
+                >
+                  {inviteCode}
+                </Text>
+              </View>
+              <Pressable
+                onPress={onShare}
+                style={{
+                  marginTop: 20,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  backgroundColor: colors.primary,
+                  paddingHorizontal: 18,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                }}
+              >
+                <Feather name="share" size={16} color={colors.primaryForeground} />
+                <Text style={{ color: colors.primaryForeground, fontFamily: "Inter_600SemiBold", fontSize: 14 }}>
+                  Share invite link
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <Text style={{ color: colors.mutedForeground, fontSize: 14 }}>
+              No invite code available yet.
+            </Text>
+          )}
+        </View>
+      </View>
+    </Modal>
   );
 }
 

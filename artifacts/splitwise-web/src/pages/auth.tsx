@@ -13,6 +13,15 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
   const [, setLocation] = useLocation();
   const { signIn, signUp } = useAuth();
 
+  // Support ?next=<path> to bounce users back where they came from
+  // (e.g. an invite link). Only honour same-origin paths.
+  const nextPath = (() => {
+    const raw = new URLSearchParams(window.location.search).get("next");
+    if (!raw) return "/dashboard";
+    if (!raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
+    return raw;
+  })();
+
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +37,7 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
     setLoading(true);
     try {
       await signIn(email.trim(), password);
-      setLocation("/dashboard");
+      setLocation(nextPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
@@ -46,7 +55,7 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
     setLoading(true);
     try {
       await signUp(name.trim(), email.trim(), password);
-      setLocation("/dashboard");
+      setLocation(nextPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign up failed");
     } finally {

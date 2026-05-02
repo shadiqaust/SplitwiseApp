@@ -62,6 +62,7 @@
     "expo-crypto": "~15.0.8",
     "expo-image-manipulator": "^55.0.15",
     "expo-secure-store": "~15.0.8",
-    "react-hook-form": "^7.73.1"
+    "react-hook-form": "^7.73.1",
+    "react-native-qrcode-svg": "^6.3.21"
   }
 }

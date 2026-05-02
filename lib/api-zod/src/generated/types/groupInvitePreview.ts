@@ -6,14 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface Group {
+export interface GroupInvitePreview {
   id: string;
   name: string;
   description?: string | null;
   category?: string | null;
   avatarUrl?: string | null;
-  /** Short code others can use to join this group via QR/link */
-  inviteCode?: string | null;
-  createdByUserId: string;
-  createdAt: Date;
+  memberCount: number;
+  alreadyMember: boolean;
 }

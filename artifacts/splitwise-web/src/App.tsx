@@ -13,6 +13,7 @@ import { DashboardPage } from "./pages/dashboard";
 import { GroupsPage } from "./pages/groups";
 import { NewGroupPage } from "./pages/group-new";
 import { GroupDetailPage } from "./pages/group-detail";
+import { GroupJoinPage } from "./pages/group-join";
 import { ProfilePage } from "./pages/profile";
 import { FriendsPage } from "./pages/friends";
 import { FriendDetailPage } from "./pages/friend-detail";
@@ -58,6 +59,9 @@ function Routes() {
       </Route>
       <Route path="/groups/new">
         <PrivateRoute><NewGroupPage /></PrivateRoute>
+      </Route>
+      <Route path="/groups/join/:code">
+        <PrivateRoute><GroupJoinPage /></PrivateRoute>
       </Route>
       <Route path="/groups/:groupId">
         <PrivateRoute><GroupDetailPage /></PrivateRoute>

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { randomBytes } from "node:crypto";
 import { eq, and, inArray, sql, or, isNull } from "drizzle-orm";
 import {
   db,
@@ -20,9 +21,44 @@ import {
   UpdateGroupBody,
   AddGroupMemberBody,
   IncludeMemberInPastExpensesBody,
+  JoinGroupBody,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+// Crockford-ish base32 (no easily confused chars: 0/O, 1/I/L)
+const INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function generateInviteCode(): string {
+  const bytes = randomBytes(10);
+  let out = "";
+  for (let i = 0; i < bytes.length; i++) {
+    out += INVITE_ALPHABET[bytes[i] % INVITE_ALPHABET.length];
+  }
+  return out;
+}
+
+async function ensureInviteCode(groupId: string, current: string | null): Promise<string> {
+  if (current) return current;
+  // Try a few times in the unlikely case of collision.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = generateInviteCode();
+    try {
+      const [updated] = await db
+        .update(groupsTable)
+        .set({ inviteCode: code })
+        .where(and(eq(groupsTable.id, groupId), isNull(groupsTable.inviteCode)))
+        .returning();
+      if (updated?.inviteCode) return updated.inviteCode;
+      // Someone else backfilled in parallel — re-read.
+      const [g] = await db.select().from(groupsTable).where(eq(groupsTable.id, groupId));
+      if (g?.inviteCode) return g.inviteCode;
+    } catch {
+      // unique collision — try a new code
+    }
+  }
+  throw new Error("Could not generate invite code");
+}
 
 async function getUserById(id: string) {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
@@ -131,12 +167,100 @@ router.post("/groups", requireAuth, async (req, res): Promise<void> => {
       description: parsed.data.description ?? null,
       category: parsed.data.category ?? null,
       createdByUserId: req.dbUserId!,
+      inviteCode: generateInviteCode(),
     })
     .returning();
 
   await db.insert(groupMembersTable).values({ groupId: group.id, userId: req.dbUserId! });
 
   res.status(201).json({ ...group, createdAt: group.createdAt.toISOString() });
+});
+
+// Look up a group by invite code (preview before joining). Authenticated.
+router.get(
+  "/groups/by-invite/:inviteCode",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const code = String(req.params.inviteCode ?? "").trim().toUpperCase();
+    if (!code) {
+      res.status(400).json({ error: "Invite code required" });
+      return;
+    }
+    const [group] = await db
+      .select()
+      .from(groupsTable)
+      .where(and(eq(groupsTable.inviteCode, code), isNull(groupsTable.deletedAt)));
+    if (!group) {
+      res.status(404).json({ error: "Invite not found or expired" });
+      return;
+    }
+    const memberCount = await db.$count(
+      groupMembersTable,
+      and(eq(groupMembersTable.groupId, group.id), isNull(groupMembersTable.deletedAt)),
+    );
+    const [existing] = await db
+      .select()
+      .from(groupMembersTable)
+      .where(
+        and(
+          eq(groupMembersTable.groupId, group.id),
+          eq(groupMembersTable.userId, req.dbUserId!),
+          isNull(groupMembersTable.deletedAt),
+        ),
+      );
+    res.json({
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      category: group.category,
+      avatarUrl: group.avatarUrl,
+      memberCount,
+      alreadyMember: Boolean(existing),
+    });
+  },
+);
+
+// Join a group via its invite code. Authenticated.
+router.post("/groups/join", requireAuth, async (req, res): Promise<void> => {
+  const parsed = JoinGroupBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const code = parsed.data.inviteCode.trim().toUpperCase();
+  const [group] = await db
+    .select()
+    .from(groupsTable)
+    .where(and(eq(groupsTable.inviteCode, code), isNull(groupsTable.deletedAt)));
+  if (!group) {
+    res.status(404).json({ error: "Invite not found or expired" });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(groupMembersTable)
+    .where(
+      and(
+        eq(groupMembersTable.groupId, group.id),
+        eq(groupMembersTable.userId, req.dbUserId!),
+      ),
+    );
+
+  if (existing) {
+    if (existing.deletedAt !== null) {
+      await db
+        .update(groupMembersTable)
+        .set({ deletedAt: null, joinedAt: new Date() })
+        .where(eq(groupMembersTable.id, existing.id));
+    }
+  } else {
+    await db
+      .insert(groupMembersTable)
+      .values({ groupId: group.id, userId: req.dbUserId! });
+  }
+
+  res.status(200).json({ ...group, createdAt: group.createdAt.toISOString() });
 });
 
 router.get(
@@ -158,7 +282,13 @@ router.get(
       .from(groupMembersTable)
       .where(and(eq(groupMembersTable.groupId, groupId), isNull(groupMembersTable.deletedAt)));
     const members = await Promise.all(memberRows.map(buildMember));
-    res.json({ ...group, createdAt: group.createdAt.toISOString(), members });
+    const inviteCode = await ensureInviteCode(group.id, group.inviteCode);
+    res.json({
+      ...group,
+      inviteCode,
+      createdAt: group.createdAt.toISOString(),
+      members,
+    });
   },
 );
 

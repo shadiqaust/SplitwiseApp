@@ -57,6 +57,10 @@ export const ListGroupsResponseItem = zod
     description: zod.string().nullish(),
     category: zod.string().nullish(),
     avatarUrl: zod.string().nullish(),
+    inviteCode: zod
+      .string()
+      .nullish()
+      .describe("Short code others can use to join this group via QR\/link"),
     createdByUserId: zod.string().uuid(),
     createdAt: zod.coerce.date(),
   })
@@ -81,6 +85,44 @@ export const CreateGroupBody = zod.object({
 });
 
 /**
+ * @summary Preview a group by its invite code
+ */
+export const GetGroupByInviteParams = zod.object({
+  inviteCode: zod.coerce.string(),
+});
+
+export const GetGroupByInviteResponse = zod.object({
+  id: zod.string().uuid(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  category: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  memberCount: zod.number(),
+  alreadyMember: zod.boolean(),
+});
+
+/**
+ * @summary Join a group using its invite code
+ */
+export const JoinGroupBody = zod.object({
+  inviteCode: zod.string(),
+});
+
+export const JoinGroupResponse = zod.object({
+  id: zod.string().uuid(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  category: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+  inviteCode: zod
+    .string()
+    .nullish()
+    .describe("Short code others can use to join this group via QR\/link"),
+  createdByUserId: zod.string().uuid(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Get group detail
  */
 export const GetGroupParams = zod.object({
@@ -94,6 +136,10 @@ export const GetGroupResponse = zod
     description: zod.string().nullish(),
     category: zod.string().nullish(),
     avatarUrl: zod.string().nullish(),
+    inviteCode: zod
+      .string()
+      .nullish()
+      .describe("Short code others can use to join this group via QR\/link"),
     createdByUserId: zod.string().uuid(),
     createdAt: zod.coerce.date(),
   })
@@ -139,6 +185,10 @@ export const UpdateGroupResponse = zod.object({
   description: zod.string().nullish(),
   category: zod.string().nullish(),
   avatarUrl: zod.string().nullish(),
+  inviteCode: zod
+    .string()
+    .nullish()
+    .describe("Short code others can use to join this group via QR\/link"),
   createdByUserId: zod.string().uuid(),
   createdAt: zod.coerce.date(),
 });

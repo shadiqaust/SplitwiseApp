@@ -36,11 +36,13 @@ import type {
   GetFriendActivity200,
   Group,
   GroupDetail,
+  GroupInvitePreview,
   GroupMember,
   GroupWithBalance,
   HealthStatus,
   IncludeMemberInPastExpensesBody,
   IncludeMemberInPastExpensesResponse,
+  JoinGroupBody,
   ListExpensesParams,
   ListNonGroupExpenses200,
   NotFoundResponse,
@@ -446,6 +448,185 @@ export const useCreateGroup = <
   TContext
 > => {
   return useMutation(getCreateGroupMutationOptions(options));
+};
+
+/**
+ * @summary Preview a group by its invite code
+ */
+export const getGetGroupByInviteUrl = (inviteCode: string) => {
+  return `/api/groups/by-invite/${inviteCode}`;
+};
+
+export const getGroupByInvite = async (
+  inviteCode: string,
+  options?: RequestInit,
+): Promise<GroupInvitePreview> => {
+  return customFetch<GroupInvitePreview>(getGetGroupByInviteUrl(inviteCode), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGroupByInviteQueryKey = (inviteCode: string) => {
+  return [`/api/groups/by-invite/${inviteCode}`] as const;
+};
+
+export const getGetGroupByInviteQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGroupByInvite>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  inviteCode: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGroupByInvite>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetGroupByInviteQueryKey(inviteCode);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getGroupByInvite>>
+  > = ({ signal }) =>
+    getGroupByInvite(inviteCode, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!inviteCode,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGroupByInvite>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGroupByInviteQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGroupByInvite>>
+>;
+export type GetGroupByInviteQueryError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Preview a group by its invite code
+ */
+
+export function useGetGroupByInvite<
+  TData = Awaited<ReturnType<typeof getGroupByInvite>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  inviteCode: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGroupByInvite>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGroupByInviteQueryOptions(inviteCode, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Join a group using its invite code
+ */
+export const getJoinGroupUrl = () => {
+  return `/api/groups/join`;
+};
+
+export const joinGroup = async (
+  joinGroupBody: JoinGroupBody,
+  options?: RequestInit,
+): Promise<Group> => {
+  return customFetch<Group>(getJoinGroupUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(joinGroupBody),
+  });
+};
+
+export const getJoinGroupMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof joinGroup>>,
+    TError,
+    { data: BodyType<JoinGroupBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof joinGroup>>,
+  TError,
+  { data: BodyType<JoinGroupBody> },
+  TContext
+> => {
+  const mutationKey = ["joinGroup"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof joinGroup>>,
+    { data: BodyType<JoinGroupBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return joinGroup(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type JoinGroupMutationResult = NonNullable<
+  Awaited<ReturnType<typeof joinGroup>>
+>;
+export type JoinGroupMutationBody = BodyType<JoinGroupBody>;
+export type JoinGroupMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Join a group using its invite code
+ */
+export const useJoinGroup = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof joinGroup>>,
+    TError,
+    { data: BodyType<JoinGroupBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof joinGroup>>,
+  TError,
+  { data: BodyType<JoinGroupBody> },
+  TContext
+> => {
+  return useMutation(getJoinGroupMutationOptions(options));
 };
 
 /**

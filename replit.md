@@ -202,3 +202,25 @@ Full expense edit (group + non-group) and optional receipt photo upload per expe
 - **Web**: shadcn `AlertDialog` (`@/components/ui/alert-dialog`) wraps every destructive button (expense delete, expense-comment delete, payment delete). The trigger is the original button via `asChild`; action button uses `bg-destructive`.
 - **Mobile**: `Alert.alert(title, message, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress }])` for every destructive action (expense delete in screen header, expense-comment delete, payment delete).
 - The legacy "click trash icon twice / Tap delete again" flow has been fully removed.
+
+## Group invite (QR code) flow
+
+### DB schema
+- `lib/db/src/schema/groups.ts` — `groupsTable` has `inviteCode: text("invite_code").unique()` (nullable). Generated for new groups; lazy-backfilled for existing groups in `GET /api/groups/:groupId` via `ensureInviteCode()`.
+- Code is 10 chars from a Crockford-ish base32 alphabet (no 0/O/1/I/L). Always uppercase.
+
+### Backend (`artifacts/api-server/src/routes/groups.ts`)
+- `POST /api/groups` — generates `inviteCode` on creation.
+- `GET /api/groups/by-invite/:inviteCode` (auth required) — returns `{ id, name, description, category, avatarUrl, memberCount, alreadyMember }` (preview before joining).
+- `POST /api/groups/join` (auth required) — body `{ inviteCode }`. Adds caller as member, or re-enables soft-deleted membership if any. Returns the group.
+- `JoinGroupBody` schema lives in `lib/api-spec/openapi.yaml` and is exported from `@workspace/api-zod` after codegen.
+
+### Web (`artifacts/splitwise-web`)
+- `qrcode.react` powers `<QRCodeSVG />`. New `InviteQRDialog` lives in `pages/group-detail.tsx`; shown next to "Add member" in the Members card. Encodes `${origin}${BASE_URL}/groups/join/<code>` and shows a copyable link.
+- New page `pages/group-join.tsx` mounted at route `/groups/join/:code`; previews the group then calls `useJoinGroup`.
+- `pages/auth.tsx` honours `?next=<path>` after sign-in/up so unauthenticated users following an invite link land back on the join page.
+
+### Mobile (`artifacts/splitwise-mobile`)
+- `react-native-qrcode-svg` (uses already-installed `react-native-svg`). `InviteQRModal` lives in `app/(tabs)/groups/[id].tsx`; opened by a new QR icon in the screen header. Uses RN's built-in `Share.share` for sharing the link.
+- New deep-link screen `app/groups/join/[code].tsx` mirrors the web join page (preview + Join button).
+- Both QR codes encode the **web** URL (`https://${EXPO_PUBLIC_DOMAIN}/groups/join/<code>`) so any standard camera/QR scanner can resolve it.

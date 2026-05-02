@@ -36,8 +36,24 @@ export interface Group {
   description?: string | null;
   category?: string | null;
   avatarUrl?: string | null;
+  /** Short code others can use to join this group via QR/link */
+  inviteCode?: string | null;
   createdByUserId: string;
   createdAt: string;
+}
+
+export interface JoinGroupBody {
+  inviteCode: string;
+}
+
+export interface GroupInvitePreview {
+  id: string;
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  avatarUrl?: string | null;
+  memberCount: number;
+  alreadyMember: boolean;
 }
 
 export type GroupWithBalance = Group & {

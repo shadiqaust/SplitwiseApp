@@ -112,6 +112,54 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /groups/by-invite/{inviteCode}:
+    get:
+      operationId: getGroupByInvite
+      tags: [groups]
+      summary: Preview a group by its invite code
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: inviteCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Group invite preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupInvitePreview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /groups/join:
+    post:
+      operationId: joinGroup
+      tags: [groups]
+      summary: Join a group using its invite code
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinGroupBody"
+      responses:
+        "200":
+          description: Joined group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /groups/{groupId}:
     get:
       operationId: getGroup
@@ -910,6 +958,10 @@ components:
         avatarUrl:
           type: string
           nullable: true
+        inviteCode:
+          type: string
+          nullable: true
+          description: Short code others can use to join this group via QR/link
         createdByUserId:
           type: string
           format: uuid
@@ -917,6 +969,36 @@ components:
           type: string
           format: date-time
       required: [id, name, createdByUserId, createdAt]
+
+    JoinGroupBody:
+      type: object
+      properties:
+        inviteCode:
+          type: string
+      required: [inviteCode]
+
+    GroupInvitePreview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        memberCount:
+          type: integer
+        alreadyMember:
+          type: boolean
+      required: [id, name, memberCount, alreadyMember]
 
     GroupWithBalance:
       allOf:
