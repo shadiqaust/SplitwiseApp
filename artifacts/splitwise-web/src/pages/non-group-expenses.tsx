@@ -43,7 +43,7 @@ export function NonGroupExpensesPage() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-6 pb-24">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link href="/groups">
