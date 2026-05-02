@@ -257,17 +257,13 @@ export default function GroupDetailScreen() {
         options={{
           title: group.data.name,
           headerBackTitle: "Groups",
-          // Always render an explicit back affordance. iOS hides the default
-          // Stack back button when the back-stack is empty (e.g. when this
-          // screen is reached via deep link, from the Home tab, or after a
-          // router.replace from /groups/new). Fall back to the Groups list in
-          // those cases so the user is never stranded.
+          // Always send the user to the Groups list — the label literally
+          // says "Groups", and a generic router.back() can land on the wrong
+          // place (e.g. Home tab) when this screen is reached via deep link,
+          // cross-tab navigation, or after a router.replace from /groups/new.
           headerLeft: () => (
             <Pressable
-              onPress={() => {
-                if (router.canGoBack()) router.back();
-                else router.replace("/(tabs)/groups");
-              }}
+              onPress={() => router.replace("/(tabs)/groups")}
               hitSlop={12}
               style={{ paddingHorizontal: 10, flexDirection: "row", alignItems: "center" }}
             >
