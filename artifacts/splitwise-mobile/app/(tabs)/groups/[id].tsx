@@ -325,14 +325,20 @@ export default function GroupDetailScreen() {
           id: `e-${e.id}`,
           data: e,
           date: e.date,
+          createdAt: e.createdAt,
         })),
         ...(payments.data ?? []).map((p) => ({
           kind: "payment" as const,
           id: `p-${p.id}`,
           data: p,
           date: p.date,
+          createdAt: p.createdAt,
         })),
-      ].sort((a, b) => (a.date < b.date ? 1 : -1)),
+      ].sort((a, b) => {
+        const d = String(b.date).localeCompare(String(a.date));
+        if (d !== 0) return d;
+        return String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
+      }),
     [expenses.data, payments.data],
   );
 

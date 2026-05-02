@@ -77,7 +77,13 @@ export function FriendDetailPage() {
       ...data.expenses.map((e) => ({ kind: "expense" as const, date: e.date, data: e })),
       ...data.payments.map((p) => ({ kind: "payment" as const, date: p.date, data: p })),
     ];
-    items.sort((a, b) => b.date.localeCompare(a.date));
+    items.sort((a, b) => {
+      const d = String(b.date).localeCompare(String(a.date));
+      if (d !== 0) return d;
+      const aCa = String((a.data as { createdAt?: string }).createdAt ?? "");
+      const bCa = String((b.data as { createdAt?: string }).createdAt ?? "");
+      return bCa.localeCompare(aCa);
+    });
     return items;
   }, [data]);
 

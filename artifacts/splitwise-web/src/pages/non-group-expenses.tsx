@@ -77,9 +77,11 @@ export function NonGroupExpensesPage() {
   const grouped = useMemo(() => {
     const buckets = new Map<string, ExpenseWithSplits[]>();
     const labels = new Map<string, string>();
-    const sorted = [...expenses].sort((a, b) =>
-      String(a.date) < String(b.date) ? 1 : -1,
-    );
+    const sorted = [...expenses].sort((a, b) => {
+      const d = String(b.date).localeCompare(String(a.date));
+      if (d !== 0) return d;
+      return String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
+    });
     for (const e of sorted) {
       const d = new Date(String(e.date));
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;

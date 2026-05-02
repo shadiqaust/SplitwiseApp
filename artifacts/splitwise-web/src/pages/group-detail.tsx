@@ -1332,9 +1332,11 @@ export function GroupDetailPage() {
       date: x.date,
       createdAt: x.createdAt,
     }));
-    return [...e, ...p].sort((a, b) =>
-      a.createdAt < b.createdAt ? 1 : -1,
-    );
+    return [...e, ...p].sort((a, b) => {
+      const d = String(b.date).localeCompare(String(a.date));
+      if (d !== 0) return d;
+      return String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
+    });
   }, [expenses.data, payments.data]);
 
   const filteredCombined = useMemo(() => {
