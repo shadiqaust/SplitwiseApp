@@ -22,7 +22,7 @@ import {
   useUpdateGroup,
   type GroupMember,
 } from "@workspace/api-client-react";
-import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight } from "lucide-react";
+import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight, Pencil } from "lucide-react";
 
 const EXPENSE_CATEGORIES = [
   "General",
@@ -85,7 +85,8 @@ import {
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { cn, formatCurrency } from "@/lib/format";
+import { cn, formatCurrency, formatDate } from "@/lib/format";
+import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/error";
 
 function getInitials(name: string): string {
@@ -95,10 +96,6 @@ function getInitials(name: string): string {
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("");
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString();
 }
 
 function MemberAvatar({ name, url, size = 32 }: { name: string; url?: string | null; size?: number }) {
@@ -162,6 +159,115 @@ function compressGroupImage(file: File): Promise<string> {
     img.onerror = reject;
     img.src = objectUrl;
   });
+}
+
+function EditGroupDialog({
+  groupId,
+  currentName,
+  currentDescription,
+}: {
+  groupId: string;
+  currentName: string;
+  currentDescription: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(currentName);
+  const [description, setDescription] = useState(currentDescription);
+  const { toast } = useToast();
+  const updateGroup = useUpdateGroup();
+
+  useEffect(() => {
+    if (open) {
+      setName(currentName);
+      setDescription(currentDescription);
+    }
+  }, [open, currentName, currentDescription]);
+
+  const onSave = () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast({ title: "Name is required", variant: "destructive" });
+      return;
+    }
+    updateGroup.mutate(
+      {
+        groupId,
+        data: {
+          name: trimmed,
+          description: description.trim() ? description.trim() : null,
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
+          queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
+          toast({ title: "Group updated" });
+          setOpen(false);
+        },
+        onError: (err) => {
+          toast({
+            title: "Failed to update group",
+            description: getErrorMessage(err),
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          title="Edit group"
+        >
+          <Pencil className="w-4 h-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit group</DialogTitle>
+          <DialogDescription>
+            Update the group name and description.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-group-name">Name</Label>
+            <Input
+              id="edit-group-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={80}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-group-desc">Description</Label>
+            <Textarea
+              id="edit-group-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Optional"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} type="button">
+            Cancel
+          </Button>
+          <Button type="button" onClick={onSave} disabled={updateGroup.isPending}>
+            {updateGroup.isPending ? "Saving…" : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function GroupAvatarDialog({
@@ -1295,9 +1401,16 @@ export function GroupDetailPage() {
               groupName={group.data.name}
             />
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                {group.data.name}
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-3xl font-bold tracking-tight">
+                  {group.data.name}
+                </h1>
+                <EditGroupDialog
+                  groupId={groupId}
+                  currentName={group.data.name}
+                  currentDescription={group.data.description ?? ""}
+                />
+              </div>
               {group.data.description ? (
                 <p className="text-muted-foreground mt-1">{group.data.description}</p>
               ) : null}
@@ -1310,6 +1423,9 @@ export function GroupDetailPage() {
                     <Crown className="w-3 h-3" />
                     Created by{" "}
                     <span className="font-medium">{isMe ? "you" : creator.user.name}</span>
+                    {group.data?.createdAt ? (
+                      <span className="ml-1">· {formatDate(group.data.createdAt)}</span>
+                    ) : null}
                   </p>
                 );
               })()}

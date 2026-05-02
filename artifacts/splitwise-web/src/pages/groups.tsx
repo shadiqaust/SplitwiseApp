@@ -1,11 +1,11 @@
 import { useListGroups } from "@workspace/api-client-react";
-import { formatCurrency, cn } from "@/lib/format";
+import { formatCurrency, cn, formatDate } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Layout } from "@/components/layout";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, DollarSign, Plus, Users } from "lucide-react";
+import { Calendar, ChevronRight, DollarSign, Plus, Users } from "lucide-react";
 
 export function GroupsPage() {
   const { data: groups, isLoading } = useListGroups();
@@ -79,6 +79,12 @@ export function GroupsPage() {
                         <Users className="w-3 h-3" />
                         {group.memberCount} members
                       </p>
+                      {group.createdAt ? (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          Created {formatDate(group.createdAt)}
+                        </p>
+                      ) : null}
                       {group.description && (
                         <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{group.description}</p>
                       )}

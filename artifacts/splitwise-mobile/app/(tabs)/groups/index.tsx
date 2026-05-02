@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useColors } from "@/hooks/useColors";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 export default function GroupsScreen() {
   const colors = useColors();
@@ -102,6 +102,7 @@ export default function GroupsScreen() {
                   </Text>
                   <Text style={[styles.sub, { color: colors.mutedForeground }]}>
                     {g.memberCount} {g.memberCount === 1 ? "member" : "members"}
+                    {g.createdAt ? ` · Created ${formatDate(g.createdAt)}` : ""}
                   </Text>
                 </View>
                 <View style={{ alignItems: "flex-end" }}>

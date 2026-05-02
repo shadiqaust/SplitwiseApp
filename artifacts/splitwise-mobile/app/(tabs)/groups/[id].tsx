@@ -89,6 +89,10 @@ export default function GroupDetailScreen() {
   const [memberSearch, setMemberSearch] = useState("");
   const [addingUserId, setAddingUserId] = useState<string | null>(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
+  const [showEditSheet, setShowEditSheet] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [filterMemberId, setFilterMemberId] = useState<string | "all">("all");
@@ -225,6 +229,43 @@ export default function GroupDetailScreen() {
     }
   };
 
+  const openEditSheet = () => {
+    if (!group.data) return;
+    setEditName(group.data.name);
+    setEditDescription(group.data.description ?? "");
+    setShowEditSheet(true);
+  };
+
+  const handleSaveEdit = () => {
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      Alert.alert("Name required", "Please enter a group name.");
+      return;
+    }
+    setEditSaving(true);
+    updateGroup.mutate(
+      {
+        groupId,
+        data: {
+          name: trimmedName,
+          description: editDescription.trim() ? editDescription.trim() : null,
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
+          queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
+          setEditSaving(false);
+          setShowEditSheet(false);
+        },
+        onError: (err) => {
+          setEditSaving(false);
+          Alert.alert("Failed to update group", getErrorMessage(err));
+        },
+      },
+    );
+  };
+
   const handleSaveGroupAvatar = () => {
     if (!selectedAvatarUrl) return;
     setAvatarSaving(true);
@@ -355,6 +396,9 @@ export default function GroupDetailScreen() {
           ),
           headerRight: () => (
             <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Pressable onPress={openEditSheet} style={{ paddingHorizontal: 10 }}>
+                <Feather name="edit-2" size={18} color={colors.primary} />
+              </Pressable>
               <Pressable onPress={() => setShowAvatarSheet(true)} style={{ paddingHorizontal: 10 }}>
                 <Feather name="camera" size={20} color={colors.primary} />
               </Pressable>
@@ -472,13 +516,14 @@ export default function GroupDetailScreen() {
                 const creator = group.data.members.find((m) => m.userId === group.data?.createdByUserId);
                 if (!creator) return null;
                 return (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
                     <MaterialCommunityIcons name="crown" size={13} color="#f59e0b" />
                     <Text style={[styles.creatorText, { color: colors.mutedForeground, marginTop: 0 }]}>
                       Created by{" "}
                       <Text style={{ fontFamily: "Inter_600SemiBold" }}>
                         {creator.userId === myUserId ? "you" : creator.user.name}
                       </Text>
+                      {group.data?.createdAt ? ` · ${formatDate(group.data.createdAt)}` : ""}
                     </Text>
                   </View>
                 );
@@ -813,6 +858,68 @@ export default function GroupDetailScreen() {
         </View>
       </Modal>
 
+      {/* Edit group sheet */}
+      <Modal
+        visible={showEditSheet}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowEditSheet(false)}
+      >
+        <View style={styles.overlaySheet}>
+          <View style={[styles.avatarSheet, { backgroundColor: colors.background }]}>
+            <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Edit group</Text>
+              <Pressable onPress={() => setShowEditSheet(false)} hitSlop={12}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} showsVerticalScrollIndicator={false}>
+              <View style={{ gap: 6 }}>
+                <Text style={[{ fontFamily: "Inter_500Medium", fontSize: 13 }, { color: colors.foreground }]}>Name</Text>
+                <TextInput
+                  value={editName}
+                  onChangeText={setEditName}
+                  maxLength={80}
+                  placeholder="Group name"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={[
+                    styles.editInput,
+                    { color: colors.foreground, backgroundColor: colors.muted, borderColor: colors.border },
+                  ]}
+                />
+              </View>
+              <View style={{ gap: 6 }}>
+                <Text style={[{ fontFamily: "Inter_500Medium", fontSize: 13 }, { color: colors.foreground }]}>Description</Text>
+                <TextInput
+                  value={editDescription}
+                  onChangeText={setEditDescription}
+                  maxLength={500}
+                  multiline
+                  numberOfLines={4}
+                  placeholder="Optional"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={[
+                    styles.editInput,
+                    {
+                      color: colors.foreground,
+                      backgroundColor: colors.muted,
+                      borderColor: colors.border,
+                      minHeight: 90,
+                      textAlignVertical: "top",
+                      paddingTop: 10,
+                    },
+                  ]}
+                />
+              </View>
+            </ScrollView>
+            <View style={[styles.sheetFooterRow, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+              <Button title="Cancel" variant="outline" onPress={() => setShowEditSheet(false)} />
+              <Button title={editSaving ? "Saving…" : "Save"} onPress={handleSaveEdit} disabled={editSaving || !editName.trim()} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Group avatar sheet */}
       <Modal
         visible={showAvatarSheet}
@@ -906,6 +1013,14 @@ const styles = StyleSheet.create({
   activityTitle: { fontFamily: "Inter_500Medium", fontSize: 14 },
   activitySub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
   monthLabel: { fontFamily: "Inter_600SemiBold", fontSize: 11, letterSpacing: 0.8, marginTop: 4 },
+  editInput: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
   activityAmount: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   balanceRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   balanceText: { fontFamily: "Inter_400Regular", fontSize: 14, flex: 1 },
