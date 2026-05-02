@@ -92,6 +92,7 @@ import { queryClient } from "@/lib/queryClient";
 import { cn, formatCurrency, formatDate } from "@/lib/format";
 import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/error";
+import { COMMON_CURRENCIES } from "@/lib/currencies";
 
 function getInitials(name: string): string {
   return name
@@ -169,14 +170,17 @@ function EditGroupDialog({
   groupId,
   currentName,
   currentDescription,
+  currentCurrency,
 }: {
   groupId: string;
   currentName: string;
   currentDescription: string;
+  currentCurrency: string;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(currentName);
   const [description, setDescription] = useState(currentDescription);
+  const [currency, setCurrency] = useState(currentCurrency);
   const { toast } = useToast();
   const updateGroup = useUpdateGroup();
 
@@ -184,8 +188,9 @@ function EditGroupDialog({
     if (open) {
       setName(currentName);
       setDescription(currentDescription);
+      setCurrency(currentCurrency);
     }
-  }, [open, currentName, currentDescription]);
+  }, [open, currentName, currentDescription, currentCurrency]);
 
   const onSave = () => {
     const trimmed = name.trim();
@@ -199,6 +204,7 @@ function EditGroupDialog({
         data: {
           name: trimmed,
           description: description.trim() ? description.trim() : null,
+          currency,
         },
       },
       {
@@ -259,6 +265,21 @@ function EditGroupDialog({
               rows={3}
               placeholder="Optional"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-group-currency">Currency</Label>
+            <Select value={currency} onValueChange={setCurrency}>
+              <SelectTrigger id="edit-group-currency">
+                <SelectValue placeholder="Select a currency" />
+              </SelectTrigger>
+              <SelectContent>
+                {COMMON_CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.symbol} {c.code} — {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter>
@@ -1509,6 +1530,7 @@ export function GroupDetailPage() {
                   groupId={groupId}
                   currentName={group.data.name}
                   currentDescription={group.data.description ?? ""}
+                  currentCurrency={group.data.currency ?? "USD"}
                 />
               </div>
               {group.data.description ? (
