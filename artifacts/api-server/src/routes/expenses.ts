@@ -324,7 +324,8 @@ router.get(
             eq(paymentsTable.toUserId, me),
           ),
         ),
-      );
+      )
+      .orderBy(desc(paymentsTable.date), desc(paymentsTable.createdAt));
     for (const p of nonGroupPayments) {
       const amt = parseFloat(p.amount);
       if (p.fromUserId === me) {

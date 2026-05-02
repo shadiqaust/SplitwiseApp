@@ -8,11 +8,12 @@ import {
   Text,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   type ExpenseWithSplits,
+  type Payment,
   useGetMe,
 } from "@workspace/api-client-react";
 
@@ -24,14 +25,17 @@ import {
   SettleUpWithFriendModal,
   type SettleFriend,
 } from "@/components/SettleUpWithFriendModal";
+import { PaymentDetailModal } from "@/components/PaymentDetailModal";
 import { useColors } from "@/hooks/useColors";
 import { authFetch } from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
+import { getCategoryIcon } from "@/lib/expenseCategories";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 interface NonGroupResponse {
   myNetBalance: number;
   count: number;
   expenses: ExpenseWithSplits[];
+  payments?: Payment[];
   friendNets?: Record<string, number>;
 }
 
@@ -46,17 +50,21 @@ interface FriendRow {
   net: number;
 }
 
-type Tab = "expenses" | "friends";
+type Tab = "activity" | "balances";
+type FilterPeriod = "all" | "7d" | "30d";
 
 export default function NonGroupExpensesScreen() {
   const colors = useColors();
   const me = useGetMe();
-  const [tab, setTab] = useState<Tab>("friends");
+  const [tab, setTab] = useState<Tab>("activity");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [settleTarget, setSettleTarget] = useState<{
     friend: SettleFriend;
     impact: number;
   } | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [filterFriendId, setFilterFriendId] = useState<string | "all">("all");
+  const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>("all");
 
   const query = useQuery<NonGroupResponse>({
     queryKey: NON_GROUP_KEY,
@@ -75,30 +83,10 @@ export default function NonGroupExpensesScreen() {
 
   const data = query.data;
   const expenses = data?.expenses ?? [];
+  const payments = data?.payments ?? [];
   const net = data?.myNetBalance ?? 0;
   const myId = me.data?.id;
   const friendNets = data?.friendNets ?? {};
-
-  const grouped = useMemo(() => {
-    const buckets = new Map<string, ExpenseWithSplits[]>();
-    const labels = new Map<string, string>();
-    const sorted = [...expenses].sort((a, b) => {
-      const d = String(b.date).localeCompare(String(a.date));
-      if (d !== 0) return d;
-      return String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
-    });
-    for (const e of sorted) {
-      const d = new Date(String(e.date));
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const label = MONTH_FMT.format(d);
-      if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key)!.push(e);
-      labels.set(key, label);
-    }
-    return Array.from(buckets.entries())
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
-  }, [expenses]);
 
   const friends = useMemo<FriendRow[]>(() => {
     if (!myId) return [];
@@ -119,6 +107,20 @@ export default function NonGroupExpensesScreen() {
         }
       }
     }
+    for (const p of payments) {
+      if (p.fromUserId !== myId && p.fromUser) {
+        userById.set(p.fromUserId, {
+          name: p.fromUser.name,
+          avatarUrl: p.fromUser.avatarUrl ?? null,
+        });
+      }
+      if (p.toUserId !== myId && p.toUser) {
+        userById.set(p.toUserId, {
+          name: p.toUser.name,
+          avatarUrl: p.toUser.avatarUrl ?? null,
+        });
+      }
+    }
     const rows: FriendRow[] = [];
     for (const [id, u] of userById) {
       rows.push({ id, name: u.name, avatarUrl: u.avatarUrl, net: friendNets[id] ?? 0 });
@@ -131,7 +133,74 @@ export default function NonGroupExpensesScreen() {
       return a.name.localeCompare(b.name);
     });
     return rows;
-  }, [expenses, friendNets, myId]);
+  }, [expenses, payments, friendNets, myId]);
+
+  const combined = useMemo(
+    () =>
+      [
+        ...expenses.map((e) => ({
+          kind: "expense" as const,
+          id: `e-${e.id}`,
+          data: e,
+          date: e.date,
+          createdAt: e.createdAt,
+        })),
+        ...payments.map((p) => ({
+          kind: "payment" as const,
+          id: `p-${p.id}`,
+          data: p,
+          date: p.date,
+          createdAt: p.createdAt,
+        })),
+      ].sort((a, b) => {
+        const d = String(b.date).localeCompare(String(a.date));
+        if (d !== 0) return d;
+        return String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
+      }),
+    [expenses, payments],
+  );
+
+  const filteredCombined = useMemo(() => {
+    let items = combined;
+    if (filterPeriod !== "all") {
+      const days = filterPeriod === "7d" ? 7 : 30;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      items = items.filter((item) => {
+        const d = new Date(String(item.date));
+        return d >= cutoff;
+      });
+    }
+    if (filterFriendId !== "all") {
+      items = items.filter((item) => {
+        if (item.kind === "expense") {
+          if (item.data.paidByUserId === filterFriendId) return true;
+          return item.data.splits.some((s) => s.userId === filterFriendId);
+        }
+        return (
+          item.data.fromUserId === filterFriendId ||
+          item.data.toUserId === filterFriendId
+        );
+      });
+    }
+    return items;
+  }, [combined, filterFriendId, filterPeriod]);
+
+  const groupedActivity = useMemo(() => {
+    const buckets = new Map<string, typeof filteredCombined>();
+    const labels = new Map<string, string>();
+    for (const it of filteredCombined) {
+      const d = new Date(String(it.date));
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = MONTH_FMT.format(d);
+      if (!buckets.has(key)) buckets.set(key, [] as typeof filteredCombined);
+      buckets.get(key)!.push(it);
+      labels.set(key, label);
+    }
+    return Array.from(buckets.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
+  }, [filteredCombined]);
 
   if (query.isLoading && !query.data) {
     return (
@@ -141,6 +210,8 @@ export default function NonGroupExpensesScreen() {
       </View>
     );
   }
+
+  const hasAny = expenses.length > 0 || payments.length > 0;
 
   return (
     <>
@@ -197,7 +268,7 @@ export default function NonGroupExpensesScreen() {
           <AddExpenseCTA />
         </View>
 
-        {expenses.length === 0 ? (
+        {!hasAny ? (
           <Card>
             <EmptyState
               icon="dollar-sign"
@@ -214,39 +285,112 @@ export default function NonGroupExpensesScreen() {
               ]}
             >
               <TabButton
-                label={`Friends${friends.length ? ` (${friends.length})` : ""}`}
-                active={tab === "friends"}
-                onPress={() => setTab("friends")}
+                label="Activity"
+                active={tab === "activity"}
+                onPress={() => setTab("activity")}
               />
               <TabButton
-                label="Expenses"
-                active={tab === "expenses"}
-                onPress={() => setTab("expenses")}
+                label={`Balances${friends.length ? ` (${friends.length})` : ""}`}
+                active={tab === "balances"}
+                onPress={() => setTab("balances")}
               />
             </View>
 
-            {tab === "expenses" ? (
-              <View style={{ gap: 16 }}>
-                {grouped.map((bucket) => (
-                  <View key={bucket.key} style={{ gap: 8 }}>
-                    <Text
-                      style={[
-                        styles.monthLabel,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
-                      {bucket.label.toUpperCase()}
-                    </Text>
-                    {bucket.items.map((e) => (
-                      <ExpenseRow
-                        key={e.id}
-                        expense={e}
-                        myId={myId}
-                        friendNets={friendNets}
-                      />
+            {tab === "activity" ? (
+              <View style={{ gap: 8 }}>
+                {/* Friend filter */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: "row", gap: 8, paddingVertical: 2 }}>
+                    {(["all", ...friends.map((f) => f.id)] as (string | "all")[]).map((fid) => {
+                      const f = fid === "all" ? null : friends.find((x) => x.id === fid);
+                      const label = fid === "all" ? "All" : (f ? f.name.split(" ")[0] : "");
+                      const active = filterFriendId === fid;
+                      return (
+                        <Pressable
+                          key={String(fid)}
+                          onPress={() => setFilterFriendId(fid)}
+                          style={[
+                            styles.filterChip,
+                            {
+                              backgroundColor: active ? colors.primary : colors.card,
+                              borderColor: active ? colors.primary : colors.border,
+                            },
+                          ]}
+                        >
+                          {fid !== "all" && f && (
+                            <Avatar name={f.name} url={f.avatarUrl} size={16} />
+                          )}
+                          <Text style={[styles.filterChipText, { color: active ? "#fff" : colors.foreground }]}>
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+
+                {/* Period filter */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+                  <View style={{ flexDirection: "row", gap: 8, paddingVertical: 2 }}>
+                    {([["all", "All time"], ["7d", "Last 7 days"], ["30d", "Last 30 days"]] as [FilterPeriod, string][]).map(([val, label]) => {
+                      const active = filterPeriod === val;
+                      return (
+                        <Pressable
+                          key={val}
+                          onPress={() => setFilterPeriod(val)}
+                          style={[
+                            styles.filterChip,
+                            {
+                              backgroundColor: active ? colors.primary : colors.card,
+                              borderColor: active ? colors.primary : colors.border,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.filterChipText, { color: active ? "#fff" : colors.foreground }]}>
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+
+                {filteredCombined.length === 0 ? (
+                  <Card>
+                    <EmptyState
+                      icon="file-text"
+                      title="No activity"
+                      message="No activity matches the current filters."
+                    />
+                  </Card>
+                ) : (
+                  <View style={{ gap: 16 }}>
+                    {groupedActivity.map((bucket) => (
+                      <View key={bucket.key} style={{ gap: 8 }}>
+                        <Text style={[styles.monthLabel, { color: colors.mutedForeground }]}>
+                          {bucket.label.toUpperCase()}
+                        </Text>
+                        {bucket.items.map((item) =>
+                          item.kind === "expense" ? (
+                            <ExpenseRow
+                              key={item.id}
+                              expense={item.data}
+                              myId={myId}
+                              friendNets={friendNets}
+                            />
+                          ) : (
+                            <PaymentRow
+                              key={item.id}
+                              payment={item.data}
+                              myId={myId}
+                              onPress={() => setSelectedPayment(item.data)}
+                            />
+                          ),
+                        )}
+                      </View>
                     ))}
                   </View>
-                ))}
+                )}
               </View>
             ) : (
               <View style={{ gap: 8 }}>
@@ -283,6 +427,13 @@ export default function NonGroupExpensesScreen() {
           currentUserId={myId}
           netBalance={settleTarget.impact}
           onClose={() => setSettleTarget(null)}
+        />
+      )}
+      {selectedPayment && (
+        <PaymentDetailModal
+          payment={selectedPayment}
+          currentUserId={myId}
+          onClose={() => setSelectedPayment(null)}
         />
       )}
     </>
@@ -421,6 +572,13 @@ function ExpenseRow({
       style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
     >
     <Card style={styles.row}>
+      <View style={[styles.bubble, { backgroundColor: colors.muted }]}>
+        <MaterialCommunityIcons
+          name={getCategoryIcon(expense.category)}
+          size={18}
+          color={colors.mutedForeground}
+        />
+      </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.desc, { color: colors.foreground }]} numberOfLines={1}>
           {expense.description}
@@ -432,7 +590,7 @@ function ExpenseRow({
           {peopleLine ? ` · ${peopleLine}` : ""}
         </Text>
         <Text style={[styles.date, { color: colors.mutedForeground }]}>
-          {expense.category ?? "General"} · {expense.date}
+          {expense.category ?? "General"} · {formatDate(expense.date)}
         </Text>
       </View>
       <View style={{ alignItems: "flex-end" }}>
@@ -476,6 +634,46 @@ function ExpenseRow({
   );
 }
 
+function PaymentRow({
+  payment,
+  myId,
+  onPress,
+}: {
+  payment: Payment;
+  myId: string | undefined;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  const fromYou = payment.fromUserId === myId;
+  const toYou = payment.toUserId === myId;
+  return (
+    <Pressable
+      onPress={onPress}
+      android_ripple={{ color: colors.accent }}
+      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+    >
+      <Card style={styles.row}>
+        <View style={[styles.bubble, { backgroundColor: "#dcfce7" }]}>
+          <Feather name="check-circle" size={18} color="#16a34a" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.desc, { color: colors.foreground }]} numberOfLines={1}>
+            {fromYou ? "You" : payment.fromUser.name} settled with{" "}
+            {toYou ? "you" : payment.toUser.name}
+          </Text>
+          <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+            {formatDate(payment.date)}
+            {payment.note ? ` · ${payment.note}` : ""}
+          </Text>
+        </View>
+        <Text style={[styles.balance, { color: "#16a34a" }]}>
+          {formatCurrency(payment.amount)}
+        </Text>
+      </Card>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scroll: { padding: 16, gap: 16, paddingBottom: 32 },
@@ -499,7 +697,18 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   tabText: { fontSize: 13 },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  filterChipText: { fontFamily: "Inter_500Medium", fontSize: 12 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
+  bubble: { width: 36, height: 36, borderRadius: 100, alignItems: "center", justifyContent: "center" },
   desc: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   meta: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
   date: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },

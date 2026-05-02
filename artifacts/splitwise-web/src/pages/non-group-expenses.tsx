@@ -170,10 +170,7 @@ export function NonGroupExpensesPage() {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - days);
       items = items.filter((item) => {
-        const d =
-          item.date instanceof Date
-            ? item.date
-            : new Date(item.date as string);
+        const d = new Date(String(item.date));
         return d >= cutoff;
       });
     }
