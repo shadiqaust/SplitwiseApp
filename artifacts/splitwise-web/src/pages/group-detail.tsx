@@ -24,7 +24,7 @@ import {
   type Payment,
 } from "@workspace/api-client-react";
 import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight, Pencil, QrCode, Copy } from "lucide-react";
-import { getCategoryIcon } from "@/lib/expense-categories";
+import { getCategoryIcon, guessCategory } from "@/lib/expense-categories";
 import { QRCodeSVG } from "qrcode.react";
 
 const EXPENSE_CATEGORIES = [
@@ -892,7 +892,14 @@ function AddExpenseDialog({
             <Input
               placeholder="Dinner, Groceries..."
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDescription(v);
+                if (category === "General") {
+                  const guess = guessCategory(v);
+                  if (guess) setCategory(guess);
+                }
+              }}
             />
           </div>
 

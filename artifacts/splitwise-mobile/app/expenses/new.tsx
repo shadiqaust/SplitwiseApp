@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import { getCategoryIcon } from "@/lib/expenseCategories";
+import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -214,7 +214,13 @@ export default function NewExpenseScreen() {
             label="Description"
             placeholder="Dinner, Groceries, Hotel..."
             value={description}
-            onChangeText={setDescription}
+            onChangeText={(v) => {
+              setDescription(v);
+              if (category === "General") {
+                const guess = guessCategory(v);
+                if (guess) setCategory(guess);
+              }
+            }}
           />
           <Input
             label="Amount"

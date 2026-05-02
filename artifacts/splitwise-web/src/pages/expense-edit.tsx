@@ -34,7 +34,7 @@ import { getErrorMessage } from "@/lib/error";
 import { formatCurrency } from "@/lib/format";
 import { photoSrc, uploadPhoto } from "@/lib/upload";
 
-import { getCategoryIcon } from "@/lib/expense-categories";
+import { getCategoryIcon, guessCategory } from "@/lib/expense-categories";
 
 const EXPENSE_CATEGORIES = [
   "General",
@@ -348,7 +348,14 @@ export function ExpenseEditPage() {
                 <Label>Description</Label>
                 <Input
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setDescription(v);
+                    if (category === "General") {
+                      const guess = guessCategory(v);
+                      if (guess) setCategory(guess);
+                    }
+                  }}
                   placeholder="Dinner, Groceries..."
                 />
               </div>
