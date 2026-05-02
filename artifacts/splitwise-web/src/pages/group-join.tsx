@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,14 @@ import {
   useJoinGroup,
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
-import { Users } from "lucide-react";
+import { Smartphone, Users } from "lucide-react";
+
+const APP_SCHEME = "splitwise-mobile";
+
+function detectMobile(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+}
 
 export function GroupJoinPage() {
   const params = useParams<{ code: string }>();
@@ -21,6 +28,27 @@ export function GroupJoinPage() {
   const [, setLocation] = useLocation();
   const { isLoaded, isSignedIn } = useAuth();
   const { toast } = useToast();
+
+  const isMobile = detectMobile();
+  const appUrl = `${APP_SCHEME}://groups/join/${code}`;
+  const triedOpenAppRef = useRef(false);
+
+  const openInApp = () => {
+    if (!code) return;
+    // Setting window.location to a custom scheme silently no-ops if the app
+    // isn't installed; the browser stays on this page. If the app IS installed,
+    // the OS will intercept and switch to it.
+    window.location.href = appUrl;
+  };
+
+  // On mobile, try to open the app automatically once on mount.
+  useEffect(() => {
+    if (!isMobile || !code || triedOpenAppRef.current) return;
+    triedOpenAppRef.current = true;
+    openInApp();
+    // openInApp deps are stable per mount (code is from URL); intentionally omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, code]);
 
   // Bounce unauthenticated users to sign-in, preserving the invite link.
   useEffect(() => {
@@ -66,6 +94,20 @@ export function GroupJoinPage() {
             <CardTitle>Join a group</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isMobile && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-start gap-3">
+                <Smartphone className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                <div className="flex-1">
+                  <div className="text-sm font-medium">Have the Splitix app?</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Open this invite directly in the app.
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={openInApp}>
+                  Open in app
+                </Button>
+              </div>
+            )}
             {preview.isLoading && (
               <div className="text-sm text-muted-foreground">Looking up invite…</div>
             )}
