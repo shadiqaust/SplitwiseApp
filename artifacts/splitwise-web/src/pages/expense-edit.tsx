@@ -114,9 +114,9 @@ export function ExpenseEditPage() {
   // One-shot hydration from server state
   useEffect(() => {
     if (hydrated || !expense) return;
-    if (expense.groupId && !groupQ.data) return;
+    if (expense.groupId && !groupQ.data && !groupQ.isError) return;
     setDescription(expense.description);
-    setCategory(expense.category ?? "General");
+    setCategory(expense.category && expense.category.trim() ? expense.category : "General");
     setAmount(String(expense.totalAmount));
     setPaidByUserId(expense.paidByUserId);
     setSplitType(expense.splitType as SplitType);
@@ -304,7 +304,11 @@ export function ExpenseEditPage() {
     );
   };
 
-  if (expenseQ.isLoading || (expense?.groupId && groupQ.isLoading)) {
+  if (
+    expenseQ.isLoading ||
+    (expense?.groupId && (groupQ.isLoading || (!groupQ.data && !groupQ.isError))) ||
+    (expense && !hydrated)
+  ) {
     return (
       <Layout>
         <div className="max-w-2xl mx-auto p-4 space-y-4">
@@ -375,7 +379,7 @@ export function ExpenseEditPage() {
                   <Label>Category</Label>
                   <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
                       {EXPENSE_CATEGORIES.map((c) => {
@@ -410,7 +414,7 @@ export function ExpenseEditPage() {
                     onValueChange={changePayer}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select payer" />
                     </SelectTrigger>
                     <SelectContent>
                       {participants.map((p) => (

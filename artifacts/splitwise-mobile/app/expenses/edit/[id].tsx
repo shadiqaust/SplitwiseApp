@@ -109,9 +109,9 @@ export default function EditExpenseScreen() {
 
   useEffect(() => {
     if (hydrated || !expense) return;
-    if (expense.groupId && !groupQ.data) return;
+    if (expense.groupId && !groupQ.data && !groupQ.isError) return;
     setDescription(expense.description);
-    setCategory(expense.category ?? "General");
+    setCategory(expense.category && expense.category.trim() ? expense.category : "General");
     setAmount(String(expense.totalAmount));
     setPaidByUserId(expense.paidByUserId);
     setSplitType(expense.splitType as SplitType);
@@ -288,7 +288,11 @@ export default function EditExpenseScreen() {
     );
   };
 
-  if (expenseQ.isLoading || (expense?.groupId && groupQ.isLoading)) {
+  if (
+    expenseQ.isLoading ||
+    (expense?.groupId && (groupQ.isLoading || (!groupQ.data && !groupQ.isError))) ||
+    (expense && !hydrated)
+  ) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator color={colors.primary} />
