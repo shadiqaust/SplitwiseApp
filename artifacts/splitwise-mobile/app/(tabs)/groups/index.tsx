@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -11,7 +11,26 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
-import { useListGroups } from "@workspace/api-client-react";
+import { useListGroups, type GroupWithBalance } from "@workspace/api-client-react";
+
+const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
+
+function groupByMonth(items: GroupWithBalance[]) {
+  const sorted = [...items].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tb - ta;
+  });
+  const buckets = new Map<string, { key: string; label: string; items: GroupWithBalance[] }>();
+  for (const g of sorted) {
+    const d = g.createdAt ? new Date(g.createdAt) : new Date(0);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const label = g.createdAt ? MONTH_FMT.format(d) : "Undated";
+    if (!buckets.has(key)) buckets.set(key, { key, label, items: [] });
+    buckets.get(key)!.items.push(g);
+  }
+  return Array.from(buckets.values());
+}
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -27,6 +46,7 @@ export default function GroupsScreen() {
   const [viewMode, setViewMode] = useViewMode("groups", "list");
   // Polling is configured globally on the QueryClient (5s, runs in background).
   const { data, isLoading, refetch } = useListGroups();
+  const sections = useMemo(() => (data ? groupByMonth(data) : []), [data]);
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -115,14 +135,20 @@ export default function GroupsScreen() {
         </Pressable>
 
         {data && data.length > 0 ? (
-          viewMode === "list" ? (
-            <View style={{ gap: 8 }}>
-              {data.map((g) => (
-                <Pressable
-                  key={g.id}
-                  onPress={() => router.push(`/groups/${g.id}`)}
-                >
-                  <Card style={styles.row}>
+          <View style={{ gap: 16 }}>
+            {sections.map((section) => (
+              <View key={section.key} style={{ gap: 8 }}>
+                <Text style={[styles.sectionHeader, { color: colors.mutedForeground }]}>
+                  {section.label.toUpperCase()}
+                </Text>
+                {viewMode === "list" ? (
+                  <View style={{ gap: 8 }}>
+                    {section.items.map((g) => (
+                      <Pressable
+                        key={g.id}
+                        onPress={() => router.push(`/groups/${g.id}`)}
+                      >
+                        <Card style={styles.row}>
                     {g.avatarUrl ? (
                       <Image source={{ uri: g.avatarUrl }} style={styles.avatar} />
                     ) : (
@@ -173,15 +199,15 @@ export default function GroupsScreen() {
                 </Pressable>
               ))}
             </View>
-          ) : (
-            <View style={styles.cardGrid}>
-              {data.map((g) => (
-                <Pressable
-                  key={g.id}
-                  onPress={() => router.push(`/groups/${g.id}`)}
-                  style={styles.cardItem}
-                >
-                  <Card style={styles.cardInner}>
+                ) : (
+                  <View style={styles.cardGrid}>
+                    {section.items.map((g) => (
+                      <Pressable
+                        key={g.id}
+                        onPress={() => router.push(`/groups/${g.id}`)}
+                        style={styles.cardItem}
+                      >
+                        <Card style={styles.cardInner}>
                     <View style={styles.cardHeader}>
                       {g.avatarUrl ? (
                         <Image source={{ uri: g.avatarUrl }} style={styles.cardAvatar} />
@@ -235,11 +261,14 @@ export default function GroupsScreen() {
                             : formatCurrency(0)}
                       </Text>
                     </View>
-                  </Card>
-                </Pressable>
-              ))}
-            </View>
-          )
+                        </Card>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
         ) : (
           <Card>
             <EmptyState
@@ -297,4 +326,10 @@ const styles = StyleSheet.create({
   },
   cardFooterLabel: { fontFamily: "Inter_400Regular", fontSize: 10 },
   cardBalance: { fontFamily: "Inter_700Bold", fontSize: 15 },
+  sectionHeader: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    letterSpacing: 0.6,
+    marginBottom: 2,
+  },
 });
