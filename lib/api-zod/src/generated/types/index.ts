@@ -14,6 +14,7 @@ export * from "./balance";
 export * from "./createExpenseBody";
 export * from "./createFriendExpenseBody";
 export * from "./createGroupBody";
+export * from "./createNonGroupPaymentBody";
 export * from "./createPaymentBody";
 export * from "./dashboardSummary";
 export * from "./errorResponse";

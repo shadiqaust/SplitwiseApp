@@ -24,6 +24,7 @@ import type {
   CreateExpenseBody,
   CreateFriendExpenseBody,
   CreateGroupBody,
+  CreateNonGroupPaymentBody,
   CreatePaymentBody,
   DashboardSummary,
   ErrorResponse,
@@ -1976,6 +1977,95 @@ export const useCreatePayment = <
   TContext
 > => {
   return useMutation(getCreatePaymentMutationOptions(options));
+};
+
+/**
+ * @summary Record a settle-up payment between two friends (no group)
+ */
+export const getCreateNonGroupPaymentUrl = () => {
+  return `/api/payments`;
+};
+
+export const createNonGroupPayment = async (
+  createNonGroupPaymentBody: CreateNonGroupPaymentBody,
+  options?: RequestInit,
+): Promise<Payment> => {
+  return customFetch<Payment>(getCreateNonGroupPaymentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createNonGroupPaymentBody),
+  });
+};
+
+export const getCreateNonGroupPaymentMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createNonGroupPayment>>,
+    TError,
+    { data: BodyType<CreateNonGroupPaymentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createNonGroupPayment>>,
+  TError,
+  { data: BodyType<CreateNonGroupPaymentBody> },
+  TContext
+> => {
+  const mutationKey = ["createNonGroupPayment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createNonGroupPayment>>,
+    { data: BodyType<CreateNonGroupPaymentBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createNonGroupPayment(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateNonGroupPaymentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createNonGroupPayment>>
+>;
+export type CreateNonGroupPaymentMutationBody =
+  BodyType<CreateNonGroupPaymentBody>;
+export type CreateNonGroupPaymentMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | void
+>;
+
+/**
+ * @summary Record a settle-up payment between two friends (no group)
+ */
+export const useCreateNonGroupPayment = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createNonGroupPayment>>,
+    TError,
+    { data: BodyType<CreateNonGroupPaymentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createNonGroupPayment>>,
+  TError,
+  { data: BodyType<CreateNonGroupPaymentBody> },
+  TContext
+> => {
+  return useMutation(getCreateNonGroupPaymentMutationOptions(options));
 };
 
 /**

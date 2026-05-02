@@ -6,9 +6,9 @@ import { groupsTable } from "./groups";
 
 export const paymentsTable = pgTable("payments", {
   id: uuid("id").defaultRandom().primaryKey(),
-  groupId: uuid("group_id")
-    .notNull()
-    .references(() => groupsTable.id, { onDelete: "cascade" }),
+  groupId: uuid("group_id").references(() => groupsTable.id, {
+    onDelete: "cascade",
+  }),
   fromUserId: uuid("from_user_id")
     .notNull()
     .references(() => usersTable.id),

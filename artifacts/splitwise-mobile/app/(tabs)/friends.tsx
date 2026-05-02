@@ -22,6 +22,7 @@ import { useColors } from "@/hooks/useColors";
 import { formatCurrency } from "@/lib/format";
 import { authFetch } from "@/lib/api";
 import { AddExpenseWithFriendModal } from "@/components/AddExpenseWithFriendModal";
+import { SettleUpWithFriendModal } from "@/components/SettleUpWithFriendModal";
 
 const domain = process.env.EXPO_PUBLIC_DOMAIN;
 const API_BASE_URL = domain ? `https://${domain}` : "";
@@ -147,6 +148,7 @@ export default function FriendsScreen() {
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [expenseFriend, setExpenseFriend] = useState<Friend | null>(null);
+  const [settleFriend, setSettleFriend] = useState<Friend | null>(null);
   const me = useGetMe();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -244,18 +246,32 @@ export default function FriendsScreen() {
                       {friend.sharedGroups.map((g) => g.name).join(", ")}
                     </Text>
                   )}
-                  <Pressable
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setExpenseFriend(friend);
-                    }}
-                    disabled={!me.data?.id}
-                    style={{ marginTop: 6, flexDirection: "row", alignItems: "center", alignSelf: "flex-start" }}
-                    hitSlop={6}
-                  >
-                    <Feather name="plus" size={13} color={colors.primary} />
-                    <Text style={[styles.addExpenseText, { color: colors.primary }]}>Add expense</Text>
-                  </Pressable>
+                  <View style={{ flexDirection: "row", gap: 14, marginTop: 6 }}>
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setExpenseFriend(friend);
+                      }}
+                      disabled={!me.data?.id}
+                      style={{ flexDirection: "row", alignItems: "center" }}
+                      hitSlop={6}
+                    >
+                      <Feather name="plus" size={13} color={colors.primary} />
+                      <Text style={[styles.addExpenseText, { color: colors.primary }]}>Add expense</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setSettleFriend(friend);
+                      }}
+                      disabled={!me.data?.id}
+                      style={{ flexDirection: "row", alignItems: "center" }}
+                      hitSlop={6}
+                    >
+                      <Feather name="check-circle" size={13} color={colors.primary} />
+                      <Text style={[styles.addExpenseText, { color: colors.primary }]}>Settle up</Text>
+                    </Pressable>
+                  </View>
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
                   {isEven ? (
@@ -283,6 +299,14 @@ export default function FriendsScreen() {
           friends={[expenseFriend]}
           currentUserId={me.data.id}
           onClose={() => setExpenseFriend(null)}
+        />
+      )}
+      {settleFriend && me.data?.id && (
+        <SettleUpWithFriendModal
+          friend={settleFriend}
+          currentUserId={me.data.id}
+          netBalance={settleFriend.netBalance}
+          onClose={() => setSettleFriend(null)}
         />
       )}
     </View>

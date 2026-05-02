@@ -16,8 +16,9 @@ import {
 } from "@/components/ui/dialog";
 import { cn, formatCurrency } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Search, Plus } from "lucide-react";
+import { UserPlus, Search, Plus, HandCoins } from "lucide-react";
 import { AddExpenseWithFriendDialog } from "@/components/add-expense-with-friend-dialog";
+import { SettleUpWithFriendDialog } from "@/components/settle-up-with-friend-dialog";
 import { Link } from "wouter";
 
 interface Friend {
@@ -169,6 +170,7 @@ function AddFriendDialog({ existingFriendIds }: { existingFriendIds: Set<number>
 export function FriendsPage() {
   const [search, setSearch] = useState("");
   const [expenseFriend, setExpenseFriend] = useState<Friend | null>(null);
+  const [settleFriend, setSettleFriend] = useState<Friend | null>(null);
   const me = useGetMe();
 
   const { data: friends, isLoading, isError } = useQuery<Friend[]>({
@@ -280,17 +282,30 @@ export function FriendsPage() {
                     </div>
                   </Link>
                   <BalanceBadge amount={friend.netBalance} />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!me.data?.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpenseFriend(friend);
-                    }}
-                  >
-                    <Plus className="w-4 h-4 mr-1" /> Add expense
-                  </Button>
+                  <div className="flex flex-col gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!me.data?.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpenseFriend(friend);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Add expense
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!me.data?.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSettleFriend(friend);
+                      }}
+                    >
+                      <HandCoins className="w-4 h-4 mr-1" /> Settle up
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -304,6 +319,18 @@ export function FriendsPage() {
             open
             onOpenChange={(o) => {
               if (!o) setExpenseFriend(null);
+            }}
+          />
+        )}
+
+        {settleFriend && me.data?.id && (
+          <SettleUpWithFriendDialog
+            friend={settleFriend}
+            currentUserId={me.data.id}
+            netBalance={settleFriend.netBalance}
+            open
+            onOpenChange={(o) => {
+              if (!o) setSettleFriend(null);
             }}
           />
         )}

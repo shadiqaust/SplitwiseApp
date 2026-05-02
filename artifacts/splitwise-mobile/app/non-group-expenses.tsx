@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -16,6 +18,10 @@ import {
 
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  SettleUpWithFriendModal,
+  type SettleFriend,
+} from "@/components/SettleUpWithFriendModal";
 import { useColors } from "@/hooks/useColors";
 import { authFetch } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
@@ -34,6 +40,10 @@ export default function NonGroupExpensesScreen() {
   const colors = useColors();
   const me = useGetMe();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [settleTarget, setSettleTarget] = useState<{
+    friend: SettleFriend;
+    impact: number;
+  } | null>(null);
 
   const query = useQuery<NonGroupResponse>({
     queryKey: NON_GROUP_KEY,
@@ -150,13 +160,28 @@ export default function NonGroupExpensesScreen() {
                   {bucket.label.toUpperCase()}
                 </Text>
                 {bucket.items.map((e) => (
-                  <ExpenseRow key={e.id} expense={e} myId={myId} />
+                  <ExpenseRow
+                    key={e.id}
+                    expense={e}
+                    myId={myId}
+                    onSettle={(friend, impact) =>
+                      setSettleTarget({ friend, impact })
+                    }
+                  />
                 ))}
               </View>
             ))}
           </View>
         )}
       </ScrollView>
+      {settleTarget && myId && (
+        <SettleUpWithFriendModal
+          friend={settleTarget.friend}
+          currentUserId={myId}
+          netBalance={settleTarget.impact}
+          onClose={() => setSettleTarget(null)}
+        />
+      )}
     </>
   );
 }
@@ -164,9 +189,11 @@ export default function NonGroupExpensesScreen() {
 function ExpenseRow({
   expense,
   myId,
+  onSettle,
 }: {
   expense: ExpenseWithSplits;
   myId: string | undefined;
+  onSettle: (friend: SettleFriend, impact: number) => void;
 }) {
   const colors = useColors();
   const total = Number(expense.totalAmount);
@@ -178,14 +205,31 @@ function ExpenseRow({
   const owedToMe = iPaid ? total - myShare : 0;
   const iOwe = !iPaid && mySplit ? myShare : 0;
 
-  const otherNames = expense.splits
-    .filter((s) => s.userId !== myId)
-    .map((s) => s.user?.name ?? "")
-    .filter(Boolean);
+  const otherSplits = expense.splits.filter((s) => s.userId !== myId);
+  const otherNames = otherSplits.map((s) => s.user?.name ?? "").filter(Boolean);
   const peopleLine =
     otherNames.length > 0
       ? `with ${otherNames.slice(0, 2).join(", ")}${otherNames.length > 2 ? ` +${otherNames.length - 2}` : ""}`
       : "";
+
+  // Only show settle on unambiguous 1-on-1 rows (one counterparty).
+  let settleFriend: SettleFriend | null = null;
+  let settleImpact = 0;
+  if (otherSplits.length === 1) {
+    if (owedToMe > 0 && otherSplits[0].user) {
+      settleFriend = {
+        id: otherSplits[0].userId,
+        name: otherSplits[0].user.name,
+      };
+      settleImpact = Number(otherSplits[0].amount);
+    } else if (iOwe > 0 && expense.paidByUser) {
+      settleFriend = {
+        id: expense.paidByUserId,
+        name: expense.paidByUser.name,
+      };
+      settleImpact = -iOwe;
+    }
+  }
 
   return (
     <Card style={styles.row}>
@@ -202,6 +246,24 @@ function ExpenseRow({
         <Text style={[styles.date, { color: colors.mutedForeground }]}>
           {expense.category ?? "General"} · {expense.date}
         </Text>
+        {settleFriend && (
+          <Pressable
+            onPress={() => onSettle(settleFriend!, settleImpact)}
+            hitSlop={6}
+            style={{
+              marginTop: 6,
+              flexDirection: "row",
+              alignItems: "center",
+              alignSelf: "flex-start",
+              gap: 4,
+            }}
+          >
+            <Feather name="check-circle" size={13} color={colors.primary} />
+            <Text style={[styles.settleText, { color: colors.primary }]}>
+              Settle up
+            </Text>
+          </Pressable>
+        )}
       </View>
       <View style={{ alignItems: "flex-end" }}>
         {owedToMe > 0 ? (
@@ -248,4 +310,5 @@ const styles = StyleSheet.create({
   monthLabel: { fontFamily: "Inter_600SemiBold", fontSize: 11, letterSpacing: 0.8 },
   balance: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   balanceSub: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
+  settleText: { fontFamily: "Inter_500Medium", fontSize: 12 },
 });

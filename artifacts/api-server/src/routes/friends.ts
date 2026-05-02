@@ -157,6 +157,33 @@ async function buildFriendList(me: string) {
     applyExpenses(expenses, splitsMap);
   }
 
+  // ── 4c. Non-group payments (groupId IS NULL) involving me ─────────────────
+  const nonGroupPayments = await db
+    .select()
+    .from(paymentsTable)
+    .where(
+      and(
+        isNull(paymentsTable.groupId),
+        or(
+          eq(paymentsTable.fromUserId, me),
+          eq(paymentsTable.toUserId, me),
+        ),
+      ),
+    );
+  for (const p of nonGroupPayments) {
+    if (p.fromUserId === me && friendIdSet.has(p.toUserId)) {
+      netBalances.set(
+        p.toUserId,
+        (netBalances.get(p.toUserId) ?? 0) + parseFloat(p.amount),
+      );
+    } else if (p.toUserId === me && friendIdSet.has(p.fromUserId)) {
+      netBalances.set(
+        p.fromUserId,
+        (netBalances.get(p.fromUserId) ?? 0) - parseFloat(p.amount),
+      );
+    }
+  }
+
   // ── 5. Groups info ─────────────────────────────────────────────────────────
   const groups = myGroupIds.length > 0
     ? await db.select({ id: groupsTable.id, name: groupsTable.name }).from(groupsTable).where(inArray(groupsTable.id, myGroupIds))

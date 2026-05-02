@@ -5,17 +5,11 @@
  * Splitix API
  * OpenAPI spec version: 0.1.0
  */
-import type { User } from "./user";
 
-export interface Payment {
-  id: string;
-  groupId?: string | null;
+export interface CreateNonGroupPaymentBody {
   fromUserId: string;
-  fromUser: User;
   toUserId: string;
-  toUser: User;
   amount: number;
   note?: string | null;
   date: Date;
-  createdAt: Date;
 }

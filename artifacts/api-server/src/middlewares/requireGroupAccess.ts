@@ -127,18 +127,31 @@ export function requirePaymentAccess(paramName = "paymentId") {
       return;
     }
     const [payment] = await db
-      .select({ id: paymentsTable.id, groupId: paymentsTable.groupId })
+      .select({
+        id: paymentsTable.id,
+        groupId: paymentsTable.groupId,
+        fromUserId: paymentsTable.fromUserId,
+        toUserId: paymentsTable.toUserId,
+      })
       .from(paymentsTable)
       .where(eq(paymentsTable.id, paymentId));
     if (!payment) {
       res.status(404).json({ error: "Payment not found" });
       return;
     }
-    if (!(await isMember(payment.groupId, userId))) {
-      res.status(404).json({ error: "Payment not found" });
-      return;
+    if (payment.groupId !== null) {
+      if (!(await isMember(payment.groupId, userId))) {
+        res.status(404).json({ error: "Payment not found" });
+        return;
+      }
+      req.authorizedGroupId = payment.groupId;
+    } else {
+      // Non-group payment: must be from or to the current user.
+      if (payment.fromUserId !== userId && payment.toUserId !== userId) {
+        res.status(404).json({ error: "Payment not found" });
+        return;
+      }
     }
-    req.authorizedGroupId = payment.groupId;
     next();
   };
 }

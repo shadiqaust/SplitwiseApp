@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "wouter";
-import { ChevronLeft, Search, X } from "lucide-react";
+import { ChevronLeft, HandCoins, Search, X } from "lucide-react";
 import {
   type ExpenseWithSplits,
   type Payment,
@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SettleUpWithFriendDialog } from "@/components/settle-up-with-friend-dialog";
 import { cn, formatCurrency } from "@/lib/format";
 
 interface FriendActivityResponse {
@@ -58,6 +59,7 @@ export function FriendDetailPage() {
   const me = useGetMe();
   const myId = me.data?.id;
   const [search, setSearch] = useState("");
+  const [settleOpen, setSettleOpen] = useState(false);
 
   const { data, isLoading } = useQuery<FriendActivityResponse>({
     queryKey: ["friend-activity", friendId],
@@ -131,7 +133,27 @@ export function FriendDetailPage() {
               Friends
             </Button>
           </Link>
+          {friend && myId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={() => setSettleOpen(true)}
+            >
+              <HandCoins className="w-4 h-4 mr-1.5" /> Settle up
+            </Button>
+          )}
         </div>
+
+        {friend && myId && (
+          <SettleUpWithFriendDialog
+            friend={{ id: friend.id, name: friend.name }}
+            currentUserId={myId}
+            netBalance={net}
+            open={settleOpen}
+            onOpenChange={setSettleOpen}
+          />
+        )}
 
         {isLoading && !data ? (
           <Card>

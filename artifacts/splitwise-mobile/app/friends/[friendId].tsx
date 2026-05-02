@@ -22,6 +22,7 @@ import {
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { SettleUpWithFriendModal } from "@/components/SettleUpWithFriendModal";
 import { useColors } from "@/hooks/useColors";
 import { authFetch } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
@@ -45,6 +46,7 @@ export default function FriendDetailScreen() {
   const me = useGetMe();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [search, setSearch] = useState("");
+  const [showSettle, setShowSettle] = useState(false);
 
   const query = useQuery<FriendActivityResponse>({
     queryKey: ["friend-activity", friendId],
@@ -140,36 +142,52 @@ export default function FriendDetailScreen() {
         }
       >
         {friend && (
-          <Card style={styles.headerCard}>
-            <Avatar name={friend.name} url={friend.avatarUrl ?? null} size={56} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.friendName, { color: colors.foreground }]} numberOfLines={1}>
-                {friend.name}
-              </Text>
-              <Text style={[styles.friendEmail, { color: colors.mutedForeground }]} numberOfLines={1}>
-                {friend.email}
-              </Text>
-            </View>
-            <View style={{ alignItems: "flex-end" }}>
-              {Math.abs(net) < 0.01 ? (
-                <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>settled</Text>
-              ) : (
-                <>
-                  <Text
-                    style={[
-                      styles.balanceAmount,
-                      { color: net > 0 ? colors.positive : colors.negative },
-                    ]}
-                  >
-                    {formatCurrency(Math.abs(net))}
-                  </Text>
-                  <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
-                    {net > 0 ? "owes you" : "you owe"}
-                  </Text>
-                </>
-              )}
-            </View>
-          </Card>
+          <>
+            <Card style={styles.headerCard}>
+              <Avatar name={friend.name} url={friend.avatarUrl ?? null} size={56} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.friendName, { color: colors.foreground }]} numberOfLines={1}>
+                  {friend.name}
+                </Text>
+                <Text style={[styles.friendEmail, { color: colors.mutedForeground }]} numberOfLines={1}>
+                  {friend.email}
+                </Text>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                {Math.abs(net) < 0.01 ? (
+                  <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>settled</Text>
+                ) : (
+                  <>
+                    <Text
+                      style={[
+                        styles.balanceAmount,
+                        { color: net > 0 ? colors.positive : colors.negative },
+                      ]}
+                    >
+                      {formatCurrency(Math.abs(net))}
+                    </Text>
+                    <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
+                      {net > 0 ? "owes you" : "you owe"}
+                    </Text>
+                  </>
+                )}
+              </View>
+            </Card>
+            {myId && (
+              <Pressable
+                onPress={() => setShowSettle(true)}
+                style={[
+                  styles.settleBtn,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                ]}
+              >
+                <Feather name="check-circle" size={16} color={colors.primary} />
+                <Text style={[styles.settleBtnText, { color: colors.primary }]}>
+                  Settle up with {friend.name}
+                </Text>
+              </Pressable>
+            )}
+          </>
         )}
 
         {allItems.length > 0 && (
@@ -229,6 +247,14 @@ export default function FriendDetailScreen() {
           ))
         )}
       </ScrollView>
+      {showSettle && friend && myId && (
+        <SettleUpWithFriendModal
+          friend={{ id: friend.id, name: friend.name }}
+          currentUserId={myId}
+          netBalance={net}
+          onClose={() => setShowSettle(false)}
+        />
+      )}
     </>
   );
 }
@@ -368,6 +394,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   searchInput: { flex: 1, fontFamily: "Inter_400Regular", fontSize: 14 },
+  settleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  settleBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   noMatch: {
     fontFamily: "Inter_400Regular",
     fontSize: 13,

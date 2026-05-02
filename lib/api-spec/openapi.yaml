@@ -541,6 +541,32 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /payments:
+    post:
+      operationId: createNonGroupPayment
+      tags: [payments]
+      summary: Record a settle-up payment between two friends (no group)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNonGroupPaymentBody"
+      responses:
+        "201":
+          description: Created payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Not friends with the recipient
+
   /payments/{paymentId}:
     delete:
       operationId: deletePayment
@@ -1050,6 +1076,7 @@ components:
         groupId:
           type: string
           format: uuid
+          nullable: true
         fromUserId:
           type: string
           format: uuid
@@ -1071,7 +1098,26 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, groupId, fromUserId, fromUser, toUserId, toUser, amount, date, createdAt]
+      required: [id, fromUserId, fromUser, toUserId, toUser, amount, date, createdAt]
+
+    CreateNonGroupPaymentBody:
+      type: object
+      properties:
+        fromUserId:
+          type: string
+          format: uuid
+        toUserId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        note:
+          type: string
+          nullable: true
+        date:
+          type: string
+          format: date
+      required: [fromUserId, toUserId, amount, date]
 
     CreatePaymentBody:
       type: object

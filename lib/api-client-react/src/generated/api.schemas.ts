@@ -192,7 +192,7 @@ export interface CreateFriendExpenseBody {
 
 export interface Payment {
   id: string;
-  groupId: string;
+  groupId?: string | null;
   fromUserId: string;
   fromUser: User;
   toUserId: string;
@@ -201,6 +201,14 @@ export interface Payment {
   note?: string | null;
   date: string;
   createdAt: string;
+}
+
+export interface CreateNonGroupPaymentBody {
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+  note?: string | null;
+  date: string;
 }
 
 export interface CreatePaymentBody {

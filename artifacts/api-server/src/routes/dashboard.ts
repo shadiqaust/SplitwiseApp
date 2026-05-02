@@ -122,8 +122,31 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     }
   }
 
-  totalOwed += nonGroupOwed;
-  totalIOwe += nonGroupIOwe;
+  // ── Non-group payments (groupId IS NULL) ───────────────────────────────
+  const nonGroupReceived = await db
+    .select()
+    .from(paymentsTable)
+    .where(
+      and(
+        isNull(paymentsTable.groupId),
+        eq(paymentsTable.toUserId, userId),
+      ),
+    );
+  const nonGroupSent = await db
+    .select()
+    .from(paymentsTable)
+    .where(
+      and(
+        isNull(paymentsTable.groupId),
+        eq(paymentsTable.fromUserId, userId),
+      ),
+    );
+  for (const p of nonGroupReceived) nonGroupOwed -= parseFloat(p.amount);
+  for (const p of nonGroupSent) nonGroupIOwe -= parseFloat(p.amount);
+
+  // Clamp so overpayments don't drive a bucket below zero.
+  totalOwed += Math.max(0, nonGroupOwed);
+  totalIOwe += Math.max(0, nonGroupIOwe);
 
   res.json({
     totalOwed: Math.round(totalOwed * 100) / 100,
@@ -189,12 +212,12 @@ router.get("/dashboard/activity", requireAuth, async (req, res): Promise<void> =
 
   for (const payment of payments) {
     const fromUser = await getUserById(payment.fromUserId);
-    const group = groupMap.get(payment.groupId);
+    const group = payment.groupId ? groupMap.get(payment.groupId) : undefined;
     activityItems.push({
       id: `payment-${payment.id}`,
       type: "payment" as const,
-      groupId: payment.groupId,
-      groupName: group?.name ?? "Unknown",
+      groupId: payment.groupId ?? "",
+      groupName: group?.name ?? (payment.groupId ? "Unknown" : "Friends"),
       description: payment.note ?? `${fromUser?.name ?? "Someone"} paid`,
       amount: parseFloat(payment.amount),
       involvedUserId: payment.fromUserId,

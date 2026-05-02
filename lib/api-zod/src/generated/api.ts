@@ -316,7 +316,7 @@ export const GetFriendActivityResponse = zod.object({
   payments: zod.array(
     zod.object({
       id: zod.string().uuid(),
-      groupId: zod.string().uuid(),
+      groupId: zod.string().uuid().nullish(),
       fromUserId: zod.string().uuid(),
       fromUser: zod.object({
         id: zod.string().uuid(),
@@ -706,7 +706,7 @@ export const ListPaymentsParams = zod.object({
 
 export const ListPaymentsResponseItem = zod.object({
   id: zod.string().uuid(),
-  groupId: zod.string().uuid(),
+  groupId: zod.string().uuid().nullish(),
   fromUserId: zod.string().uuid(),
   fromUser: zod.object({
     id: zod.string().uuid(),
@@ -742,6 +742,17 @@ export const CreatePaymentParams = zod.object({
 });
 
 export const CreatePaymentBody = zod.object({
+  fromUserId: zod.string().uuid(),
+  toUserId: zod.string().uuid(),
+  amount: zod.number(),
+  note: zod.string().nullish(),
+  date: zod.coerce.date(),
+});
+
+/**
+ * @summary Record a settle-up payment between two friends (no group)
+ */
+export const CreateNonGroupPaymentBody = zod.object({
   fromUserId: zod.string().uuid(),
   toUserId: zod.string().uuid(),
   amount: zod.number(),

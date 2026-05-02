@@ -1,17 +1,18 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, or, and, inArray } from "drizzle-orm";
 import {
   db,
   paymentsTable,
   usersTable,
   groupMembersTable,
+  friendshipsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import {
   requireGroupMember,
   requirePaymentAccess,
 } from "../middlewares/requireGroupAccess";
-import { CreatePaymentBody } from "@workspace/api-zod";
+import { CreatePaymentBody, CreateNonGroupPaymentBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -90,6 +91,102 @@ router.post(
       .insert(paymentsTable)
       .values({
         groupId,
+        fromUserId,
+        toUserId,
+        amount: amount.toFixed(2),
+        note: note ?? null,
+        date: dateStr,
+      })
+      .returning();
+
+    res.status(201).json(await buildPayment(payment));
+  },
+);
+
+// Non-group payment between two friends (no groupId).
+router.post(
+  "/payments",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const me = req.dbUserId!;
+    const parsed = CreateNonGroupPaymentBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const { fromUserId, toUserId, amount, note, date } = parsed.data;
+
+    if (amount <= 0) {
+      res.status(400).json({ error: "Amount must be positive" });
+      return;
+    }
+    if (fromUserId === toUserId) {
+      res.status(400).json({ error: "From and to users must differ" });
+      return;
+    }
+    if (fromUserId !== me && toUserId !== me) {
+      res.status(403).json({
+        error: "Payment must involve the current user",
+      });
+      return;
+    }
+
+    const friendId = fromUserId === me ? toUserId : fromUserId;
+
+    // Verify friendship (direct or shared group).
+    const [direct] = await db
+      .select({ id: friendshipsTable.id })
+      .from(friendshipsTable)
+      .where(
+        or(
+          and(
+            eq(friendshipsTable.userId, me),
+            eq(friendshipsTable.friendId, friendId),
+          ),
+          and(
+            eq(friendshipsTable.userId, friendId),
+            eq(friendshipsTable.friendId, me),
+          ),
+        ),
+      )
+      .limit(1);
+
+    let isFriend = Boolean(direct);
+    if (!isFriend) {
+      const myGroups = await db
+        .select({ groupId: groupMembersTable.groupId })
+        .from(groupMembersTable)
+        .where(eq(groupMembersTable.userId, me));
+      if (myGroups.length > 0) {
+        const [shared] = await db
+          .select({ id: groupMembersTable.id })
+          .from(groupMembersTable)
+          .where(
+            and(
+              eq(groupMembersTable.userId, friendId),
+              inArray(
+                groupMembersTable.groupId,
+                myGroups.map((g) => g.groupId),
+              ),
+            ),
+          )
+          .limit(1);
+        isFriend = Boolean(shared);
+      }
+    }
+
+    if (!isFriend) {
+      res.status(403).json({ error: "Recipient is not your friend" });
+      return;
+    }
+
+    const dateStr = (date instanceof Date ? date.toISOString() : String(date)).slice(0, 10);
+
+    const [payment] = await db
+      .insert(paymentsTable)
+      .values({
+        groupId: null,
         fromUserId,
         toUserId,
         amount: amount.toFixed(2),

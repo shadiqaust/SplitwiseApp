@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { ChevronLeft, DollarSign } from "lucide-react";
+import { ChevronLeft, DollarSign, HandCoins } from "lucide-react";
 import {
   type ExpenseWithSplits,
   useGetMe,
@@ -11,6 +11,10 @@ import { Layout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  SettleUpWithFriendDialog,
+  type SettleFriend,
+} from "@/components/settle-up-with-friend-dialog";
 import { cn, formatCurrency } from "@/lib/format";
 
 const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
@@ -29,6 +33,10 @@ function authHeaders(): HeadersInit {
 export function NonGroupExpensesPage() {
   const me = useGetMe();
   const myId = me.data?.id;
+  const [settleTarget, setSettleTarget] = useState<{
+    friend: SettleFriend;
+    impact: number;
+  } | null>(null);
 
   const { data, isLoading } = useQuery<NonGroupResponse>({
     queryKey: ["non-group-expenses"],
@@ -146,12 +154,31 @@ export function NonGroupExpensesPage() {
                 </p>
                 <div className="space-y-3">
                   {bucket.items.map((e) => (
-                    <ExpenseRow key={e.id} expense={e} myId={myId} />
+                    <ExpenseRow
+                      key={e.id}
+                      expense={e}
+                      myId={myId}
+                      onSettle={(friend, impact) =>
+                        setSettleTarget({ friend, impact })
+                      }
+                    />
                   ))}
                 </div>
               </div>
             ))}
           </div>
+        )}
+
+        {settleTarget && myId && (
+          <SettleUpWithFriendDialog
+            friend={settleTarget.friend}
+            currentUserId={myId}
+            netBalance={settleTarget.impact}
+            open
+            onOpenChange={(o) => {
+              if (!o) setSettleTarget(null);
+            }}
+          />
         )}
       </div>
     </Layout>
@@ -161,9 +188,11 @@ export function NonGroupExpensesPage() {
 function ExpenseRow({
   expense,
   myId,
+  onSettle,
 }: {
   expense: ExpenseWithSplits;
   myId: string | undefined;
+  onSettle: (friend: SettleFriend, impact: number) => void;
 }) {
   const total = Number(expense.totalAmount);
   const iPaid = myId && expense.paidByUserId === myId;
@@ -174,14 +203,32 @@ function ExpenseRow({
   const owedToMe = iPaid ? total - myShare : 0;
   const iOwe = !iPaid && mySplit ? myShare : 0;
 
-  const otherNames = expense.splits
-    .filter((s) => s.userId !== myId)
-    .map((s) => s.user?.name ?? "")
-    .filter(Boolean);
+  const otherSplits = expense.splits.filter((s) => s.userId !== myId);
+  const otherNames = otherSplits.map((s) => s.user?.name ?? "").filter(Boolean);
   const peopleLine =
     otherNames.length > 0
       ? `with ${otherNames.slice(0, 3).join(", ")}${otherNames.length > 3 ? ` +${otherNames.length - 3}` : ""}`
       : "";
+
+  // Settle button only on unambiguous 1-on-1 rows (one counterparty).
+  // Multi-person rows: users settle from the friend page or friends list.
+  let settleFriend: SettleFriend | null = null;
+  let settleImpact = 0;
+  if (otherSplits.length === 1) {
+    if (owedToMe > 0 && otherSplits[0].user) {
+      settleFriend = {
+        id: otherSplits[0].userId,
+        name: otherSplits[0].user.name,
+      };
+      settleImpact = Number(otherSplits[0].amount);
+    } else if (iOwe > 0 && expense.paidByUser) {
+      settleFriend = {
+        id: expense.paidByUserId,
+        name: expense.paidByUser.name,
+      };
+      settleImpact = -iOwe;
+    }
+  }
 
   return (
     <Card>
@@ -198,7 +245,7 @@ function ExpenseRow({
             {expense.category ?? "General"} · {expense.date}
           </p>
         </div>
-        <div className="text-right">
+        <div className="text-right shrink-0">
           {owedToMe > 0 ? (
             <>
               <p className="font-semibold text-primary">
@@ -217,6 +264,16 @@ function ExpenseRow({
             <p className="text-xs text-muted-foreground">not involved</p>
           )}
         </div>
+        {settleFriend && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+            onClick={() => onSettle(settleFriend!, settleImpact)}
+          >
+            <HandCoins className="w-4 h-4 mr-1.5" /> Settle up
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
