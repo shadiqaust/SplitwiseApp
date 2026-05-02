@@ -21,7 +21,7 @@ async function getUserById(id: string) {
   return user;
 }
 
-async function buildPayment(payment: typeof paymentsTable.$inferSelect) {
+export async function buildPayment(payment: typeof paymentsTable.$inferSelect) {
   const fromUser = await getUserById(payment.fromUserId);
   const toUser = await getUserById(payment.toUserId);
   return {

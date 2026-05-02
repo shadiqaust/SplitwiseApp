@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { ChevronLeft, DollarSign, HandCoins, Users } from "lucide-react";
+import { ChevronLeft, DollarSign, HandCoins, Receipt, Users } from "lucide-react";
 import {
   type ExpenseWithSplits,
+  type Payment,
   useGetMe,
 } from "@workspace/api-client-react";
 
@@ -15,10 +16,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { PaymentDetailDialog } from "@/components/payment-detail-dialog";
+import {
   SettleUpWithFriendDialog,
   type SettleFriend,
 } from "@/components/settle-up-with-friend-dialog";
-import { cn, formatCurrency } from "@/lib/format";
+import { getCategoryIcon } from "@/lib/expense-categories";
+import { cn, formatCurrency, formatDate } from "@/lib/format";
 
 const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
 
@@ -26,6 +36,7 @@ interface NonGroupResponse {
   myNetBalance: number;
   count: number;
   expenses: ExpenseWithSplits[];
+  payments?: Payment[];
   /** Per-friend net for non-group activity only (positive = friend owes me). */
   friendNets?: Record<string, number>;
 }
@@ -51,6 +62,8 @@ interface FriendRow {
   net: number;
 }
 
+type FilterPeriod = "all" | "7d" | "30d";
+
 export function NonGroupExpensesPage() {
   const me = useGetMe();
   const myId = me.data?.id;
@@ -58,6 +71,9 @@ export function NonGroupExpensesPage() {
     friend: SettleFriend;
     impact: number;
   } | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [filterFriendId, setFilterFriendId] = useState<string | "all">("all");
+  const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>("all");
 
   const { data, isLoading } = useQuery<NonGroupResponse>({
     queryKey: ["non-group-expenses"],
@@ -71,32 +87,12 @@ export function NonGroupExpensesPage() {
   });
 
   const expenses = data?.expenses ?? [];
+  const payments = data?.payments ?? [];
   const net = data?.myNetBalance ?? 0;
   const friendNets = data?.friendNets ?? {};
 
-  const grouped = useMemo(() => {
-    const buckets = new Map<string, ExpenseWithSplits[]>();
-    const labels = new Map<string, string>();
-    const sorted = [...expenses].sort((a, b) => {
-      const d = String(b.date).localeCompare(String(a.date));
-      if (d !== 0) return d;
-      return String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
-    });
-    for (const e of sorted) {
-      const d = new Date(String(e.date));
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const label = MONTH_FMT.format(d);
-      if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key)!.push(e);
-      labels.set(key, label);
-    }
-    return Array.from(buckets.entries())
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
-  }, [expenses]);
-
-  // Build friends list from expenses involving the user.
-  // A "friend" here is anyone who appears alongside me on a non-group expense.
+  // Build friends list from anyone who appears alongside me on a non-group
+  // expense or payment.
   const friends = useMemo<FriendRow[]>(() => {
     if (!myId) return [];
     const userById = new Map<string, { name: string; avatarUrl: string | null }>();
@@ -116,12 +112,25 @@ export function NonGroupExpensesPage() {
         }
       }
     }
+    for (const p of payments) {
+      if (p.fromUserId !== myId && p.fromUser) {
+        userById.set(p.fromUserId, {
+          name: p.fromUser.name,
+          avatarUrl: p.fromUser.avatarUrl ?? null,
+        });
+      }
+      if (p.toUserId !== myId && p.toUser) {
+        userById.set(p.toUserId, {
+          name: p.toUser.name,
+          avatarUrl: p.toUser.avatarUrl ?? null,
+        });
+      }
+    }
     const rows: FriendRow[] = [];
     for (const [id, u] of userById) {
       rows.push({ id, name: u.name, avatarUrl: u.avatarUrl, net: friendNets[id] ?? 0 });
     }
     rows.sort((a, b) => {
-      // Unsettled first (largest |net|), then alphabetical.
       const da = Math.abs(a.net), db = Math.abs(b.net);
       if (da > 0.005 && db < 0.005) return -1;
       if (db > 0.005 && da < 0.005) return 1;
@@ -129,7 +138,79 @@ export function NonGroupExpensesPage() {
       return a.name.localeCompare(b.name);
     });
     return rows;
-  }, [expenses, friendNets, myId]);
+  }, [expenses, payments, friendNets, myId]);
+
+  // Combined activity (expenses + payments).
+  const combined = useMemo(() => {
+    const e = expenses.map((x) => ({
+      kind: "expense" as const,
+      id: `e-${x.id}`,
+      data: x,
+      date: x.date,
+      createdAt: x.createdAt,
+    }));
+    const p = payments.map((x) => ({
+      kind: "payment" as const,
+      id: `p-${x.id}`,
+      data: x,
+      date: x.date,
+      createdAt: x.createdAt,
+    }));
+    return [...e, ...p].sort((a, b) => {
+      const d = String(b.date).localeCompare(String(a.date));
+      if (d !== 0) return d;
+      return String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
+    });
+  }, [expenses, payments]);
+
+  const filteredCombined = useMemo(() => {
+    let items = combined;
+    if (filterPeriod !== "all") {
+      const days = filterPeriod === "7d" ? 7 : 30;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      items = items.filter((item) => {
+        const d =
+          item.date instanceof Date
+            ? item.date
+            : new Date(item.date as string);
+        return d >= cutoff;
+      });
+    }
+    if (filterFriendId !== "all") {
+      items = items.filter((item) => {
+        if (item.kind === "expense") {
+          // Expense involves the friend if they paid OR they appear in splits.
+          if (item.data.paidByUserId === filterFriendId) return true;
+          return item.data.splits.some((s) => s.userId === filterFriendId);
+        }
+        return (
+          item.data.fromUserId === filterFriendId ||
+          item.data.toUserId === filterFriendId
+        );
+      });
+    }
+    return items;
+  }, [combined, filterFriendId, filterPeriod]);
+
+  const groupedActivity = useMemo(() => {
+    const buckets = new Map<string, typeof filteredCombined>();
+    const labels = new Map<string, string>();
+    for (const it of filteredCombined) {
+      const d = new Date(String(it.date));
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = MONTH_FMT.format(d);
+      if (!buckets.has(key)) buckets.set(key, [] as typeof filteredCombined);
+      buckets.get(key)!.push(it);
+      labels.set(key, label);
+    }
+    return Array.from(buckets.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
+  }, [filteredCombined]);
+
+  const hasAny = expenses.length > 0 || payments.length > 0;
+  const filtersActive = filterFriendId !== "all" || filterPeriod !== "all";
 
   return (
     <Layout>
@@ -200,7 +281,7 @@ export function NonGroupExpensesPage() {
               </Card>
             ))}
           </div>
-        ) : expenses.length === 0 ? (
+        ) : !hasAny ? (
           <div className="text-center py-12 px-4 border rounded-xl bg-card">
             <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">
@@ -212,35 +293,101 @@ export function NonGroupExpensesPage() {
             </p>
           </div>
         ) : (
-          <Tabs defaultValue="friends" className="space-y-4">
+          <Tabs defaultValue="activity" className="space-y-4">
             <TabsList className="grid grid-cols-2 w-full max-w-sm">
-              <TabsTrigger value="friends">
-                Friends{friends.length ? ` (${friends.length})` : ""}
+              <TabsTrigger value="activity">Activity</TabsTrigger>
+              <TabsTrigger value="balances">
+                Balances{friends.length ? ` (${friends.length})` : ""}
               </TabsTrigger>
-              <TabsTrigger value="expenses">Expenses</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="expenses" className="space-y-6 mt-2">
-              {grouped.map((bucket) => (
-                <div key={bucket.key} className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {bucket.label}
-                  </p>
-                  <div className="space-y-3">
-                    {bucket.items.map((e) => (
-                      <ExpenseRow
-                        key={e.id}
-                        expense={e}
-                        myId={myId}
-                        friendNets={friendNets}
-                      />
+            <TabsContent value="activity" className="space-y-3 mt-2">
+              {/* Filters */}
+              <div className="flex flex-wrap gap-2 items-center">
+                <Select
+                  value={filterFriendId}
+                  onValueChange={(v) => setFilterFriendId(v)}
+                >
+                  <SelectTrigger className="w-44 h-8 text-xs">
+                    <SelectValue placeholder="All friends" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All friends</SelectItem>
+                    {friends.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
+                      </SelectItem>
                     ))}
-                  </div>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={filterPeriod}
+                  onValueChange={(v) => setFilterPeriod(v as FilterPeriod)}
+                >
+                  <SelectTrigger className="w-36 h-8 text-xs">
+                    <SelectValue placeholder="All time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All time</SelectItem>
+                    <SelectItem value="7d">Last 7 days</SelectItem>
+                    <SelectItem value="30d">Last 30 days</SelectItem>
+                  </SelectContent>
+                </Select>
+                {filtersActive && (
+                  <button
+                    className="text-xs text-muted-foreground underline"
+                    onClick={() => {
+                      setFilterFriendId("all");
+                      setFilterPeriod("all");
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+
+              {filteredCombined.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    <Receipt className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                    {filtersActive
+                      ? "No activity matches the current filters."
+                      : "No activity yet."}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {groupedActivity.map((bucket) => (
+                    <div key={bucket.key} className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        {bucket.label}
+                      </p>
+                      <div className="space-y-2">
+                        {bucket.items.map((item) =>
+                          item.kind === "expense" ? (
+                            <ExpenseRow
+                              key={item.id}
+                              expense={item.data}
+                              myId={myId}
+                              friendNets={friendNets}
+                            />
+                          ) : (
+                            <PaymentRow
+                              key={item.id}
+                              payment={item.data}
+                              myId={myId}
+                              onClick={() => setSelectedPayment(item.data)}
+                            />
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </TabsContent>
 
-            <TabsContent value="friends" className="space-y-3 mt-2">
+            <TabsContent value="balances" className="space-y-3 mt-2">
               {friends.length === 0 ? (
                 <div className="text-center py-12 px-4 border rounded-xl bg-card">
                   <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -274,6 +421,16 @@ export function NonGroupExpensesPage() {
             open
             onOpenChange={(o) => {
               if (!o) setSettleTarget(null);
+            }}
+          />
+        )}
+        {selectedPayment && myId && (
+          <PaymentDetailDialog
+            payment={selectedPayment}
+            currentUserId={myId}
+            open={!!selectedPayment}
+            onOpenChange={(v) => {
+              if (!v) setSelectedPayment(null);
             }}
           />
         )}
@@ -359,14 +516,14 @@ function ExpenseRow({
       ? `with ${otherNames.slice(0, 3).join(", ")}${otherNames.length > 3 ? ` +${otherNames.length - 3}` : ""}`
       : "";
 
-  // Show "settled up" indicator on 1-on-1 rows whose counterparty net is zero.
-  const onlyCounterparty =
-    otherSplits.length === 1 ? otherSplits[0] : null;
+  const onlyCounterparty = otherSplits.length === 1 ? otherSplits[0] : null;
   const counterpartyNet = onlyCounterparty
     ? friendNets[onlyCounterparty.userId]
     : undefined;
   const isSettled =
     typeof counterpartyNet === "number" && Math.abs(counterpartyNet) < 0.01;
+
+  const Icon = getCategoryIcon(expense.category);
 
   return (
     <Card
@@ -374,6 +531,9 @@ function ExpenseRow({
       className="cursor-pointer hover:bg-accent/40 transition-colors"
     >
       <CardContent className="p-4 flex items-center gap-4">
+        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+          <Icon className="w-5 h-5 text-muted-foreground" />
+        </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold truncate">{expense.description}</p>
           <p className="text-sm text-muted-foreground truncate">
@@ -383,7 +543,7 @@ function ExpenseRow({
             {peopleLine ? ` · ${peopleLine}` : ""}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {expense.category ?? "General"} · {expense.date}
+            {expense.category ?? "General"} · {formatDate(expense.date)}
           </p>
         </div>
         <div className="text-right shrink-0">
@@ -413,6 +573,44 @@ function ExpenseRow({
           ) : (
             <p className="text-xs text-muted-foreground">not involved</p>
           )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PaymentRow({
+  payment,
+  myId,
+  onClick,
+}: {
+  payment: Payment;
+  myId: string | undefined;
+  onClick: () => void;
+}) {
+  const fromYou = payment.fromUserId === myId;
+  const toYou = payment.toUserId === myId;
+  return (
+    <Card
+      onClick={onClick}
+      className="cursor-pointer hover:bg-accent/40 transition-colors"
+    >
+      <CardContent className="py-4 flex items-center gap-4">
+        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+          <HandCoins className="w-5 h-5 text-green-700" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium truncate">
+            {fromYou ? "You" : payment.fromUser.name} settled with{" "}
+            {toYou ? "you" : payment.toUser.name}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {formatDate(payment.date)}
+            {payment.note ? ` · ${payment.note}` : ""}
+          </p>
+        </div>
+        <div className="font-medium text-sm whitespace-nowrap text-green-700">
+          {formatCurrency(payment.amount)}
         </div>
       </CardContent>
     </Card>

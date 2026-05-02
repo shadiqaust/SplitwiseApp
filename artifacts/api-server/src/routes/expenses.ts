@@ -11,6 +11,7 @@ import {
   paymentsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import { buildPayment } from "./payments";
 import {
   requireGroupMember,
   requireExpenseAccess,
@@ -226,7 +227,43 @@ router.get(
     );
 
     if (expenseIds.length === 0) {
-      res.json({ myNetBalance: 0, count: 0, expenses: [] });
+      // Still return any non-group payments (e.g., direct settle-ups with no expenses).
+      const payments = await db
+        .select()
+        .from(paymentsTable)
+        .where(
+          and(
+            isNull(paymentsTable.groupId),
+            isNull(paymentsTable.deletedAt),
+            or(
+              eq(paymentsTable.fromUserId, me),
+              eq(paymentsTable.toUserId, me),
+            ),
+          ),
+        )
+        .orderBy(desc(paymentsTable.date), desc(paymentsTable.createdAt));
+      const builtPayments = await Promise.all(payments.map(buildPayment));
+      let myNet = 0;
+      const friendNetsObj: Record<string, number> = {};
+      for (const p of builtPayments) {
+        if (p.fromUserId === me) {
+          myNet += p.amount;
+          friendNetsObj[p.toUserId] = (friendNetsObj[p.toUserId] ?? 0) + p.amount;
+        } else {
+          myNet -= p.amount;
+          friendNetsObj[p.fromUserId] = (friendNetsObj[p.fromUserId] ?? 0) - p.amount;
+        }
+      }
+      for (const k of Object.keys(friendNetsObj)) {
+        friendNetsObj[k] = Math.round(friendNetsObj[k] * 100) / 100;
+      }
+      res.json({
+        myNetBalance: Math.round(myNet * 100) / 100,
+        count: 0,
+        expenses: [],
+        payments: builtPayments,
+        friendNets: friendNetsObj,
+      });
       return;
     }
 
@@ -302,6 +339,7 @@ router.get(
     }
 
     const built = await Promise.all(expenses.map(buildExpenseWithSplits));
+    const builtPayments = await Promise.all(nonGroupPayments.map(buildPayment));
     const friendNetsObj: Record<string, number> = {};
     for (const [k, v] of friendNets) {
       friendNetsObj[k] = Math.round(v * 100) / 100;
@@ -311,6 +349,7 @@ router.get(
       myNetBalance: Math.round(myNet * 100) / 100,
       count: built.length,
       expenses: built,
+      payments: builtPayments,
       friendNets: friendNetsObj,
     });
   },
