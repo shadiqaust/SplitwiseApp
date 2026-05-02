@@ -13,7 +13,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      <aside className="w-full md:w-64 border-r bg-card flex flex-col">
+      <aside className="w-full md:w-64 border-r bg-card flex flex-col md:sticky md:top-0 md:h-screen md:shrink-0">
         <div className="p-4 border-b">
           <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl text-primary">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
@@ -25,7 +25,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <Link href="/dashboard">
             <Button variant={location === "/dashboard" ? "secondary" : "ghost"} className="w-full justify-start">
               <LayoutDashboard className="w-4 h-4 mr-2" />
@@ -52,8 +52,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
         </nav>
 
-        <div className="p-4 border-t">
-          <div className="flex items-center gap-3 mb-4">
+        <div className="p-4 border-t shrink-0 bg-card">
+          <Link
+            href="/profile"
+            className="flex items-center gap-3 mb-4 rounded-md p-1 -m-1 hover:bg-accent transition-colors"
+            aria-label="Open profile"
+          >
             {user?.avatarUrl ? (
               <img src={user.avatarUrl} alt="Avatar" className="w-10 h-10 rounded-full" />
             ) : (
@@ -67,7 +71,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               )}
             </div>
-          </div>
+          </Link>
           <Button variant="outline" className="w-full justify-start text-destructive" onClick={() => signOut()}>
             <LogOut className="w-4 h-4 mr-2" />
             Sign Out
