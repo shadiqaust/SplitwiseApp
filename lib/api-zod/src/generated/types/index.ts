@@ -27,6 +27,8 @@ export * from "./groupDetail";
 export * from "./groupMember";
 export * from "./groupWithBalance";
 export * from "./healthStatus";
+export * from "./includeMemberInPastExpensesBody";
+export * from "./includeMemberInPastExpensesResponse";
 export * from "./listExpensesParams";
 export * from "./notFoundResponse";
 export * from "./payment";

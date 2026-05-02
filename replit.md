@@ -98,4 +98,18 @@ Clients downscale + JPEG-compress before uploading so payloads stay tiny (~30–
 
 All POST/PUT routes also validate that `paidByUserId` and every split `userId` are members of the group. Payments validate that `fromUserId !== toUserId` and both users are members.
 
+### Adding a member to a group with existing expenses
+
+After a member is added, both web (`AddMemberDialog` in `artifacts/splitwise-web/src/pages/group-detail.tsx`) and mobile (`onAddMember` in `artifacts/splitwise-mobile/app/(tabs)/groups/[id].tsx`) prompt the user: **"Include {name} in past expenses?"**
+
+If the user confirms, they call `POST /api/groups/:groupId/expenses/include-member` (handler in `artifacts/api-server/src/routes/groups.ts`) with `{ userId }`. The handler:
+
+- Wraps everything in a single DB transaction.
+- For each `equal`-split expense in the group: deletes existing splits and re-inserts new ones using the same penny-distribution algorithm as `computeFinalSplits`, with the new user appended.
+- **Skips** `exact` and `percentage` splits — those have user-entered amounts/percentages that should not be silently changed; the response includes `skippedNonEqualCount` so the UI can tell the user.
+- Skips expenses where the user is already in the splits (defensive).
+- Returns `{ updatedCount, skippedNonEqualCount, totalCount }`.
+
+After success, both clients invalidate group + balances queries so the recalculated balances appear immediately.
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

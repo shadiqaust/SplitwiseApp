@@ -16,6 +16,7 @@ import {
   useGetGroup,
   useGetGroupBalances,
   useGetMe,
+  useIncludeMemberInPastExpenses,
   useListExpenses,
   useListPayments,
   useUpdateGroup,
@@ -41,6 +42,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -340,8 +351,10 @@ function AddMemberDialog({ groupId }: { groupId: string }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [addingId, setAddingId] = useState<string | null>(null);
+  const [confirmMember, setConfirmMember] = useState<{ userId: string; name: string } | null>(null);
   const { toast } = useToast();
   const addMember = useAddGroupMember();
+  const includeInPast = useIncludeMemberInPastExpenses();
 
   const { data: users = [], isFetching } = useQuery<UserResult[]>({
     queryKey: ["user-search", search, groupId],
@@ -374,6 +387,7 @@ function AddMemberDialog({ groupId }: { groupId: string }) {
           setOpen(false);
           setSearch("");
           setAddingId(null);
+          setConfirmMember({ userId: user.id, name: user.name });
         },
         onError: (err: unknown) => {
           toast({
@@ -387,7 +401,46 @@ function AddMemberDialog({ groupId }: { groupId: string }) {
     );
   }, [groupId, addMember, toast]);
 
+  const handleConfirmInclude = useCallback(() => {
+    if (!confirmMember) return;
+    const { userId, name } = confirmMember;
+    includeInPast.mutate(
+      { groupId, data: { userId } },
+      {
+        onSuccess: (result) => {
+          invalidateGroupData(groupId);
+          if (result.updatedCount === 0 && result.totalCount === 0) {
+            toast({ title: "No past expenses to update" });
+          } else if (result.updatedCount === 0) {
+            toast({
+              title: "Nothing to update",
+              description: `All ${result.totalCount} expense(s) use exact or percentage splits and were left unchanged.`,
+            });
+          } else {
+            const skipNote = result.skippedNonEqualCount > 0
+              ? ` (${result.skippedNonEqualCount} exact/percentage split(s) left unchanged)`
+              : "";
+            toast({
+              title: `${name} added to ${result.updatedCount} past expense(s)`,
+              description: `Balances have been recalculated${skipNote}.`,
+            });
+          }
+          setConfirmMember(null);
+        },
+        onError: (err: unknown) => {
+          toast({
+            title: "Failed to update past expenses",
+            description: getErrorMessage(err),
+            variant: "destructive",
+          });
+          setConfirmMember(null);
+        },
+      },
+    );
+  }, [confirmMember, groupId, includeInPast, toast]);
+
   return (
+    <>
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSearch(""); }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
@@ -451,6 +504,31 @@ function AddMemberDialog({ groupId }: { groupId: string }) {
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog
+      open={confirmMember !== null}
+      onOpenChange={(o) => { if (!o) setConfirmMember(null); }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Include {confirmMember?.name} in past expenses?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will re-split every existing equal-split expense in this group to include {confirmMember?.name}, and recalculate balances.
+            Expenses with exact or percentage splits will be left unchanged.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={includeInPast.isPending}>No, only future expenses</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={includeInPast.isPending}
+            onClick={(e) => { e.preventDefault(); handleConfirmInclude(); }}
+          >
+            {includeInPast.isPending ? "Updating…" : "Yes, re-split past expenses"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 

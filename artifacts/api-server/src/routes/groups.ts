@@ -19,6 +19,7 @@ import {
   CreateGroupBody,
   UpdateGroupBody,
   AddGroupMemberBody,
+  IncludeMemberInPastExpensesBody,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -284,6 +285,91 @@ router.post(
       ...member,
       user: { ...targetUser, createdAt: targetUser.createdAt.toISOString() },
       joinedAt: member.joinedAt.toISOString(),
+    });
+  },
+);
+
+router.post(
+  "/groups/:groupId/expenses/include-member",
+  requireAuth,
+  requireGroupMember(),
+  async (req, res): Promise<void> => {
+    const groupId = req.authorizedGroupId!;
+    const parsed = IncludeMemberInPastExpensesBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const targetUserId = parsed.data.userId;
+
+    // Verify target user is a current member of this group
+    const [targetMember] = await db
+      .select()
+      .from(groupMembersTable)
+      .where(
+        and(
+          eq(groupMembersTable.groupId, groupId),
+          eq(groupMembersTable.userId, targetUserId),
+        ),
+      );
+    if (!targetMember) {
+      res.status(404).json({ error: "User is not a member of this group" });
+      return;
+    }
+
+    let updatedCount = 0;
+    let skippedNonEqualCount = 0;
+    let totalCount = 0;
+
+    await db.transaction(async (tx) => {
+      // Select expenses inside the transaction so concurrent inserts don't
+      // create a race window between SELECT and re-split.
+      const expenses = await tx
+        .select()
+        .from(expensesTable)
+        .where(eq(expensesTable.groupId, groupId));
+      totalCount = expenses.length;
+
+      for (const expense of expenses) {
+        if (expense.splitType !== "equal") {
+          skippedNonEqualCount++;
+          continue;
+        }
+        const splits = await tx
+          .select()
+          .from(expenseSplitsTable)
+          .where(eq(expenseSplitsTable.expenseId, expense.id));
+
+        // Already included — nothing to do
+        if (splits.some((s) => s.userId === targetUserId)) continue;
+
+        const newUserIds = [...splits.map((s) => s.userId), targetUserId];
+        const totalCents = Math.round(parseFloat(expense.totalAmount) * 100);
+        const baseCents = Math.floor(totalCents / newUserIds.length);
+        let remainder = totalCents - baseCents * newUserIds.length;
+        const newRows = newUserIds.map((uid) => {
+          const cents = baseCents + (remainder > 0 ? 1 : 0);
+          if (remainder > 0) remainder -= 1;
+          return {
+            expenseId: expense.id,
+            userId: uid,
+            amount: (cents / 100).toFixed(2),
+            percentage: null,
+          };
+        });
+
+        await tx
+          .delete(expenseSplitsTable)
+          .where(eq(expenseSplitsTable.expenseId, expense.id));
+        await tx.insert(expenseSplitsTable).values(newRows);
+        updatedCount++;
+      }
+    });
+
+    res.status(200).json({
+      updatedCount,
+      skippedNonEqualCount,
+      totalCount,
     });
   },
 );

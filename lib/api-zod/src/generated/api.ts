@@ -172,6 +172,34 @@ export const RemoveGroupMemberParams = zod.object({
 });
 
 /**
+ * After adding a new member to a group, optionally re-split all existing
+equal-split expenses to include that member. Exact and percentage splits
+are skipped because they have user-entered amounts that should not be
+silently changed.
+
+ * @summary Re-split existing equal-split expenses to include a member
+ */
+export const IncludeMemberInPastExpensesParams = zod.object({
+  groupId: zod.coerce.string().uuid(),
+});
+
+export const IncludeMemberInPastExpensesBody = zod.object({
+  userId: zod.string().uuid(),
+});
+
+export const IncludeMemberInPastExpensesResponse = zod.object({
+  updatedCount: zod
+    .number()
+    .describe("Number of expenses re-split to include the member"),
+  skippedNonEqualCount: zod
+    .number()
+    .describe(
+      "Number of expenses skipped because they use exact or percentage splits",
+    ),
+  totalCount: zod.number().describe("Total number of expenses considered"),
+});
+
+/**
  * @summary Get simplified debt balances for the group
  */
 export const GetGroupBalancesParams = zod.object({

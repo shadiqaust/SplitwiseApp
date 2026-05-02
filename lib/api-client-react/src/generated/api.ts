@@ -32,6 +32,8 @@ import type {
   GroupMember,
   GroupWithBalance,
   HealthStatus,
+  IncludeMemberInPastExpensesBody,
+  IncludeMemberInPastExpensesResponse,
   ListExpensesParams,
   NotFoundResponse,
   Payment,
@@ -872,6 +874,104 @@ export const useRemoveGroupMember = <
   TContext
 > => {
   return useMutation(getRemoveGroupMemberMutationOptions(options));
+};
+
+/**
+ * After adding a new member to a group, optionally re-split all existing
+equal-split expenses to include that member. Exact and percentage splits
+are skipped because they have user-entered amounts that should not be
+silently changed.
+
+ * @summary Re-split existing equal-split expenses to include a member
+ */
+export const getIncludeMemberInPastExpensesUrl = (groupId: string) => {
+  return `/api/groups/${groupId}/expenses/include-member`;
+};
+
+export const includeMemberInPastExpenses = async (
+  groupId: string,
+  includeMemberInPastExpensesBody: IncludeMemberInPastExpensesBody,
+  options?: RequestInit,
+): Promise<IncludeMemberInPastExpensesResponse> => {
+  return customFetch<IncludeMemberInPastExpensesResponse>(
+    getIncludeMemberInPastExpensesUrl(groupId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(includeMemberInPastExpensesBody),
+    },
+  );
+};
+
+export const getIncludeMemberInPastExpensesMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof includeMemberInPastExpenses>>,
+    TError,
+    { groupId: string; data: BodyType<IncludeMemberInPastExpensesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof includeMemberInPastExpenses>>,
+  TError,
+  { groupId: string; data: BodyType<IncludeMemberInPastExpensesBody> },
+  TContext
+> => {
+  const mutationKey = ["includeMemberInPastExpenses"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof includeMemberInPastExpenses>>,
+    { groupId: string; data: BodyType<IncludeMemberInPastExpensesBody> }
+  > = (props) => {
+    const { groupId, data } = props ?? {};
+
+    return includeMemberInPastExpenses(groupId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IncludeMemberInPastExpensesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof includeMemberInPastExpenses>>
+>;
+export type IncludeMemberInPastExpensesMutationBody =
+  BodyType<IncludeMemberInPastExpensesBody>;
+export type IncludeMemberInPastExpensesMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Re-split existing equal-split expenses to include a member
+ */
+export const useIncludeMemberInPastExpenses = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof includeMemberInPastExpenses>>,
+    TError,
+    { groupId: string; data: BodyType<IncludeMemberInPastExpensesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof includeMemberInPastExpenses>>,
+  TError,
+  { groupId: string; data: BodyType<IncludeMemberInPastExpensesBody> },
+  TContext
+> => {
+  return useMutation(getIncludeMemberInPastExpensesMutationOptions(options));
 };
 
 /**

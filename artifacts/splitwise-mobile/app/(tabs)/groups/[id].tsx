@@ -27,6 +27,7 @@ import {
   useGetGroup,
   useGetGroupBalances,
   useGetMe,
+  useIncludeMemberInPastExpenses,
   useListExpenses,
   useListPayments,
   useUpdateGroup,
@@ -100,6 +101,7 @@ export default function GroupDetailScreen() {
   const payments = useListPayments(groupId);
   const balances = useGetGroupBalances(groupId);
   const addMember = useAddGroupMember();
+  const includeInPast = useIncludeMemberInPastExpenses();
   const updateGroup = useUpdateGroup();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -124,6 +126,49 @@ export default function GroupDetailScreen() {
     refetchInterval: false, // search input — don't poll
   });
 
+  const promptIncludeInPastExpenses = (userId: string, name: string) => {
+    Alert.alert(
+      `Include ${name} in past expenses?`,
+      `Re-split every existing equal-split expense in this group to include ${name}, and recalculate balances. Expenses with exact or percentage splits will be left unchanged.`,
+      [
+        { text: "No, only future expenses", style: "cancel" },
+        {
+          text: "Yes, re-split",
+          onPress: () => {
+            includeInPast.mutate(
+              { groupId, data: { userId } },
+              {
+                onSuccess: (result) => {
+                  queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
+                  queryClient.invalidateQueries({ queryKey: getGetGroupBalancesQueryKey(groupId) });
+                  if (result.updatedCount === 0 && result.totalCount === 0) {
+                    Alert.alert("Done", "No past expenses to update.");
+                  } else if (result.updatedCount === 0) {
+                    Alert.alert(
+                      "Nothing to update",
+                      `All ${result.totalCount} expense(s) use exact or percentage splits and were left unchanged.`,
+                    );
+                  } else {
+                    const skipNote = result.skippedNonEqualCount > 0
+                      ? `\n\n${result.skippedNonEqualCount} exact/percentage split(s) left unchanged.`
+                      : "";
+                    Alert.alert(
+                      "Updated",
+                      `${name} added to ${result.updatedCount} past expense(s). Balances recalculated.${skipNote}`,
+                    );
+                  }
+                },
+                onError: (err) => {
+                  Alert.alert("Failed to update past expenses", getErrorMessage(err));
+                },
+              },
+            );
+          },
+        },
+      ],
+    );
+  };
+
   const onAddMember = (user: UserResult) => {
     setAddingUserId(user.id);
     addMember.mutate(
@@ -136,6 +181,7 @@ export default function GroupDetailScreen() {
           queryClient.invalidateQueries({ queryKey: getGetGroupQueryKey(groupId) });
           queryClient.invalidateQueries({ queryKey: getGetGroupBalancesQueryKey(groupId) });
           queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
+          promptIncludeInPastExpenses(user.id, user.name);
         },
         onError: () => {
           setAddingUserId(null);

@@ -216,6 +216,37 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /groups/{groupId}/expenses/include-member:
+    post:
+      operationId: includeMemberInPastExpenses
+      tags: [groups]
+      summary: Re-split existing equal-split expenses to include a member
+      description: |
+        After adding a new member to a group, optionally re-split all existing
+        equal-split expenses to include that member. Exact and percentage splits
+        are skipped because they have user-entered amounts that should not be
+        silently changed.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IncludeMemberInPastExpensesBody"
+      responses:
+        "200":
+          description: Result summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncludeMemberInPastExpensesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /groups/{groupId}/balances:
     get:
       operationId: getGroupBalances
@@ -656,6 +687,30 @@ components:
           type: string
           format: date-time
       required: [id, groupId, userId, user, joinedAt]
+
+    IncludeMemberInPastExpensesBody:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+      required: [userId]
+      additionalProperties: false
+
+    IncludeMemberInPastExpensesResponse:
+      type: object
+      properties:
+        updatedCount:
+          type: integer
+          description: Number of expenses re-split to include the member
+        skippedNonEqualCount:
+          type: integer
+          description: Number of expenses skipped because they use exact or percentage splits
+        totalCount:
+          type: integer
+          description: Total number of expenses considered
+      required: [updatedCount, skippedNonEqualCount, totalCount]
+      additionalProperties: false
 
     AddMemberBody:
       oneOf:

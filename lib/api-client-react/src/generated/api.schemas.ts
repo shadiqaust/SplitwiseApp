@@ -71,6 +71,19 @@ export interface UpdateGroupBody {
   avatarUrl?: string | null;
 }
 
+export interface IncludeMemberInPastExpensesBody {
+  userId: string;
+}
+
+export interface IncludeMemberInPastExpensesResponse {
+  /** Number of expenses re-split to include the member */
+  updatedCount: number;
+  /** Number of expenses skipped because they use exact or percentage splits */
+  skippedNonEqualCount: number;
+  /** Total number of expenses considered */
+  totalCount: number;
+}
+
 export type AddMemberBody =
   | {
       email: string;
