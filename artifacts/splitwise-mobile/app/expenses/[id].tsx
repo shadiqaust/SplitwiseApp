@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -52,6 +53,7 @@ export default function ExpenseDetailScreen() {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   const expense = expenseQ.data;
   const comments = commentsQ.data ?? [];
@@ -181,6 +183,22 @@ export default function ExpenseDetailScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Card>
+            {expense.photoUrl && photoUri(expense.photoUrl) && (
+              <Pressable
+                onPress={() => setPhotoOpen(true)}
+                style={({ pressed }) => [
+                  styles.receiptThumbWrap,
+                  { borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+                ]}
+              >
+                <Image
+                  source={{ uri: photoUri(expense.photoUrl)! }}
+                  style={styles.receiptThumb}
+                  resizeMode="cover"
+                />
+              </Pressable>
+            )}
+
             <View style={styles.headerRow}>
               <View style={[styles.bubble, { backgroundColor: colors.muted }]}>
                 <Feather
@@ -208,19 +226,66 @@ export default function ExpenseDetailScreen() {
                   {expense.groupId ? "Group expense" : "Non-group expense"}
                 </Text>
               </View>
+              <View style={styles.iconBtnGroup}>
+                <Pressable
+                  onPress={() => router.push(`/expenses/edit/${expenseId}`)}
+                  hitSlop={8}
+                  accessibilityLabel="Edit expense"
+                  style={({ pressed }) => [
+                    styles.iconBtn,
+                    {
+                      backgroundColor: colors.muted,
+                      opacity: pressed ? 0.7 : 1,
+                    },
+                  ]}
+                >
+                  <Feather
+                    name="edit-2"
+                    size={16}
+                    color={colors.foreground}
+                  />
+                </Pressable>
+                <Pressable
+                  onPress={onDeleteExpense}
+                  disabled={deleteExpenseMutation.isPending}
+                  hitSlop={8}
+                  accessibilityLabel={
+                    confirmDelete ? "Confirm delete expense" : "Delete expense"
+                  }
+                  style={({ pressed }) => [
+                    styles.iconBtn,
+                    {
+                      backgroundColor: confirmDelete
+                        ? colors.negative
+                        : colors.muted,
+                      opacity: deleteExpenseMutation.isPending
+                        ? 0.5
+                        : pressed
+                          ? 0.7
+                          : 1,
+                    },
+                  ]}
+                >
+                  <Feather
+                    name="trash-2"
+                    size={16}
+                    color={confirmDelete ? "#fff" : colors.negative}
+                  />
+                </Pressable>
+              </View>
             </View>
 
-            {expense.photoUrl && photoUri(expense.photoUrl) && (
-              <Pressable
-                onPress={() => router.push(`/expenses/edit/${expenseId}`)}
-                style={{ marginTop: 14 }}
+            {confirmDelete && (
+              <Text
+                style={{
+                  color: colors.negative,
+                  fontSize: 11,
+                  marginTop: 8,
+                  textAlign: "right",
+                }}
               >
-                <Image
-                  source={{ uri: photoUri(expense.photoUrl)! }}
-                  style={styles.receipt}
-                  resizeMode="cover"
-                />
-              </Pressable>
+                Tap the trash icon again to confirm.
+              </Text>
             )}
 
             <View style={styles.amountRow}>
@@ -394,45 +459,36 @@ export default function ExpenseDetailScreen() {
             </View>
           </Card>
 
-          <Pressable
-            onPress={() => router.push(`/expenses/edit/${expenseId}`)}
-            style={({ pressed }) => [
-              styles.editBtn,
-              {
-                backgroundColor: colors.muted,
-                borderColor: colors.border,
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <Feather name="edit-2" size={16} color={colors.foreground} />
-            <Text style={[styles.editBtnText, { color: colors.foreground }]}>
-              Edit expense
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={onDeleteExpense}
-            disabled={deleteExpenseMutation.isPending}
-            style={({ pressed }) => [
-              styles.deleteBtn,
-              {
-                backgroundColor: colors.negative,
-                opacity: deleteExpenseMutation.isPending
-                  ? 0.6
-                  : pressed
-                    ? 0.85
-                    : 1,
-              },
-            ]}
-          >
-            <Feather name="trash-2" size={16} color="#fff" />
-            <Text style={styles.deleteBtnText}>
-              {confirmDelete ? "Confirm delete expense" : "Delete expense"}
-            </Text>
-          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {expense.photoUrl && photoUri(expense.photoUrl) && (
+        <Modal
+          visible={photoOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPhotoOpen(false)}
+        >
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setPhotoOpen(false)}
+          >
+            <Pressable
+              onPress={() => setPhotoOpen(false)}
+              style={styles.modalCloseBtn}
+              hitSlop={12}
+              accessibilityLabel="Close receipt"
+            >
+              <Feather name="x" size={22} color="#fff" />
+            </Pressable>
+            <Image
+              source={{ uri: photoUri(expense.photoUrl)! }}
+              style={styles.modalImage}
+              resizeMode="contain"
+            />
+          </Pressable>
+        </Modal>
+      )}
     </>
   );
 }
@@ -571,37 +627,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
-  deleteBtn: {
-    flexDirection: "row",
+  iconBtnGroup: { flexDirection: "row", gap: 6 },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 8,
   },
-  deleteBtnText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-    color: "#fff",
-  },
-  editBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  editBtnText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-  },
-  receipt: {
-    width: "100%",
-    height: 200,
+  receiptThumbWrap: {
+    alignSelf: "flex-start",
     borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 12,
+  },
+  receiptThumb: {
+    width: 80,
+    height: 80,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  modalImage: {
+    width: "100%",
+    height: "85%",
+  },
+  modalCloseBtn: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    zIndex: 10,
   },
 });

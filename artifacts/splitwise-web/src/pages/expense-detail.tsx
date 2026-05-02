@@ -21,6 +21,12 @@ import { ArrowLeft, MessageSquare, Pencil, Receipt, Send, Trash2 } from "lucide-
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +49,7 @@ export function ExpenseDetailPage() {
   const deleteExpenseMutation = useDeleteExpense();
   const [draft, setDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   const expense = expenseQ.data;
   const comments = commentsQ.data ?? [];
@@ -196,6 +203,21 @@ export function ExpenseDetailPage() {
 
         <Card>
           <CardContent className="p-6 space-y-4">
+            {expense.photoUrl && photoSrc(expense.photoUrl) && (
+              <button
+                type="button"
+                onClick={() => setPhotoOpen(true)}
+                className="block rounded-lg overflow-hidden border bg-muted hover:opacity-90 transition-opacity"
+                aria-label="Open receipt"
+              >
+                <img
+                  src={photoSrc(expense.photoUrl)!}
+                  alt="Receipt"
+                  className="h-24 w-auto object-cover"
+                />
+              </button>
+            )}
+
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center shrink-0">
                 <Receipt className="w-6 h-6 text-muted-foreground" />
@@ -212,22 +234,37 @@ export function ExpenseDetailPage() {
                   {expense.groupId ? "Group expense" : "Non-group expense"}
                 </p>
               </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate(`/expenses/${expenseId}/edit`)}
+                  aria-label="Edit expense"
+                  title="Edit expense"
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={deleteExpenseFn}
+                  disabled={deleteExpenseMutation.isPending}
+                  aria-label={
+                    confirmDelete ? "Confirm delete expense" : "Delete expense"
+                  }
+                  title={
+                    confirmDelete ? "Click again to confirm" : "Delete expense"
+                  }
+                  className={
+                    confirmDelete
+                      ? "text-destructive hover:text-destructive"
+                      : "text-muted-foreground hover:text-destructive"
+                  }
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
-
-            {expense.photoUrl && photoSrc(expense.photoUrl) && (
-              <a
-                href={photoSrc(expense.photoUrl)!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block rounded-lg overflow-hidden border bg-muted"
-              >
-                <img
-                  src={photoSrc(expense.photoUrl)!}
-                  alt="Receipt"
-                  className="w-full max-h-80 object-contain"
-                />
-              </a>
-            )}
 
             <div className="flex items-end justify-between">
               <div>
@@ -356,22 +393,27 @@ export function ExpenseDetailPage() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/expenses/${expenseId}/edit`)}
-          >
-            <Pencil className="w-4 h-4 mr-1" /> Edit expense
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={deleteExpenseFn}
-            disabled={deleteExpenseMutation.isPending}
-          >
-            <Trash2 className="w-4 h-4 mr-1" />
-            {confirmDelete ? "Confirm delete expense" : "Delete expense"}
-          </Button>
-        </div>
+        {confirmDelete && (
+          <p className="text-xs text-destructive text-right">
+            Tap the trash icon again to confirm deletion.
+          </p>
+        )}
+
+        {expense.photoUrl && photoSrc(expense.photoUrl) && (
+          <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
+            <DialogContent className="max-w-3xl p-2 bg-black/95 border-0">
+              <DialogTitle className="sr-only">Receipt</DialogTitle>
+              <DialogDescription className="sr-only">
+                Receipt photo preview
+              </DialogDescription>
+              <img
+                src={photoSrc(expense.photoUrl)!}
+                alt="Receipt"
+                className="w-full max-h-[80vh] object-contain"
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </Layout>
   );
