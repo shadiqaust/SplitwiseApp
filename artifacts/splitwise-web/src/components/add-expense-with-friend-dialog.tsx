@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   SplitType,
@@ -35,17 +35,28 @@ export interface FriendLike {
 }
 
 export function AddExpenseWithFriendDialog({
-  friend,
+  friends,
   currentUserId,
   open,
   onOpenChange,
 }: {
-  friend: FriendLike;
+  friends: FriendLike[];
   currentUserId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const friendId = String(friend.id);
+  const friendIds = useMemo(() => friends.map((f) => String(f.id)), [friends]);
+  const isMulti = friends.length > 1;
+
+  // Participants: me + friends. "You" is always first.
+  const participants = useMemo(
+    () => [
+      { id: currentUserId, name: "You", isMe: true },
+      ...friends.map((f) => ({ id: String(f.id), name: f.name, isMe: false })),
+    ],
+    [currentUserId, friends],
+  );
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createExpense = useCreateFriendExpense();
@@ -54,8 +65,7 @@ export function AddExpenseWithFriendDialog({
   const [amount, setAmount] = useState("");
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
   const [splitType, setSplitType] = useState<SplitType>(SplitType.equal);
-  const [myAmount, setMyAmount] = useState("");
-  const [friendAmount, setFriendAmount] = useState("");
+  const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (open) {
@@ -63,10 +73,24 @@ export function AddExpenseWithFriendDialog({
       setAmount("");
       setPaidByUserId(currentUserId);
       setSplitType(SplitType.equal);
-      setMyAmount("");
-      setFriendAmount("");
+      setExactAmounts({});
     }
   }, [open, currentUserId]);
+
+  const updateExactAmount = (userId: string, value: string) => {
+    setExactAmounts((prev) => ({ ...prev, [userId]: value }));
+  };
+
+  const computeEqualSplits = (total: number) => {
+    const totalCents = Math.round(total * 100);
+    const baseCents = Math.floor(totalCents / participants.length);
+    let remainder = totalCents - baseCents * participants.length;
+    return participants.map((p) => {
+      const cents = baseCents + (remainder > 0 ? 1 : 0);
+      if (remainder > 0) remainder -= 1;
+      return { userId: p.id, amount: cents / 100 };
+    });
+  };
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,33 +106,33 @@ export function AddExpenseWithFriendDialog({
 
     let splits: Array<{ userId: string; amount: number }> = [];
     if (splitType === SplitType.equal) {
-      const totalCents = Math.round(total * 100);
-      const half = Math.floor(totalCents / 2);
-      const extra = totalCents - half * 2;
-      splits = [
-        { userId: currentUserId, amount: (half + extra) / 100 },
-        { userId: friendId, amount: half / 100 },
-      ];
+      splits = computeEqualSplits(total);
     } else {
-      const mine = parseFloat(myAmount) || 0;
-      const theirs = parseFloat(friendAmount) || 0;
-      if (Math.abs(mine + theirs - total) > 0.01) {
+      const sum = participants.reduce(
+        (acc, p) => acc + (parseFloat(exactAmounts[p.id] ?? "0") || 0),
+        0,
+      );
+      if (Math.abs(sum - total) > 0.01) {
         toast({
           title: `Exact amounts must sum to ${formatCurrency(total)}`,
           variant: "destructive",
         });
         return;
       }
-      splits = [
-        { userId: currentUserId, amount: mine },
-        { userId: friendId, amount: theirs },
-      ];
+      splits = participants.map((p) => ({
+        userId: p.id,
+        amount: parseFloat(exactAmounts[p.id] ?? "0") || 0,
+      }));
     }
+
+    const successLabel = isMulti
+      ? `Expense added with ${friends.length} friends`
+      : `Expense added with ${friends[0]?.name ?? "friend"}`;
 
     createExpense.mutate(
       {
         data: {
-          friendUserId: friendId,
+          friendUserIds: friendIds,
           description: description.trim(),
           totalAmount: total,
           currency: "USD",
@@ -127,7 +151,7 @@ export function AddExpenseWithFriendDialog({
           queryClient.invalidateQueries({
             queryKey: getGetActivityQueryKey(),
           });
-          toast({ title: `Expense added with ${friend.name}` });
+          toast({ title: successLabel });
           onOpenChange(false);
         },
         onError: (err: unknown) => {
@@ -141,13 +165,19 @@ export function AddExpenseWithFriendDialog({
     );
   };
 
+  const titleSubtext = isMulti
+    ? `${friends.length} friends`
+    : friends[0]?.name ?? "friend";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
-          <DialogTitle>Add expense with {friend.name}</DialogTitle>
+          <DialogTitle>Add expense with {titleSubtext}</DialogTitle>
           <DialogDescription>
-            This expense isn't tied to a group — just between you and {friend.name}.
+            {isMulti
+              ? `This expense isn't tied to a group — split equally between you and ${friends.length} friends.`
+              : `This expense isn't tied to a group — just between you and ${friends[0]?.name ?? "your friend"}.`}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
@@ -180,8 +210,11 @@ export function AddExpenseWithFriendDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={currentUserId}>You</SelectItem>
-                  <SelectItem value={friendId}>{friend.name}</SelectItem>
+                  {participants.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -196,39 +229,40 @@ export function AddExpenseWithFriendDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={SplitType.equal}>Equally (50/50)</SelectItem>
-                  <SelectItem value={SplitType.exact}>Exact amounts</SelectItem>
+                  <SelectItem value={SplitType.equal}>
+                    Equally ({participants.length} ways)
+                  </SelectItem>
+                  {!isMulti && (
+                    <SelectItem value={SplitType.exact}>Exact amounts</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
+          {isMulti && (
+            <p className="text-xs text-muted-foreground">
+              Multi-friend expenses always split equally.
+            </p>
+          )}
+
           {splitType === SplitType.exact && (
             <div className="space-y-2">
               <Label>Exact amounts</Label>
               <div className="border rounded-md divide-y">
-                <div className="flex items-center gap-3 p-3">
-                  <span className="flex-1 text-sm">You</span>
-                  <Input
-                    className="w-28"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={myAmount}
-                    onChange={(e) => setMyAmount(e.target.value)}
-                  />
-                </div>
-                <div className="flex items-center gap-3 p-3">
-                  <span className="flex-1 text-sm">{friend.name}</span>
-                  <Input
-                    className="w-28"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={friendAmount}
-                    onChange={(e) => setFriendAmount(e.target.value)}
-                  />
-                </div>
+                {participants.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 p-3">
+                    <span className="flex-1 text-sm truncate">{p.name}</span>
+                    <Input
+                      className="w-28"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={exactAmounts[p.id] ?? ""}
+                      onChange={(e) => updateExactAmount(p.id, e.target.value)}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}
