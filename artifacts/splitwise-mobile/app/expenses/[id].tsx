@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -37,6 +37,7 @@ import { useColors } from "@/hooks/useColors";
 import { getErrorMessage } from "@/lib/error";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { photoUri } from "@/lib/upload";
+import { getCategoryIcon } from "@/lib/expenseCategories";
 
 export default function ExpenseDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
@@ -245,8 +246,8 @@ export default function ExpenseDetailScreen() {
           <Card>
             <View style={styles.headerRow}>
               <View style={[styles.bubble, { backgroundColor: colors.muted }]}>
-                <Feather
-                  name="file-text"
+                <MaterialCommunityIcons
+                  name={getCategoryIcon(expense.category)}
                   size={22}
                   color={colors.mutedForeground}
                 />

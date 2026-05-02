@@ -24,6 +24,7 @@ import {
   type Payment,
 } from "@workspace/api-client-react";
 import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight, Pencil, QrCode, Copy } from "lucide-react";
+import { getCategoryIcon } from "@/lib/expense-categories";
 import { QRCodeSVG } from "qrcode.react";
 
 const EXPENSE_CATEGORIES = [
@@ -1666,9 +1667,14 @@ export function GroupDetailPage() {
                       className="cursor-pointer hover:bg-accent/40 transition-colors"
                     >
                       <CardContent className="py-4 flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                          <Receipt className="w-5 h-5 text-muted-foreground" />
-                        </div>
+                        {(() => {
+                          const Icon = getCategoryIcon(e.category);
+                          return (
+                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                              <Icon className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                          );
+                        })()}
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">
                             {e.description}

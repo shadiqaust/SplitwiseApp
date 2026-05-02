@@ -16,7 +16,8 @@ import {
   useDeleteExpense,
   type ExpenseComment,
 } from "@workspace/api-client-react";
-import { ArrowLeft, MessageSquare, Pencil, Receipt, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, MessageSquare, Pencil, Send, Trash2 } from "lucide-react";
+import { getCategoryIcon } from "@/lib/expense-categories";
 
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -254,9 +255,14 @@ export function ExpenseDetailPage() {
         <Card>
           <CardContent className="p-6 space-y-4">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center shrink-0">
-                <Receipt className="w-6 h-6 text-muted-foreground" />
-              </div>
+              {(() => {
+                const Icon = getCategoryIcon(expense.category);
+                return (
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <Icon className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                );
+              })()}
               <div className="flex-1 min-w-0">
                 <p className="text-xl font-semibold break-words">
                   {expense.description}

@@ -36,6 +36,7 @@ import {
   type Payment,
 } from "@workspace/api-client-react";
 import { authFetch } from "@/lib/api";
+import { getCategoryIcon } from "@/lib/expenseCategories";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -719,7 +720,7 @@ export default function GroupDetailScreen() {
                     >
                     <Card style={styles.activityRow}>
                       <View style={[styles.bubble, { backgroundColor: colors.muted, borderRadius: 100 }]}>
-                        <Feather name="file-text" size={18} color={colors.mutedForeground} />
+                        <MaterialCommunityIcons name={getCategoryIcon(e.category)} size={18} color={colors.mutedForeground} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.activityTitle, { color: colors.foreground }]} numberOfLines={1}>
