@@ -207,14 +207,14 @@ export default function NonGroupExpensesScreen() {
               ]}
             >
               <TabButton
-                label="Expenses"
-                active={tab === "expenses"}
-                onPress={() => setTab("expenses")}
-              />
-              <TabButton
                 label={`Friends${friends.length ? ` (${friends.length})` : ""}`}
                 active={tab === "friends"}
                 onPress={() => setTab("friends")}
+              />
+              <TabButton
+                label="Expenses"
+                active={tab === "expenses"}
+                onPress={() => setTab("expenses")}
               />
             </View>
 

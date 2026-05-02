@@ -205,10 +205,10 @@ export function NonGroupExpensesPage() {
         ) : (
           <Tabs defaultValue="friends" className="space-y-4">
             <TabsList className="grid grid-cols-2 w-full max-w-sm">
-              <TabsTrigger value="expenses">Expenses</TabsTrigger>
               <TabsTrigger value="friends">
                 Friends{friends.length ? ` (${friends.length})` : ""}
               </TabsTrigger>
+              <TabsTrigger value="expenses">Expenses</TabsTrigger>
             </TabsList>
 
             <TabsContent value="expenses" className="space-y-6 mt-2">
