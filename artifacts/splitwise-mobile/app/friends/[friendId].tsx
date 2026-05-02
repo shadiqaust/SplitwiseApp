@@ -23,6 +23,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SettleUpWithFriendModal } from "@/components/SettleUpWithFriendModal";
+import { PaymentDetailModal } from "@/components/PaymentDetailModal";
 import { useColors } from "@/hooks/useColors";
 import { authFetch } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
@@ -47,6 +48,7 @@ export default function FriendDetailScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [showSettle, setShowSettle] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   const query = useQuery<FriendActivityResponse>({
     queryKey: ["friend-activity", friendId],
@@ -246,7 +248,12 @@ export default function FriendDetailScreen() {
                 item.kind === "expense" ? (
                   <ExpenseRow key={`e-${item.data.id}`} expense={item.data} myId={myId} friendId={String(friendId)} />
                 ) : (
-                  <PaymentRow key={`p-${item.data.id}`} payment={item.data} myId={myId} />
+                  <PaymentRow
+                    key={`p-${item.data.id}`}
+                    payment={item.data}
+                    myId={myId}
+                    onPress={() => setSelectedPayment(item.data)}
+                  />
                 ),
               )}
             </View>
@@ -259,6 +266,13 @@ export default function FriendDetailScreen() {
           currentUserId={myId}
           netBalance={net}
           onClose={() => setShowSettle(false)}
+        />
+      )}
+      {selectedPayment && (
+        <PaymentDetailModal
+          payment={selectedPayment}
+          currentUserId={myId}
+          onClose={() => setSelectedPayment(null)}
         />
       )}
     </>
@@ -328,15 +342,22 @@ function ExpenseRow({
 function PaymentRow({
   payment,
   myId,
+  onPress,
 }: {
   payment: Payment;
   myId: string | undefined;
+  onPress?: () => void;
 }) {
   const colors = useColors();
   const amount = Number(payment.amount);
   const iPaid = myId && payment.fromUserId === myId;
   const impact = iPaid ? amount : -amount;
   return (
+    <Pressable
+      onPress={onPress}
+      android_ripple={{ color: colors.accent }}
+      style={({ pressed }) => [{ opacity: pressed && onPress ? 0.7 : 1 }]}
+    >
     <Card style={styles.row}>
       <View style={{ flex: 1 }}>
         <Text style={[styles.itemTitle, { color: colors.foreground }]} numberOfLines={1}>
@@ -366,6 +387,7 @@ function PaymentRow({
         </Text>
       </View>
     </Card>
+    </Pressable>
   );
 }
 

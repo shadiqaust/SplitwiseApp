@@ -21,6 +21,7 @@ import {
   useListPayments,
   useUpdateGroup,
   type GroupMember,
+  type Payment,
 } from "@workspace/api-client-react";
 import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight, Pencil } from "lucide-react";
 
@@ -41,6 +42,7 @@ const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric"
 
 import { Layout } from "@/components/layout";
 import NotFound from "@/pages/not-found";
+import { PaymentDetailDialog } from "@/components/payment-detail-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -1311,6 +1313,7 @@ export function GroupDetailPage() {
   const [filterMemberId, setFilterMemberId] = useState<string | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"all" | "7d" | "30d">("all");
   const [profileMember, setProfileMember] = useState<ProfileMember | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   const totalGroupSpend = useMemo(
     () => (expenses.data ?? []).reduce((sum, e) => sum + e.totalAmount, 0),
@@ -1621,7 +1624,11 @@ export function GroupDetailPage() {
                 const fromYou = p.fromUserId === myUserId;
                 const toYou = p.toUserId === myUserId;
                 return (
-                  <Card key={item.id}>
+                  <Card
+                    key={item.id}
+                    onClick={() => setSelectedPayment(p)}
+                    className="cursor-pointer hover:bg-accent/40 transition-colors"
+                  >
                     <CardContent className="py-4 flex items-center gap-4">
                       <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
                         <HandCoins className="w-5 h-5 text-green-700" />
@@ -1681,6 +1688,16 @@ export function GroupDetailPage() {
           </TabsContent>
         </Tabs>
       </div>
+      {selectedPayment && (
+        <PaymentDetailDialog
+          payment={selectedPayment}
+          currentUserId={myUserId}
+          open={!!selectedPayment}
+          onOpenChange={(v) => {
+            if (!v) setSelectedPayment(null);
+          }}
+        />
+      )}
     </Layout>
   );
 }

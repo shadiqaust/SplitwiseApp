@@ -31,6 +31,7 @@ import {
   useListExpenses,
   useListPayments,
   useUpdateGroup,
+  type Payment,
 } from "@workspace/api-client-react";
 import { authFetch } from "@/lib/api";
 
@@ -38,6 +39,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PaymentDetailModal } from "@/components/PaymentDetailModal";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency, formatDate } from "@/lib/format";
 
@@ -98,6 +100,7 @@ export default function GroupDetailScreen() {
   const [filterMemberId, setFilterMemberId] = useState<string | "all">("all");
   const [filterPeriod, setFilterPeriod] = useState<"all" | "7d" | "30d">("all");
   const [profileMember, setProfileMember] = useState<{ userId: string; user: { name: string; email: string; avatarUrl: string | null } } | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   // Polling cadence + background-polling are configured globally on the
   // QueryClient (5s, runs in background).
@@ -715,7 +718,13 @@ export default function GroupDetailScreen() {
                 const fromYou = p.fromUserId === myUserId;
                 const toYou = p.toUserId === myUserId;
                 return (
-                  <Card key={item.id} style={styles.activityRow}>
+                  <Pressable
+                    key={item.id}
+                    onPress={() => setSelectedPayment(p)}
+                    android_ripple={{ color: colors.accent }}
+                    style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                  >
+                  <Card style={styles.activityRow}>
                     <View style={[styles.bubble, { backgroundColor: "#dcfce7", borderRadius: 100 }]}>
                       <Feather name="check-circle" size={18} color="#16a34a" />
                     </View>
@@ -733,6 +742,7 @@ export default function GroupDetailScreen() {
                       {formatCurrency(p.amount)}
                     </Text>
                   </Card>
+                  </Pressable>
                 );
               })}
                 </View>
@@ -1000,6 +1010,14 @@ export default function GroupDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {selectedPayment && (
+        <PaymentDetailModal
+          payment={selectedPayment}
+          currentUserId={myUserId}
+          onClose={() => setSelectedPayment(null)}
+        />
+      )}
     </>
   );
 }

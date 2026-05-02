@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettleUpWithFriendDialog } from "@/components/settle-up-with-friend-dialog";
+import { PaymentDetailDialog } from "@/components/payment-detail-dialog";
 import { cn, formatCurrency } from "@/lib/format";
 
 interface FriendActivityResponse {
@@ -60,6 +61,7 @@ export function FriendDetailPage() {
   const myId = me.data?.id;
   const [search, setSearch] = useState("");
   const [settleOpen, setSettleOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   const { data, isLoading } = useQuery<FriendActivityResponse>({
     queryKey: ["friend-activity", friendId],
@@ -161,6 +163,17 @@ export function FriendDetailPage() {
           />
         )}
 
+        {selectedPayment && (
+          <PaymentDetailDialog
+            payment={selectedPayment}
+            currentUserId={myId}
+            open={!!selectedPayment}
+            onOpenChange={(v) => {
+              if (!v) setSelectedPayment(null);
+            }}
+          />
+        )}
+
         {isLoading && !data ? (
           <Card>
             <CardContent className="p-6 flex items-center gap-4">
@@ -256,6 +269,7 @@ export function FriendDetailPage() {
                       key={`p-${item.data.id}`}
                       payment={item.data}
                       myId={myId}
+                      onClick={() => setSelectedPayment(item.data)}
                     />
                   ),
                 )}
@@ -332,16 +346,21 @@ function ExpenseRow({
 function PaymentRow({
   payment,
   myId,
+  onClick,
 }: {
   payment: Payment;
   myId: string | undefined;
+  onClick?: () => void;
 }) {
   const amount = Number(payment.amount);
   const iPaid = myId && payment.fromUserId === myId;
   const impact = iPaid ? amount : -amount;
 
   return (
-    <Card>
+    <Card
+      onClick={onClick}
+      className={onClick ? "cursor-pointer hover:bg-accent/40 transition-colors" : undefined}
+    >
       <CardContent className="p-4 flex items-center gap-4">
         <div className="flex-1 min-w-0">
           <p className="font-semibold truncate">
