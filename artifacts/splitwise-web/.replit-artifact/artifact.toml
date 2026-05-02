@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Splitwise Clone"
+title = "Splitix"
 version = "1.0.0"
 id = "artifacts/splitwise-web"
 router = "path"

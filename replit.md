@@ -4,7 +4,7 @@
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
-This workspace hosts a **Splitwise clone**:
+This workspace hosts **Splitix** (a Splitwise-style shared-expense app). The app folders keep their original `splitwise-*` names as internal identifiers; the user-facing brand everywhere is **Splitix**.
 
 - `artifacts/splitwise-web` — React + Vite + Tailwind v4 web app served at `/`
 - `artifacts/splitwise-mobile` — Expo Router 6 mobile app served at `/mobile`

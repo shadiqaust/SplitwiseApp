@@ -1,6 +1,6 @@
 kind = "mobile"
 previewPath = "/mobile/"
-title = "Splitwise Mobile"
+title = "Splitix"
 version = "1.0.0"
 id = "artifacts/splitwise-mobile"
 router = "expo-domain"

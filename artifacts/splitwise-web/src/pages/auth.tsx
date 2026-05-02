@@ -70,7 +70,7 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
           <path d="M18 6l4 6-4 6"/>
           <path d="M6 18l-4-6 4-6"/>
         </svg>
-        Splitwise
+        Splitix
       </Link>
 
       <Card className="w-full max-w-md">
@@ -80,7 +80,7 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
           </CardTitle>
           <CardDescription>
             {mode === "sign-in"
-              ? "Sign in to your Splitwise account"
+              ? "Sign in to your Splitix account"
               : "Start sharing expenses with friends"}
           </CardDescription>
         </CardHeader>

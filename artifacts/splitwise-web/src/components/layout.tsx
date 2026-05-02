@@ -21,7 +21,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <path d="M18 6l4 6-4 6"/>
               <path d="M6 18l-4-6 4-6"/>
             </svg>
-            Splitwise
+            Splitix
           </Link>
         </div>
 

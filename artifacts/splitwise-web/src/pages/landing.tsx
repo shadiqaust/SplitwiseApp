@@ -11,7 +11,7 @@ export function LandingPage() {
             <path d="M18 6l4 6-4 6"/>
             <path d="M6 18l-4-6 4-6"/>
           </svg>
-          Splitwise
+          Splitix
         </div>
         <div className="space-x-4">
           <Link href="/sign-in">

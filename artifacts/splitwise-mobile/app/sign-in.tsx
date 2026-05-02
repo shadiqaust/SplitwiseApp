@@ -78,7 +78,7 @@ export default function SignInScreen() {
             <Feather name="dollar-sign" size={28} color="#fff" />
           </View>
           <Text style={[styles.brandTitle, { color: colors.foreground }]}>
-            Splitwise
+            Splitix
           </Text>
           <Text style={[styles.brandTag, { color: colors.mutedForeground }]}>
             Less stress when sharing expenses
