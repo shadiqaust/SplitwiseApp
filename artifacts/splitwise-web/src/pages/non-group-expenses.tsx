@@ -163,7 +163,9 @@ function ExpenseRow({
               : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total)}`}
             {peopleLine ? ` · ${peopleLine}` : ""}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">{expense.date}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {expense.category ?? "General"} · {expense.date}
+          </p>
         </div>
         <div className="text-right">
           {owedToMe > 0 ? (

@@ -24,6 +24,19 @@ import {
 } from "@workspace/api-client-react";
 import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight } from "lucide-react";
 
+const EXPENSE_CATEGORIES = [
+  "General",
+  "Food",
+  "Groceries",
+  "Transport",
+  "Rent",
+  "Utilities",
+  "Entertainment",
+  "Travel",
+  "Shopping",
+  "Other",
+];
+
 import { Layout } from "@/components/layout";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
@@ -1438,6 +1451,7 @@ export function GroupDetailPage() {
                           <p className="text-xs text-muted-foreground">
                             {youPaid ? "You" : e.paidByUser.name} paid{" "}
                             {formatCurrency(e.totalAmount)} ·{" "}
+                            {e.category ?? "General"} ·{" "}
                             {formatDate(e.date)}
                           </p>
                         </div>

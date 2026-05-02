@@ -619,7 +619,7 @@ export default function GroupDetailScreen() {
                           {e.description}
                         </Text>
                         <Text style={[styles.activitySub, { color: colors.mutedForeground }]}>
-                          {youPaid ? "You" : e.paidByUser.name} paid {formatCurrency(e.totalAmount)} · {formatDate(e.date)}
+                          {youPaid ? "You" : e.paidByUser.name} paid {formatCurrency(e.totalAmount)} · {e.category ?? "General"} · {formatDate(e.date)}
                         </Text>
                       </View>
                       <Text

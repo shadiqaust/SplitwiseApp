@@ -172,7 +172,7 @@ function ExpenseRow({
           {peopleLine ? ` · ${peopleLine}` : ""}
         </Text>
         <Text style={[styles.date, { color: colors.mutedForeground }]}>
-          {expense.date}
+          {expense.category ?? "General"} · {expense.date}
         </Text>
       </View>
       <View style={{ alignItems: "flex-end" }}>
