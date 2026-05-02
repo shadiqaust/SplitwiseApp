@@ -52,6 +52,10 @@ Custom JWT-based authentication — no Clerk or third-party provider.
 - `src/lib/auth.tsx` — `AuthProvider` + `useAuth()` hook. Stores JWT + user in `localStorage`. Calls `setAuthTokenGetter` on the shared API client so all requests include `Authorization: Bearer <token>`.
 - `src/pages/auth.tsx` — custom sign-in / sign-up forms, no external dependencies.
 
+### Add-expense entry points
+- `src/components/add-expense-with-friend-dialog.tsx` (web) / `components/AddExpenseWithFriendModal.tsx` (mobile) — shared dialog/modal that posts a non-group friend expense via `POST /api/expenses` (used by both Friends tab and Dashboard CTA).
+- `src/components/add-expense-cta.tsx` (web) / `components/AddExpenseCTA.tsx` (mobile) — "Add expense" button on the Dashboard. Opens a friend picker (search + scrollable list of `/api/friends` results, cache key `["friends"]` / `["friends-mobile"]` shared with the Friends tab). Selecting a friend opens the dialog/modal above.
+
 ### Mobile (`artifacts/splitwise-mobile`)
 - `lib/auth.tsx` — `AuthProvider` + `useAuth()` hook. Stores JWT in `expo-secure-store` (native) or `localStorage` (web). Exports `getToken()` for the API client.
 - `app/sign-in.tsx` — native sign-in / sign-up screen.

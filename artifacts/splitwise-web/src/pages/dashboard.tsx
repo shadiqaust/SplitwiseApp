@@ -5,6 +5,7 @@ import { Layout } from "@/components/layout";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpRight, ArrowDownRight, Activity } from "lucide-react";
+import { AddExpenseCTA } from "@/components/add-expense-cta";
 
 export function DashboardPage() {
   // Polling cadence + background-polling are configured globally on the
@@ -16,7 +17,10 @@ export function DashboardPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <AddExpenseCTA />
+        </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card>

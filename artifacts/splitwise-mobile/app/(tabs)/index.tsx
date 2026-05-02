@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { AddExpenseCTA } from "@/components/AddExpenseCTA";
 
 export default function DashboardScreen() {
   const colors = useColors();
@@ -63,6 +64,8 @@ export default function DashboardScreen() {
         />
       }
     >
+      <AddExpenseCTA />
+
       <Card style={styles.heroCard}>
         <Text style={[styles.heroLabel, { color: colors.mutedForeground }]}>
           Your overall balance
