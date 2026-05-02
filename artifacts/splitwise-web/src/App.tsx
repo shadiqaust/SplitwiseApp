@@ -21,7 +21,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
   if (!isLoaded) return null;
-  if (!isSignedIn) return <Redirect to="/" />;
+  if (!isSignedIn) return <Redirect to="/sign-in" />;
   return <>{children}</>;
 }
 
