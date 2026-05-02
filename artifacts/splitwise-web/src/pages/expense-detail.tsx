@@ -20,6 +20,7 @@ import { ArrowLeft, MessageSquare, Pencil, Send, Trash2 } from "lucide-react";
 import { getCategoryIcon } from "@/lib/expense-categories";
 
 import { Layout } from "@/components/layout";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -337,9 +338,14 @@ export function ExpenseDetailPage() {
                 return (
                   <div
                     key={s.id}
-                    className="flex items-center justify-between py-2"
+                    className="flex items-center justify-between py-2 gap-3"
                   >
-                    <div className="min-w-0">
+                    <UserAvatar
+                      name={s.user?.name ?? "Member"}
+                      url={s.user?.avatarUrl ?? null}
+                      size={32}
+                    />
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">
                         {isMe ? "You" : s.user?.name ?? "Member"}
                         {isPayer && (

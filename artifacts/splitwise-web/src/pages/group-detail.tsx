@@ -1685,8 +1685,19 @@ export function GroupDetailPage() {
                         {(() => {
                           const Icon = getCategoryIcon(e.category);
                           return (
-                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                              <Icon className="w-5 h-5 text-muted-foreground" />
+                            <div className="relative shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                                <Icon className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                              {e.paidByUser && (
+                                <div className="absolute -bottom-1 -right-1 ring-2 ring-background rounded-full">
+                                  <MemberAvatar
+                                    name={e.paidByUser.name}
+                                    url={e.paidByUser.avatarUrl}
+                                    size={18}
+                                  />
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
@@ -1731,8 +1742,19 @@ export function GroupDetailPage() {
                     className="cursor-pointer hover:bg-accent/40 transition-colors"
                   >
                     <CardContent className="py-4 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                        <HandCoins className="w-5 h-5 text-green-700" />
+                      <div className="relative shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <HandCoins className="w-5 h-5 text-green-700" />
+                        </div>
+                        {p.fromUser && (
+                          <div className="absolute -bottom-1 -right-1 ring-2 ring-background rounded-full">
+                            <MemberAvatar
+                              name={p.fromUser.name}
+                              url={p.fromUser.avatarUrl}
+                              size={18}
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">

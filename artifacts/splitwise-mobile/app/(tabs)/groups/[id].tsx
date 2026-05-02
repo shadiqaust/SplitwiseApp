@@ -719,8 +719,15 @@ export default function GroupDetailScreen() {
                       style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
                     >
                     <Card style={styles.activityRow}>
-                      <View style={[styles.bubble, { backgroundColor: colors.muted, borderRadius: 100 }]}>
-                        <MaterialCommunityIcons name={getCategoryIcon(e.category)} size={18} color={colors.mutedForeground} />
+                      <View style={{ position: "relative" }}>
+                        <View style={[styles.bubble, { backgroundColor: colors.muted, borderRadius: 100 }]}>
+                          <MaterialCommunityIcons name={getCategoryIcon(e.category)} size={18} color={colors.mutedForeground} />
+                        </View>
+                        {e.paidByUser && (
+                          <View style={{ position: "absolute", right: -4, bottom: -4, borderWidth: 2, borderColor: colors.background, borderRadius: 999 }}>
+                            <Avatar name={e.paidByUser.name} url={e.paidByUser.avatarUrl} size={18} />
+                          </View>
+                        )}
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.activityTitle, { color: colors.foreground }]} numberOfLines={1}>
@@ -757,8 +764,15 @@ export default function GroupDetailScreen() {
                     style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
                   >
                   <Card style={styles.activityRow}>
-                    <View style={[styles.bubble, { backgroundColor: "#dcfce7", borderRadius: 100 }]}>
-                      <Feather name="check-circle" size={18} color="#16a34a" />
+                    <View style={{ position: "relative" }}>
+                      <View style={[styles.bubble, { backgroundColor: "#dcfce7", borderRadius: 100 }]}>
+                        <Feather name="check-circle" size={18} color="#16a34a" />
+                      </View>
+                      {p.fromUser && (
+                        <View style={{ position: "absolute", right: -4, bottom: -4, borderWidth: 2, borderColor: colors.background, borderRadius: 999 }}>
+                          <Avatar name={p.fromUser.name} url={p.fromUser.avatarUrl} size={18} />
+                        </View>
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

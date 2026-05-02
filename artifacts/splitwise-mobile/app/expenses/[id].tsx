@@ -350,7 +350,12 @@ export default function ExpenseDetailScreen() {
                     },
                   ]}
                 >
-                  <View style={{ flex: 1 }}>
+                  <Avatar
+                    name={s.user?.name ?? "Member"}
+                    url={s.user?.avatarUrl ?? null}
+                    size={32}
+                  />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text
                       style={[styles.splitName, { color: colors.foreground }]}
                       numberOfLines={1}
