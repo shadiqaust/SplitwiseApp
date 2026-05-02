@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface AddMemberBody {
-  email: string;
-}
+export type AddMemberBody =
+  | {
+      email: string;
+    }
+  | {
+      userId: string;
+    };

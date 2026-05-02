@@ -124,7 +124,7 @@ export default function GroupDetailScreen() {
   const onAddMember = (user: UserResult) => {
     setAddingUserId(user.id);
     addMember.mutate(
-      { groupId, data: { userId: user.id } as unknown as { email: string } },
+      { groupId, data: { userId: user.id } },
       {
         onSuccess: () => {
           setAddingUserId(null);

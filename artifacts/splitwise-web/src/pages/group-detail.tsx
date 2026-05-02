@@ -362,7 +362,7 @@ function AddMemberDialog({ groupId }: { groupId: string }) {
   const handleAdd = useCallback((user: UserResult) => {
     setAddingId(user.id);
     addMember.mutate(
-      { groupId, data: { userId: user.id } as unknown as { email: string } },
+      { groupId, data: { userId: user.id } },
       {
         onSuccess: () => {
           invalidateGroupData(groupId);

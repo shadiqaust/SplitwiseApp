@@ -144,9 +144,14 @@ export const AddGroupMemberParams = zod.object({
   groupId: zod.coerce.string().uuid(),
 });
 
-export const AddGroupMemberBody = zod.object({
-  email: zod.string().email(),
-});
+export const AddGroupMemberBody = zod.union([
+  zod.object({
+    email: zod.string().email(),
+  }),
+  zod.object({
+    userId: zod.string().uuid(),
+  }),
+]);
 
 /**
  * @summary Remove a member from the group

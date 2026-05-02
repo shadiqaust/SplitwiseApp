@@ -640,12 +640,23 @@ components:
       required: [id, groupId, userId, user, joinedAt]
 
     AddMemberBody:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-      required: [email]
+      oneOf:
+        - type: object
+          title: AddMemberByEmail
+          properties:
+            email:
+              type: string
+              format: email
+          required: [email]
+          additionalProperties: false
+        - type: object
+          title: AddMemberByUserId
+          properties:
+            userId:
+              type: string
+              format: uuid
+          required: [userId]
+          additionalProperties: false
 
     # ─── Balance ──────────────────────────────────────────────────────────
     Balance:

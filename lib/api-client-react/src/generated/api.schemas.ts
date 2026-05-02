@@ -65,9 +65,13 @@ export interface UpdateGroupBody {
   category?: string | null;
 }
 
-export interface AddMemberBody {
-  email: string;
-}
+export type AddMemberBody =
+  | {
+      email: string;
+    }
+  | {
+      userId: string;
+    };
 
 /**
  * fromUser owes toUser the given amount
