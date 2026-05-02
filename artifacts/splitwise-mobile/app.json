@@ -34,7 +34,8 @@
         {
           "cameraPermission": "Allow Splitix to use your camera to scan group invite QR codes."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

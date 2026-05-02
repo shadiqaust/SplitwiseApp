@@ -31,6 +31,7 @@ import {
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { DateField } from "@/components/ui/DateField";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
 import { getErrorMessage } from "@/lib/error";
@@ -353,12 +354,7 @@ export default function EditExpenseScreen() {
             <Text style={[styles.label, { color: colors.foreground }]}>
               Date
             </Text>
-            <Input
-              value={date}
-              onChangeText={setDate}
-              placeholder="YYYY-MM-DD"
-              autoCapitalize="none"
-            />
+            <DateField value={date} onChange={setDate} />
 
             <Text style={[styles.label, { color: colors.foreground }]}>
               Category
