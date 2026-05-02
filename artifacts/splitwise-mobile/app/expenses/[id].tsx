@@ -171,6 +171,51 @@ export default function ExpenseDetailScreen() {
         options={{
           title: "Expense",
           headerBackTitle: "Back",
+          headerRight: () => (
+            <View style={styles.headerRightRow}>
+              <Pressable
+                onPress={() => router.push(`/expenses/edit/${expenseId}`)}
+                hitSlop={8}
+                accessibilityLabel="Edit expense"
+                style={({ pressed }) => [
+                  styles.headerIconBtn,
+                  {
+                    backgroundColor: colors.muted,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <Feather name="edit-2" size={15} color={colors.foreground} />
+              </Pressable>
+              <Pressable
+                onPress={onDeleteExpense}
+                disabled={deleteExpenseMutation.isPending}
+                hitSlop={8}
+                accessibilityLabel={
+                  confirmDelete ? "Confirm delete expense" : "Delete expense"
+                }
+                style={({ pressed }) => [
+                  styles.headerIconBtn,
+                  {
+                    backgroundColor: confirmDelete
+                      ? colors.negative
+                      : colors.muted,
+                    opacity: deleteExpenseMutation.isPending
+                      ? 0.5
+                      : pressed
+                        ? 0.7
+                        : 1,
+                  },
+                ]}
+              >
+                <Feather
+                  name="trash-2"
+                  size={15}
+                  color={confirmDelete ? "#fff" : colors.negative}
+                />
+              </Pressable>
+            </View>
+          ),
         }}
       />
       <KeyboardAvoidingView
@@ -183,22 +228,6 @@ export default function ExpenseDetailScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Card>
-            {expense.photoUrl && photoUri(expense.photoUrl) && (
-              <Pressable
-                onPress={() => setPhotoOpen(true)}
-                style={({ pressed }) => [
-                  styles.receiptThumbWrap,
-                  { borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
-                ]}
-              >
-                <Image
-                  source={{ uri: photoUri(expense.photoUrl)! }}
-                  style={styles.receiptThumb}
-                  resizeMode="cover"
-                />
-              </Pressable>
-            )}
-
             <View style={styles.headerRow}>
               <View style={[styles.bubble, { backgroundColor: colors.muted }]}>
                 <Feather
@@ -226,53 +255,21 @@ export default function ExpenseDetailScreen() {
                   {expense.groupId ? "Group expense" : "Non-group expense"}
                 </Text>
               </View>
-              <View style={styles.iconBtnGroup}>
+              {expense.photoUrl && photoUri(expense.photoUrl) && (
                 <Pressable
-                  onPress={() => router.push(`/expenses/edit/${expenseId}`)}
-                  hitSlop={8}
-                  accessibilityLabel="Edit expense"
+                  onPress={() => setPhotoOpen(true)}
                   style={({ pressed }) => [
-                    styles.iconBtn,
-                    {
-                      backgroundColor: colors.muted,
-                      opacity: pressed ? 0.7 : 1,
-                    },
+                    styles.receiptThumbWrap,
+                    { borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
                   ]}
                 >
-                  <Feather
-                    name="edit-2"
-                    size={16}
-                    color={colors.foreground}
+                  <Image
+                    source={{ uri: photoUri(expense.photoUrl)! }}
+                    style={styles.receiptThumb}
+                    resizeMode="cover"
                   />
                 </Pressable>
-                <Pressable
-                  onPress={onDeleteExpense}
-                  disabled={deleteExpenseMutation.isPending}
-                  hitSlop={8}
-                  accessibilityLabel={
-                    confirmDelete ? "Confirm delete expense" : "Delete expense"
-                  }
-                  style={({ pressed }) => [
-                    styles.iconBtn,
-                    {
-                      backgroundColor: confirmDelete
-                        ? colors.negative
-                        : colors.muted,
-                      opacity: deleteExpenseMutation.isPending
-                        ? 0.5
-                        : pressed
-                          ? 0.7
-                          : 1,
-                    },
-                  ]}
-                >
-                  <Feather
-                    name="trash-2"
-                    size={16}
-                    color={confirmDelete ? "#fff" : colors.negative}
-                  />
-                </Pressable>
-              </View>
+              )}
             </View>
 
             {confirmDelete && (
@@ -627,24 +624,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
-  iconBtnGroup: { flexDirection: "row", gap: 6 },
-  iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  headerRightRow: { flexDirection: "row", gap: 6, marginRight: 4 },
+  headerIconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
   },
   receiptThumbWrap: {
-    alignSelf: "flex-start",
     borderRadius: 8,
     overflow: "hidden",
     borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 12,
   },
   receiptThumb: {
-    width: 80,
-    height: 80,
+    width: 64,
+    height: 64,
   },
   modalBackdrop: {
     flex: 1,

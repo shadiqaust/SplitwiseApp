@@ -195,29 +195,46 @@ export function ExpenseDetailPage() {
   return (
     <Layout>
       <div className="max-w-2xl mx-auto p-4 space-y-4">
-        <Link href={backHref}>
-          <a className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="w-4 h-4 mr-1" /> Back
-          </a>
-        </Link>
+        <div className="flex items-center justify-between gap-2">
+          <Link href={backHref}>
+            <a className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="w-4 h-4 mr-1" /> Back
+            </a>
+          </Link>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(`/expenses/${expenseId}/edit`)}
+              aria-label="Edit expense"
+              title="Edit expense"
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={deleteExpenseFn}
+              disabled={deleteExpenseMutation.isPending}
+              aria-label={
+                confirmDelete ? "Confirm delete expense" : "Delete expense"
+              }
+              title={
+                confirmDelete ? "Click again to confirm" : "Delete expense"
+              }
+              className={
+                confirmDelete
+                  ? "text-destructive hover:text-destructive"
+                  : "text-muted-foreground hover:text-destructive"
+              }
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
 
         <Card>
           <CardContent className="p-6 space-y-4">
-            {expense.photoUrl && photoSrc(expense.photoUrl) && (
-              <button
-                type="button"
-                onClick={() => setPhotoOpen(true)}
-                className="block rounded-lg overflow-hidden border bg-muted hover:opacity-90 transition-opacity"
-                aria-label="Open receipt"
-              >
-                <img
-                  src={photoSrc(expense.photoUrl)!}
-                  alt="Receipt"
-                  className="h-24 w-auto object-cover"
-                />
-              </button>
-            )}
-
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center shrink-0">
                 <Receipt className="w-6 h-6 text-muted-foreground" />
@@ -234,36 +251,20 @@ export function ExpenseDetailPage() {
                   {expense.groupId ? "Group expense" : "Non-group expense"}
                 </p>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => navigate(`/expenses/${expenseId}/edit`)}
-                  aria-label="Edit expense"
-                  title="Edit expense"
+              {expense.photoUrl && photoSrc(expense.photoUrl) && (
+                <button
+                  type="button"
+                  onClick={() => setPhotoOpen(true)}
+                  className="shrink-0 rounded-lg overflow-hidden border bg-muted hover:opacity-90 transition-opacity"
+                  aria-label="Open receipt"
                 >
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={deleteExpenseFn}
-                  disabled={deleteExpenseMutation.isPending}
-                  aria-label={
-                    confirmDelete ? "Confirm delete expense" : "Delete expense"
-                  }
-                  title={
-                    confirmDelete ? "Click again to confirm" : "Delete expense"
-                  }
-                  className={
-                    confirmDelete
-                      ? "text-destructive hover:text-destructive"
-                      : "text-muted-foreground hover:text-destructive"
-                  }
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
+                  <img
+                    src={photoSrc(expense.photoUrl)!}
+                    alt="Receipt"
+                    className="h-20 w-20 object-cover"
+                  />
+                </button>
+              )}
             </div>
 
             <div className="flex items-end justify-between">
