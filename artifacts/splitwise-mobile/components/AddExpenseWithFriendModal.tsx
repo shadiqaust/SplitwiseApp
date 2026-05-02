@@ -68,7 +68,7 @@ export function AddExpenseWithFriendModal({
     [currentUserId, friendId, friend.name],
   );
 
-  // UI-only split mode. "loan" = lent the full amount to the friend.
+  // UI-only split mode. "loan" = the payer lent the full amount to the other.
   type Mode = "equal" | "exact" | "loan";
 
   const [description, setDescription] = useState("");
@@ -76,6 +76,9 @@ export function AddExpenseWithFriendModal({
   const [amount, setAmount] = useState("");
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
   const [mode, setMode] = useState<Mode>("equal");
+  const lenderIsMe = paidByUserId === currentUserId;
+  const lenderName = lenderIsMe ? "You" : friend.name;
+  const borrowerName = lenderIsMe ? friend.name : "you";
   // Exact-amount inputs, keyed by user id (used only when mode === "exact").
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
 
@@ -112,12 +115,12 @@ export function AddExpenseWithFriendModal({
       splitTypeForApi = SplitType.equal;
       splits = computeEqualSplits(total);
     } else if (mode === "loan") {
-      // I lent the full amount to the friend → I pay everything, friend owes 100%.
+      // The payer lent the full amount → payer owes 0, the other owes 100%.
       splitTypeForApi = SplitType.exact;
-      paidByForApi = currentUserId;
+      const borrowerId = paidByUserId === currentUserId ? friendId : currentUserId;
       splits = [
-        { userId: currentUserId, amount: 0 },
-        { userId: friendId, amount: total },
+        { userId: paidByUserId, amount: 0 },
+        { userId: borrowerId, amount: total },
       ];
     } else {
       splitTypeForApi = SplitType.exact;
@@ -292,21 +295,16 @@ export function AddExpenseWithFriendModal({
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Paid by</Text>
             <View style={styles.chipsWrap}>
               {participants.map((p) => {
-                const selected = (mode === "loan" ? currentUserId : paidByUserId) === p.id;
-                const disabled = mode === "loan" && p.id !== currentUserId;
+                const selected = paidByUserId === p.id;
                 return (
                   <Pressable
                     key={p.id}
-                    onPress={() => {
-                      if (disabled) return;
-                      setPaidByUserId(p.id);
-                    }}
+                    onPress={() => setPaidByUserId(p.id)}
                     style={[
                       styles.chip,
                       {
                         borderColor: selected ? colors.primary : colors.border,
                         backgroundColor: selected ? colors.primary : "transparent",
-                        opacity: disabled ? 0.4 : 1,
                       },
                     ]}
                   >
@@ -382,13 +380,16 @@ export function AddExpenseWithFriendModal({
                     { color: mode === "loan" ? "#fff" : colors.foreground },
                   ]}
                 >
-                  Lent full to {friend.name}
+                  {lenderIsMe
+                    ? `Lent full to ${friend.name}`
+                    : `${friend.name} lent full to you`}
                 </Text>
               </Pressable>
             </View>
             {mode === "loan" && (
               <Text style={[styles.helperText, { color: colors.mutedForeground }]}>
-                You paid the full amount. {friend.name} owes you{" "}
+                {lenderName} paid the full amount. {borrowerName}{" "}
+                {lenderIsMe ? "owes you" : "owe"}{" "}
                 {amount ? formatCurrency(parseFloat(amount) || 0) : "the entire amount"}.
               </Text>
             )}
