@@ -225,6 +225,13 @@ Full expense edit (group + non-group) and optional receipt photo upload per expe
 - New deep-link screen `app/groups/join/[code].tsx` mirrors the web join page (preview + Join button).
 - Both QR codes encode the **web** URL (`https://${EXPO_PUBLIC_DOMAIN}/groups/join/<code>`) so any standard camera/QR scanner can resolve it.
 
+### In-app QR scanner (mobile)
+- Mobile app has a built-in QR scanner so users can scan a group invite QR code from inside Splitix and join directly — no need for Universal Links / a real production build.
+- Powered by `expo-camera` (`~17.0.x`, SDK 54) using `<CameraView barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={...}>` and the `useCameraPermissions()` hook. Camera permission string is declared in `app.json` under `plugins → expo-camera → cameraPermission`.
+- Screen lives at `app/groups/scan.tsx` (route `/groups/scan`). Entry points: header icon button on the Groups tab + a "Scan QR" button next to "New group" at the top of the Groups tab list.
+- Scan handler accepts three QR payload formats: a full web URL (`https://.../groups/join/<CODE>`), the deep-link scheme (`splitwise-mobile://groups/join/<CODE>`), or a bare invite code. Code is uppercased and the user is `router.replace()`d to `/groups/join/<CODE>`, which renders the existing `app/groups/join/[code].tsx` preview/join screen.
+- Includes camera-permission-denied state with "Open settings" fallback (uses `expo-linking`'s `openSettings()`), a viewfinder overlay, error toast for non-Splitix QR codes, and haptic feedback on success/warning via `expo-haptics`.
+
 ### Web → mobile-app deep-link bounce
 - Web `pages/group-join.tsx` detects mobile user-agent (`/android|iphone|ipad|ipod/i`) and on mount sets `window.location.href = "splitwise-mobile://groups/join/<code>"`. If the mobile app is installed, the OS hijacks and routes to `app/groups/join/[code].tsx` (expo-router maps the scheme automatically — `scheme: "splitwise-mobile"` in `app.json`). If not installed, the page silently stays on the web fallback.
 - The same scheme call is also wired to an "Open in app" button shown on mobile, in case browsers block auto-launch on first visit.

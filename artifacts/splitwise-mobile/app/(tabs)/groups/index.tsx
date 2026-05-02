@@ -127,7 +127,22 @@ export default function GroupsScreen() {
         options={{
           title: "Groups",
           headerRight: () => (
-            <View style={{ flexDirection: "row", gap: 6, marginRight: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginRight: 8 }}>
+              <Pressable
+                onPress={() => router.push("/groups/scan")}
+                hitSlop={6}
+                style={({ pressed }) => [
+                  styles.toggleBtn,
+                  {
+                    backgroundColor: colors.muted,
+                    borderColor: colors.border,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+                accessibilityLabel="Scan group QR code"
+              >
+                <Feather name="maximize" size={15} color={colors.foreground} />
+              </Pressable>
               <ToggleBtn value="list" icon="list" />
               <ToggleBtn value="card" icon="grid" />
             </View>
@@ -145,12 +160,25 @@ export default function GroupsScreen() {
           />
         }
       >
-        <Button
-          title="New group"
-          icon={<Feather name="plus" size={18} color="#fff" />}
-          onPress={() => router.push("/groups/new")}
-          fullWidth
-        />
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Button
+              title="New group"
+              icon={<Feather name="plus" size={18} color="#fff" />}
+              onPress={() => router.push("/groups/new")}
+              fullWidth
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              title="Scan QR"
+              variant="outline"
+              icon={<Feather name="maximize" size={18} color={colors.foreground} />}
+              onPress={() => router.push("/groups/scan")}
+              fullWidth
+            />
+          </View>
+        </View>
 
         <View style={{ gap: 8 }}>
           <View style={styles.searchWrap}>
