@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -153,11 +154,26 @@ export default function GroupDetailScreen() {
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
+      quality: 1,
     });
-    if (!result.canceled && result.assets[0].base64) {
-      setSelectedAvatarUrl(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    if (result.canceled || !result.assets[0].uri) return;
+    try {
+      // Downscale + JPEG-compress so the base64 payload stays well under the
+      // API's body-size limit (≈30–80 KB instead of multiple MB).
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 512, height: 512 } }],
+        {
+          compress: 0.7,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        },
+      );
+      if (manipulated.base64) {
+        setSelectedAvatarUrl(`data:image/jpeg;base64,${manipulated.base64}`);
+      }
+    } catch {
+      Alert.alert("Error", "Could not process the selected image.");
     }
   };
 

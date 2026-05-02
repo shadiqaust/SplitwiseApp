@@ -22,6 +22,8 @@ export const GetMeResponse = zod.object({
   name: zod.string(),
   email: zod.string(),
   avatarUrl: zod.string().nullish(),
+  country: zod.string().nullish(),
+  location: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -31,6 +33,8 @@ export const GetMeResponse = zod.object({
 export const UpdateMeBody = zod.object({
   name: zod.string().optional(),
   avatarUrl: zod.string().nullish(),
+  country: zod.string().nullish(),
+  location: zod.string().nullish(),
 });
 
 export const UpdateMeResponse = zod.object({
@@ -38,6 +42,8 @@ export const UpdateMeResponse = zod.object({
   name: zod.string(),
   email: zod.string(),
   avatarUrl: zod.string().nullish(),
+  country: zod.string().nullish(),
+  location: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -70,6 +76,7 @@ export const CreateGroupBody = zod.object({
   name: zod.string(),
   description: zod.string().nullish(),
   category: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
 });
 
 /**
@@ -100,6 +107,8 @@ export const GetGroupResponse = zod
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
+            country: zod.string().nullish(),
+            location: zod.string().nullish(),
             createdAt: zod.coerce.date(),
           }),
           joinedAt: zod.coerce.date(),
@@ -119,6 +128,7 @@ export const UpdateGroupBody = zod.object({
   name: zod.string().optional(),
   description: zod.string().nullish(),
   category: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
 });
 
 export const UpdateGroupResponse = zod.object({
@@ -176,6 +186,8 @@ export const GetGroupBalancesResponseItem = zod
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
+      country: zod.string().nullish(),
+      location: zod.string().nullish(),
       createdAt: zod.coerce.date(),
     }),
     toUserId: zod.string().uuid(),
@@ -184,6 +196,8 @@ export const GetGroupBalancesResponseItem = zod
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
+      country: zod.string().nullish(),
+      location: zod.string().nullish(),
       createdAt: zod.coerce.date(),
     }),
     amount: zod.number(),
@@ -222,6 +236,8 @@ export const ListExpensesResponseItem = zod
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
+      country: zod.string().nullish(),
+      location: zod.string().nullish(),
       createdAt: zod.coerce.date(),
     }),
     date: zod.coerce.date(),
@@ -239,6 +255,8 @@ export const ListExpensesResponseItem = zod
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
+            country: zod.string().nullish(),
+            location: zod.string().nullish(),
             createdAt: zod.coerce.date(),
           }),
           amount: zod.number().describe("Amount this user owes"),
@@ -297,6 +315,8 @@ export const GetExpenseResponse = zod
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
+      country: zod.string().nullish(),
+      location: zod.string().nullish(),
       createdAt: zod.coerce.date(),
     }),
     date: zod.coerce.date(),
@@ -314,6 +334,8 @@ export const GetExpenseResponse = zod
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
+            country: zod.string().nullish(),
+            location: zod.string().nullish(),
             createdAt: zod.coerce.date(),
           }),
           amount: zod.number().describe("Amount this user owes"),
@@ -364,6 +386,8 @@ export const UpdateExpenseResponse = zod
       name: zod.string(),
       email: zod.string(),
       avatarUrl: zod.string().nullish(),
+      country: zod.string().nullish(),
+      location: zod.string().nullish(),
       createdAt: zod.coerce.date(),
     }),
     date: zod.coerce.date(),
@@ -381,6 +405,8 @@ export const UpdateExpenseResponse = zod
             name: zod.string(),
             email: zod.string(),
             avatarUrl: zod.string().nullish(),
+            country: zod.string().nullish(),
+            location: zod.string().nullish(),
             createdAt: zod.coerce.date(),
           }),
           amount: zod.number().describe("Amount this user owes"),
@@ -413,6 +439,8 @@ export const ListPaymentsResponseItem = zod.object({
     name: zod.string(),
     email: zod.string(),
     avatarUrl: zod.string().nullish(),
+    country: zod.string().nullish(),
+    location: zod.string().nullish(),
     createdAt: zod.coerce.date(),
   }),
   toUserId: zod.string().uuid(),
@@ -421,6 +449,8 @@ export const ListPaymentsResponseItem = zod.object({
     name: zod.string(),
     email: zod.string(),
     avatarUrl: zod.string().nullish(),
+    country: zod.string().nullish(),
+    location: zod.string().nullish(),
     createdAt: zod.coerce.date(),
   }),
   amount: zod.number(),
@@ -498,6 +528,8 @@ export const GetActivityResponseItem = zod.object({
     name: zod.string(),
     email: zod.string(),
     avatarUrl: zod.string().nullish(),
+    country: zod.string().nullish(),
+    location: zod.string().nullish(),
     createdAt: zod.coerce.date(),
   }),
   date: zod.coerce.date(),

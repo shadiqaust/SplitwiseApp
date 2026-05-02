@@ -18,12 +18,16 @@ export interface User {
   name: string;
   email: string;
   avatarUrl?: string | null;
+  country?: string | null;
+  location?: string | null;
   createdAt: string;
 }
 
 export interface UpdateUserBody {
   name?: string;
   avatarUrl?: string | null;
+  country?: string | null;
+  location?: string | null;
 }
 
 export interface Group {
@@ -57,12 +61,14 @@ export interface CreateGroupBody {
   name: string;
   description?: string | null;
   category?: string | null;
+  avatarUrl?: string | null;
 }
 
 export interface UpdateGroupBody {
   name?: string;
   description?: string | null;
   category?: string | null;
+  avatarUrl?: string | null;
 }
 
 export type AddMemberBody =

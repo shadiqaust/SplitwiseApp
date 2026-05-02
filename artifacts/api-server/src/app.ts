@@ -52,8 +52,10 @@ app.use(
     credentials: false,
   }),
 );
-app.use(express.json({ limit: "6mb" }));
-app.use(express.urlencoded({ extended: true, limit: "6mb" }));
+// 12mb is generous enough to accept base64-encoded avatar uploads
+// (resized to ~512×512 on the client, but raw camera photos can be larger).
+app.use(express.json({ limit: "12mb" }));
+app.use(express.urlencoded({ extended: true, limit: "12mb" }));
 
 app.use("/api", router);
 

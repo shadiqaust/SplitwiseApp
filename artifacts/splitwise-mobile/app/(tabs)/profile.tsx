@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { useGetMe, useUpdateMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -107,6 +108,27 @@ export default function ProfileScreen() {
   };
 
   // ── Avatar picker ──────────────────────────────────────────────────────────
+  // Downscale + JPEG-compress the picked image so the base64 payload stays
+  // small (≈30–80 KB) and well under the API's body-size limit.
+  const processPickedAsset = async (uri: string): Promise<string | null> => {
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 512, height: 512 } }],
+        {
+          compress: 0.7,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        },
+      );
+      if (!manipulated.base64) return null;
+      return `data:image/jpeg;base64,${manipulated.base64}`;
+    } catch {
+      Alert.alert("Error", "Could not process the selected image.");
+      return null;
+    }
+  };
+
   const handlePickGallery = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -117,11 +139,11 @@ export default function ProfileScreen() {
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
+      quality: 1,
     });
-    if (!result.canceled && result.assets[0].base64) {
-      setSelectedUrl(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    if (!result.canceled && result.assets[0].uri) {
+      const dataUrl = await processPickedAsset(result.assets[0].uri);
+      if (dataUrl) setSelectedUrl(dataUrl);
     }
   };
 
@@ -134,11 +156,11 @@ export default function ProfileScreen() {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
+      quality: 1,
     });
-    if (!result.canceled && result.assets[0].base64) {
-      setSelectedUrl(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    if (!result.canceled && result.assets[0].uri) {
+      const dataUrl = await processPickedAsset(result.assets[0].uri);
+      if (dataUrl) setSelectedUrl(dataUrl);
     }
   };
 

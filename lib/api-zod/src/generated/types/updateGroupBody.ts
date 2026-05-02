@@ -10,4 +10,5 @@ export interface UpdateGroupBody {
   name?: string;
   description?: string | null;
   category?: string | null;
+  avatarUrl?: string | null;
 }

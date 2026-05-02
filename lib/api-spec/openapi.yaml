@@ -535,6 +535,12 @@ components:
         avatarUrl:
           type: string
           nullable: true
+        country:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -546,6 +552,12 @@ components:
         name:
           type: string
         avatarUrl:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        location:
           type: string
           nullable: true
 
@@ -606,6 +618,9 @@ components:
         category:
           type: string
           nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
       required: [name]
 
     UpdateGroupBody:
@@ -617,6 +632,9 @@ components:
           type: string
           nullable: true
         category:
+          type: string
+          nullable: true
+        avatarUrl:
           type: string
           nullable: true
 

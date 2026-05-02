@@ -58,12 +58,24 @@ Custom JWT-based authentication — no Clerk or third-party provider.
 - `app/_layout.tsx` — wraps app in `AuthProvider` + `AuthGate` for redirect logic.
 
 ### Database schema (`lib/db/src/schema/users.ts`)
-- `id` serial PK
+- `id` UUID PK
 - `name` text
 - `email` text (unique)
 - `passwordHash` text (bcrypt, 12 rounds)
 - `avatarUrl` text (optional)
+- `country` text (optional)
+- `location` text (optional)
 - `createdAt` timestamp
+
+## Avatars (user + group)
+
+Both user and group avatars are stored as **base64 data URLs** directly in the `avatarUrl` column (no object storage). The Express body limit is therefore bumped to **12 MB** in `artifacts/api-server/src/app.ts`.
+
+Clients downscale + JPEG-compress before uploading so payloads stay tiny (~30–80 KB):
+- Web (`profile.tsx`, `group-detail.tsx`) — canvas resize to **200×200**, JPEG quality 0.8
+- Mobile (`(tabs)/profile.tsx`, `(tabs)/groups/[id].tsx`) — `expo-image-manipulator` resize to **512×512**, JPEG quality 0.7
+
+⚠️ When changing `User`, `Group`, `UpdateUserBody`, or `UpdateGroupBody` always edit `lib/api-spec/openapi.yaml` and re-run `pnpm --filter @workspace/api-spec run codegen`. The server's Zod `safeParse` silently strips fields missing from the schema, which means an apparently successful PUT can be a no-op — that's the failure mode the avatar-update fix resolved.
 
 ## API auth & authorization
 
