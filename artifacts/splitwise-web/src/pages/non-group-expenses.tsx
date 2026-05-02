@@ -354,7 +354,7 @@ export function NonGroupExpensesPage() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4 pb-6">
                   {groupedActivity.map((bucket) => (
                     <div key={bucket.key} className="space-y-2">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
