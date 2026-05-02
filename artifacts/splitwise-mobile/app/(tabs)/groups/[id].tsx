@@ -41,6 +41,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency, formatDate } from "@/lib/format";
 
+const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
+
 const GROUP_PRESETS = [
   { url: "https://api.dicebear.com/9.x/bottts/png?seed=alpha&size=200", label: "Alpha" },
   { url: "https://api.dicebear.com/9.x/bottts/png?seed=beta&size=200", label: "Beta" },
@@ -314,6 +316,22 @@ export default function GroupDetailScreen() {
     }
     return items;
   }, [combined, filterMemberId, filterPeriod]);
+
+  const groupedActivity = useMemo(() => {
+    const buckets = new Map<string, typeof filteredCombined>();
+    const labels = new Map<string, string>();
+    for (const it of filteredCombined) {
+      const d = new Date(String(it.date));
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = MONTH_FMT.format(d);
+      if (!buckets.has(key)) buckets.set(key, [] as typeof filteredCombined);
+      buckets.get(key)!.push(it);
+      labels.set(key, label);
+    }
+    return Array.from(buckets.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
+  }, [filteredCombined]);
 
   return (
     <>
@@ -601,8 +619,13 @@ export default function GroupDetailScreen() {
             </ScrollView>
 
           {filteredCombined.length > 0 ? (
-            <View style={{ gap: 8 }}>
-              {filteredCombined.map((item) => {
+            <View style={{ gap: 16 }}>
+              {groupedActivity.map((bucket) => (
+                <View key={bucket.key} style={{ gap: 8 }}>
+                  <Text style={[styles.monthLabel, { color: colors.mutedForeground }]}>
+                    {bucket.label.toUpperCase()}
+                  </Text>
+              {bucket.items.map((item) => {
                 if (item.kind === "expense") {
                   const e = item.data;
                   const youPaid = e.paidByUserId === myUserId;
@@ -661,6 +684,8 @@ export default function GroupDetailScreen() {
                   </Card>
                 );
               })}
+                </View>
+              ))}
             </View>
           ) : (
             <Card>
@@ -880,6 +905,7 @@ const styles = StyleSheet.create({
   bubble: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   activityTitle: { fontFamily: "Inter_500Medium", fontSize: 14 },
   activitySub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  monthLabel: { fontFamily: "Inter_600SemiBold", fontSize: 11, letterSpacing: 0.8, marginTop: 4 },
   activityAmount: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   balanceRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   balanceText: { fontFamily: "Inter_400Regular", fontSize: 14, flex: 1 },
