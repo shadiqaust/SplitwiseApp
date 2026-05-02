@@ -20,6 +20,7 @@ export interface CreateFriendExpenseBody {
   /** One or more friend user IDs. Takes precedence over `friendUserId` when provided. */
   friendUserIds?: string[];
   description: string;
+  category?: string | null;
   totalAmount: number;
   currency?: string;
   splitType: SplitType;

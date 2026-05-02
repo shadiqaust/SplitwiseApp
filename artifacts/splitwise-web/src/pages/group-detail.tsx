@@ -543,6 +543,7 @@ function AddExpenseDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<string>("General");
   const [amount, setAmount] = useState("");
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
   const [splitType, setSplitType] = useState<SplitType>(SplitType.equal);
@@ -557,6 +558,7 @@ function AddExpenseDialog({
   useEffect(() => {
     if (open) {
       setDescription("");
+      setCategory("General");
       setAmount("");
       setPaidByUserId(currentUserId);
       setSplitType(SplitType.equal);
@@ -652,6 +654,7 @@ function AddExpenseDialog({
         groupId,
         data: {
           description: description.trim(),
+          category: category && category !== "General" ? category : null,
           totalAmount: total,
           currency: "USD",
           splitType,
@@ -698,15 +701,30 @@ function AddExpenseDialog({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Amount</Label>
-            <Input
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Amount</Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

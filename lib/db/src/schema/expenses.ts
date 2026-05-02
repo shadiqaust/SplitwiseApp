@@ -14,6 +14,7 @@ export const expensesTable = pgTable("expenses", {
     onDelete: "cascade",
   }),
   description: text("description").notNull(),
+  category: text("category"),
   totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(),
   currency: text("currency").notNull().default("USD"),
   splitType: text("split_type").notNull().default("equal"),

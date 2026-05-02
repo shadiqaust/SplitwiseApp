@@ -268,6 +268,10 @@ export const GetFriendActivityResponse = zod.object({
           .nullish()
           .describe("Null for non-group (friend-only) expenses."),
         description: zod.string(),
+        category: zod
+          .string()
+          .nullish()
+          .describe('Optional category label (e.g. \"Food\", \"Transport\").'),
         totalAmount: zod.number(),
         currency: zod
           .string()
@@ -364,6 +368,10 @@ export const ListNonGroupExpensesResponse = zod.object({
           .nullish()
           .describe("Null for non-group (friend-only) expenses."),
         description: zod.string(),
+        category: zod
+          .string()
+          .nullish()
+          .describe('Optional category label (e.g. \"Food\", \"Transport\").'),
         totalAmount: zod.number(),
         currency: zod
           .string()
@@ -428,6 +436,7 @@ export const CreateFriendExpenseBody = zod
         "One or more friend user IDs. Takes precedence over `friendUserId` when provided.",
       ),
     description: zod.string(),
+    category: zod.string().nullish(),
     totalAmount: zod.number(),
     currency: zod.string().default(createFriendExpenseBodyCurrencyDefault),
     splitType: zod.enum(["equal", "exact", "percentage"]),
@@ -471,6 +480,10 @@ export const ListExpensesResponseItem = zod
       .nullish()
       .describe("Null for non-group (friend-only) expenses."),
     description: zod.string(),
+    category: zod
+      .string()
+      .nullish()
+      .describe('Optional category label (e.g. \"Food\", \"Transport\").'),
     totalAmount: zod.number(),
     currency: zod.string().default(listExpensesResponseOneCurrencyDefault),
     splitType: zod.enum(["equal", "exact", "percentage"]),
@@ -522,6 +535,7 @@ export const createExpenseBodyCurrencyDefault = `USD`;
 
 export const CreateExpenseBody = zod.object({
   description: zod.string(),
+  category: zod.string().nullish(),
   totalAmount: zod.number(),
   currency: zod.string().default(createExpenseBodyCurrencyDefault),
   splitType: zod.enum(["equal", "exact", "percentage"]),
@@ -554,6 +568,10 @@ export const GetExpenseResponse = zod
       .nullish()
       .describe("Null for non-group (friend-only) expenses."),
     description: zod.string(),
+    category: zod
+      .string()
+      .nullish()
+      .describe('Optional category label (e.g. \"Food\", \"Transport\").'),
     totalAmount: zod.number(),
     currency: zod.string().default(getExpenseResponseOneCurrencyDefault),
     splitType: zod.enum(["equal", "exact", "percentage"]),
@@ -629,6 +647,10 @@ export const UpdateExpenseResponse = zod
       .nullish()
       .describe("Null for non-group (friend-only) expenses."),
     description: zod.string(),
+    category: zod
+      .string()
+      .nullish()
+      .describe('Optional category label (e.g. \"Food\", \"Transport\").'),
     totalAmount: zod.number(),
     currency: zod.string().default(updateExpenseResponseOneCurrencyDefault),
     splitType: zod.enum(["equal", "exact", "percentage"]),

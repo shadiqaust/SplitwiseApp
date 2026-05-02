@@ -901,6 +901,10 @@ components:
           description: Null for non-group (friend-only) expenses.
         description:
           type: string
+        category:
+          type: string
+          nullable: true
+          description: Optional category label (e.g. "Food", "Transport").
         totalAmount:
           type: number
         currency:
@@ -951,6 +955,9 @@ components:
       properties:
         description:
           type: string
+        category:
+          type: string
+          nullable: true
         totalAmount:
           type: number
         currency:
@@ -1011,6 +1018,9 @@ components:
             format: uuid
         description:
           type: string
+        category:
+          type: string
+          nullable: true
         totalAmount:
           type: number
         currency:

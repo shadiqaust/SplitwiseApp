@@ -272,6 +272,7 @@ router.post(
       friendUserId,
       friendUserIds,
       description,
+      category,
       totalAmount,
       currency,
       splitType,
@@ -365,6 +366,7 @@ router.post(
       .values({
         groupId: null,
         description,
+        category: category ?? null,
         totalAmount: totalAmount.toFixed(2),
         currency: currency ?? "USD",
         splitType,
@@ -421,7 +423,7 @@ router.post(
       return;
     }
 
-    const { description, totalAmount, currency, splitType, paidByUserId, date, splits } =
+    const { description, category, totalAmount, currency, splitType, paidByUserId, date, splits } =
       parsed.data;
 
     if (totalAmount <= 0) {
@@ -452,6 +454,7 @@ router.post(
       .values({
         groupId,
         description,
+        category: category ?? null,
         totalAmount: totalAmount.toFixed(2),
         currency: currency ?? "USD",
         splitType,

@@ -13,6 +13,8 @@ export interface Expense {
   /** Null for non-group (friend-only) expenses. */
   groupId?: string | null;
   description: string;
+  /** Optional category label (e.g. "Food", "Transport"). */
+  category?: string | null;
   totalAmount: number;
   currency: string;
   splitType: SplitType;
