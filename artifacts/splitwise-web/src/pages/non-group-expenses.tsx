@@ -507,7 +507,8 @@ function ExpenseRow({
   const iOwe = !iPaid && mySplit ? myShare : 0;
 
   const otherSplits = expense.splits.filter((s) => s.userId !== myId);
-  const otherNames = otherSplits.map((s) => s.user?.name ?? "").filter(Boolean);
+  const namedSplits = otherSplits.filter((s) => s.userId !== expense.paidByUserId);
+  const otherNames = namedSplits.map((s) => s.user?.name ?? "").filter(Boolean);
   const peopleLine =
     otherNames.length > 0
       ? `with ${otherNames.slice(0, 3).join(", ")}${otherNames.length > 3 ? ` +${otherNames.length - 3}` : ""}`
