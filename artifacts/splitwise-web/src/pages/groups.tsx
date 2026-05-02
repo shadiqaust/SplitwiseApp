@@ -87,10 +87,20 @@ export function GroupsPage() {
               size="sm"
               aria-label="View mode"
             >
-              <ToggleGroupItem value="card" aria-label="Card view" title="Card view">
+              <ToggleGroupItem
+                value="card"
+                aria-label="Card view"
+                title="Card view"
+                className="data-[state=on]:bg-indigo-600 data-[state=on]:text-white data-[state=on]:border-indigo-600 data-[state=on]:hover:bg-indigo-700 data-[state=on]:hover:text-white"
+              >
                 <LayoutGrid className="w-4 h-4" />
               </ToggleGroupItem>
-              <ToggleGroupItem value="list" aria-label="List view" title="List view">
+              <ToggleGroupItem
+                value="list"
+                aria-label="List view"
+                title="List view"
+                className="data-[state=on]:bg-indigo-600 data-[state=on]:text-white data-[state=on]:border-indigo-600 data-[state=on]:hover:bg-indigo-700 data-[state=on]:hover:text-white"
+              >
                 <List className="w-4 h-4" />
               </ToggleGroupItem>
             </ToggleGroup>
