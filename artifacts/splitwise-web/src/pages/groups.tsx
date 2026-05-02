@@ -76,7 +76,7 @@ export function GroupsPage() {
               ))}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {[1, 2, 3, 4].map((i) => (
                 <Card key={i}>
                   <CardContent className="p-4 flex items-center gap-4">
@@ -144,7 +144,7 @@ export function GroupsPage() {
               ))}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {groups.map((group) => (
                 <Link key={group.id} href={`/groups/${group.id}`}>
                   <Card className="hover:border-primary/50 transition-colors cursor-pointer">
