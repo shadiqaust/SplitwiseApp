@@ -41,6 +41,7 @@ const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric"
 interface FriendRow {
   id: string;
   name: string;
+  avatarUrl: string | null;
   net: number;
 }
 
@@ -49,7 +50,7 @@ type Tab = "expenses" | "friends";
 export default function NonGroupExpensesScreen() {
   const colors = useColors();
   const me = useGetMe();
-  const [tab, setTab] = useState<Tab>("expenses");
+  const [tab, setTab] = useState<Tab>("friends");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [settleTarget, setSettleTarget] = useState<{
     friend: SettleFriend;
@@ -98,20 +99,26 @@ export default function NonGroupExpensesScreen() {
 
   const friends = useMemo<FriendRow[]>(() => {
     if (!myId) return [];
-    const nameById = new Map<string, string>();
+    const userById = new Map<string, { name: string; avatarUrl: string | null }>();
     for (const e of expenses) {
       if (e.paidByUserId !== myId && e.paidByUser) {
-        nameById.set(e.paidByUserId, e.paidByUser.name);
+        userById.set(e.paidByUserId, {
+          name: e.paidByUser.name,
+          avatarUrl: e.paidByUser.avatarUrl ?? null,
+        });
       }
       for (const s of e.splits) {
         if (s.userId !== myId && s.user) {
-          nameById.set(s.userId, s.user.name);
+          userById.set(s.userId, {
+            name: s.user.name,
+            avatarUrl: s.user.avatarUrl ?? null,
+          });
         }
       }
     }
     const rows: FriendRow[] = [];
-    for (const [id, name] of nameById) {
-      rows.push({ id, name, net: friendNets[id] ?? 0 });
+    for (const [id, u] of userById) {
+      rows.push({ id, name: u.name, avatarUrl: u.avatarUrl, net: friendNets[id] ?? 0 });
     }
     rows.sort((a, b) => {
       const da = Math.abs(a.net), db = Math.abs(b.net);
@@ -319,7 +326,7 @@ function FriendBalanceRow({
   const settled = Math.abs(friend.net) < 0.01;
   return (
     <Card style={styles.friendRow}>
-      <Avatar name={friend.name} size={40} />
+      <Avatar name={friend.name} url={friend.avatarUrl} size={40} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text
           style={[styles.friendName, { color: colors.foreground }]}

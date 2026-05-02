@@ -11,7 +11,7 @@ import { Layout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   SettleUpWithFriendDialog,
@@ -46,6 +46,7 @@ function initials(name: string): string {
 interface FriendRow {
   id: string;
   name: string;
+  avatarUrl: string | null;
   net: number;
 }
 
@@ -95,20 +96,26 @@ export function NonGroupExpensesPage() {
   // A "friend" here is anyone who appears alongside me on a non-group expense.
   const friends = useMemo<FriendRow[]>(() => {
     if (!myId) return [];
-    const nameById = new Map<string, string>();
+    const userById = new Map<string, { name: string; avatarUrl: string | null }>();
     for (const e of expenses) {
       if (e.paidByUserId !== myId && e.paidByUser) {
-        nameById.set(e.paidByUserId, e.paidByUser.name);
+        userById.set(e.paidByUserId, {
+          name: e.paidByUser.name,
+          avatarUrl: e.paidByUser.avatarUrl ?? null,
+        });
       }
       for (const s of e.splits) {
         if (s.userId !== myId && s.user) {
-          nameById.set(s.userId, s.user.name);
+          userById.set(s.userId, {
+            name: s.user.name,
+            avatarUrl: s.user.avatarUrl ?? null,
+          });
         }
       }
     }
     const rows: FriendRow[] = [];
-    for (const [id, name] of nameById) {
-      rows.push({ id, name, net: friendNets[id] ?? 0 });
+    for (const [id, u] of userById) {
+      rows.push({ id, name: u.name, avatarUrl: u.avatarUrl, net: friendNets[id] ?? 0 });
     }
     rows.sort((a, b) => {
       // Unsettled first (largest |net|), then alphabetical.
@@ -196,7 +203,7 @@ export function NonGroupExpensesPage() {
             </p>
           </div>
         ) : (
-          <Tabs defaultValue="expenses" className="space-y-4">
+          <Tabs defaultValue="friends" className="space-y-4">
             <TabsList className="grid grid-cols-2 w-full max-w-sm">
               <TabsTrigger value="expenses">Expenses</TabsTrigger>
               <TabsTrigger value="friends">
@@ -278,6 +285,9 @@ function FriendBalanceRow({
     <Card>
       <CardContent className="p-4 flex items-center gap-4">
         <Avatar className="h-10 w-10">
+          {friend.avatarUrl && (
+            <AvatarImage src={friend.avatarUrl} alt={friend.name} />
+          )}
           <AvatarFallback>{initials(friend.name) || "?"}</AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
