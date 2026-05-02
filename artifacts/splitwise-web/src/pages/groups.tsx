@@ -75,7 +75,7 @@ export function GroupsPage() {
     <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h1 className="text-3xl font-bold tracking-tight">Groups</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Groups</h1>
           <div className="flex items-center gap-2">
             <ToggleGroup
               type="single"

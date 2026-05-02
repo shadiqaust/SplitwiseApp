@@ -186,20 +186,20 @@ export function FriendDetailPage() {
           </Card>
         ) : friend ? (
           <Card>
-            <CardContent className="p-6 flex items-center gap-4">
+            <CardContent className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4">
               <FriendAvatar name={friend.name} avatarUrl={friend.avatarUrl ?? null} />
               <div className="flex-1 min-w-0">
-                <p className="text-xl font-bold truncate">{friend.name}</p>
-                <p className="text-sm text-muted-foreground truncate">{friend.email}</p>
+                <p className="text-lg sm:text-xl font-bold truncate">{friend.name}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">{friend.email}</p>
               </div>
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 {Math.abs(net) < 0.01 ? (
                   <p className="text-sm text-muted-foreground">settled up</p>
                 ) : (
                   <>
                     <p
                       className={cn(
-                        "text-2xl font-bold",
+                        "text-xl sm:text-2xl font-bold whitespace-nowrap",
                         net > 0 ? "text-green-600" : "text-red-500",
                       )}
                     >

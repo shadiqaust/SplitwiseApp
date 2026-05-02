@@ -1470,16 +1470,16 @@ export function GroupDetailPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-start gap-4">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
             <GroupAvatarDialog
               groupId={groupId}
               currentUrl={group.data.avatarUrl}
               groupName={group.data.name}
             />
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                <h1 className="text-xl sm:text-3xl font-bold tracking-tight truncate">
                   {group.data.name}
                 </h1>
                 <EditGroupDialog
@@ -1489,7 +1489,7 @@ export function GroupDetailPage() {
                 />
               </div>
               {group.data.description ? (
-                <p className="text-muted-foreground mt-1">{group.data.description}</p>
+                <p className="text-sm sm:text-base text-muted-foreground mt-1 break-words">{group.data.description}</p>
               ) : null}
               {(() => {
                 const creator = members.find((m) => m.userId === group.data?.createdByUserId);
@@ -1508,7 +1508,7 @@ export function GroupDetailPage() {
               })()}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {me.data ? (
               <>
                 <SettleUpDialog

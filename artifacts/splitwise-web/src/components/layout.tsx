@@ -2,6 +2,42 @@ import { useAuth } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Users, User, LogOut, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+const NAV_ITEMS = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/groups", label: "Groups", icon: Users },
+  { href: "/friends", label: "Friends", icon: UserCheck },
+  { href: "/profile", label: "Profile", icon: User },
+] as const;
+
+function Logo({ className }: { className?: string }) {
+  return (
+    <Link
+      href="/dashboard"
+      className={cn(
+        "flex items-center gap-2 font-bold text-xl text-primary",
+        className,
+      )}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="w-6 h-6"
+      >
+        <path d="M12 2v20" />
+        <path d="M18 6l4 6-4 6" />
+        <path d="M6 18l-4-6 4-6" />
+      </svg>
+      Splitix
+    </Link>
+  );
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -13,43 +49,46 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      <aside className="w-full md:w-64 border-r bg-card flex flex-col md:sticky md:top-0 md:h-screen md:shrink-0">
+      {/* Mobile top header */}
+      <header className="md:hidden sticky top-0 z-30 flex items-center justify-between px-4 h-14 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <Logo />
+        <Link
+          href="/profile"
+          className="flex items-center"
+          aria-label="Open profile"
+        >
+          {user?.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt="Avatar"
+              className="w-8 h-8 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-xs">
+              {initials}
+            </div>
+          )}
+        </Link>
+      </header>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex w-64 border-r bg-card flex-col sticky top-0 h-screen shrink-0">
         <div className="p-4 border-b">
-          <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl text-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-              <path d="M12 2v20"/>
-              <path d="M18 6l4 6-4 6"/>
-              <path d="M6 18l-4-6 4-6"/>
-            </svg>
-            Splitix
-          </Link>
+          <Logo />
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <Link href="/dashboard">
-            <Button variant={location === "/dashboard" ? "secondary" : "ghost"} className="w-full justify-start">
-              <LayoutDashboard className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-          </Link>
-          <Link href="/groups">
-            <Button variant={location === "/groups" ? "secondary" : "ghost"} className="w-full justify-start">
-              <Users className="w-4 h-4 mr-2" />
-              Groups
-            </Button>
-          </Link>
-          <Link href="/friends">
-            <Button variant={location === "/friends" ? "secondary" : "ghost"} className="w-full justify-start">
-              <UserCheck className="w-4 h-4 mr-2" />
-              Friends
-            </Button>
-          </Link>
-          <Link href="/profile">
-            <Button variant={location === "/profile" ? "secondary" : "ghost"} className="w-full justify-start">
-              <User className="w-4 h-4 mr-2" />
-              Profile
-            </Button>
-          </Link>
+          {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href}>
+              <Button
+                variant={location === href ? "secondary" : "ghost"}
+                className="w-full justify-start"
+              >
+                <Icon className="w-4 h-4 mr-2" />
+                {label}
+              </Button>
+            </Link>
+          ))}
         </nav>
 
         <div className="p-4 border-t shrink-0 bg-card">
@@ -59,31 +98,70 @@ export function Layout({ children }: { children: React.ReactNode }) {
             aria-label="Open profile"
           >
             {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt="Avatar" className="w-10 h-10 rounded-full" />
+              <img
+                src={user.avatarUrl}
+                alt="Avatar"
+                className="w-10 h-10 rounded-full object-cover"
+              />
             ) : (
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
                 {initials}
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.name || user?.email}</p>
+              <p className="text-sm font-medium truncate">
+                {user?.name || user?.email}
+              </p>
               {user?.name && (
-                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user.email}
+                </p>
               )}
             </div>
           </Link>
-          <Button variant="outline" className="w-full justify-start text-destructive" onClick={() => signOut()}>
+          <Button
+            variant="outline"
+            className="w-full justify-start text-destructive"
+            onClick={() => signOut()}
+          >
             <LogOut className="w-4 h-4 mr-2" />
             Sign Out
           </Button>
         </div>
       </aside>
 
-      <main className="flex-1 p-4 md:p-8 pb-24 md:pb-24 overflow-y-auto">
-        <div className="max-w-5xl mx-auto">
-          {children}
-        </div>
+      <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto">
+        <div className="max-w-5xl mx-auto">{children}</div>
       </main>
+
+      {/* Mobile bottom tab nav */}
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <ul className="grid grid-cols-4">
+          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+            const active = location === href;
+            return (
+              <li key={href}>
+                <Link
+                  href={href}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium transition-colors",
+                    active
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <Icon className="w-5 h-5" aria-hidden="true" />
+                  <span>{label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
     </div>
   );
 }

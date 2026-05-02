@@ -134,15 +134,20 @@ export function NonGroupExpensesPage() {
   return (
     <Layout>
       <div className="space-y-6 pb-24">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <Link href="/groups">
-              <Button variant="ghost" size="sm">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Groups
+              <Button
+                variant="ghost"
+                size="sm"
+                className="px-2 shrink-0"
+                aria-label="Back to groups"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="ml-1 hidden sm:inline">Groups</span>
               </Button>
             </Link>
-            <h1 className="text-3xl font-bold tracking-tight truncate">
+            <h1 className="text-xl sm:text-3xl font-bold tracking-tight truncate">
               Non-group expenses
             </h1>
           </div>
@@ -150,12 +155,12 @@ export function NonGroupExpensesPage() {
         </div>
 
         <Card>
-          <CardContent className="p-6 flex flex-wrap items-end gap-6">
-            <div>
+          <CardContent className="p-4 sm:p-6 flex flex-wrap items-end gap-4 sm:gap-6">
+            <div className="min-w-0">
               <p className="text-sm text-muted-foreground">Your overall balance</p>
               <p
                 className={cn(
-                  "text-3xl font-bold mt-1",
+                  "text-2xl sm:text-3xl font-bold mt-1 break-words",
                   net > 0
                     ? "text-primary"
                     : net < 0
@@ -179,7 +184,7 @@ export function NonGroupExpensesPage() {
             </div>
             <div className="ml-auto">
               <p className="text-sm text-muted-foreground">Total expenses</p>
-              <p className="text-2xl font-semibold mt-1">{data?.count ?? 0}</p>
+              <p className="text-xl sm:text-2xl font-semibold mt-1">{data?.count ?? 0}</p>
             </div>
           </CardContent>
         </Card>

@@ -83,13 +83,14 @@ export function DashboardPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
           <div className="flex items-center gap-2">
             <Link href="/groups/new">
               <Button size="sm" variant="outline">
                 <Users className="w-4 h-4 mr-1" />
-                Add group
+                <span className="hidden sm:inline">Add group</span>
+                <span className="inline sm:hidden">Group</span>
               </Button>
             </Link>
             <AddExpenseCTA />

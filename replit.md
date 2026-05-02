@@ -230,3 +230,9 @@ Full expense edit (group + non-group) and optional receipt photo upload per expe
 - The same scheme call is also wired to an "Open in app" button shown on mobile, in case browsers block auto-launch on first visit.
 - Universal Links / App Links (proper https → app routing) are NOT yet configured — that requires production domain + Apple Team ID + Android SHA256 fingerprint, available only after first EAS build.
 
+## Web responsive layout (mobile / tablet / desktop)
+The web app (`artifacts/splitwise-web`) is fully responsive. Tailwind's default `md` breakpoint (768px) is the dividing line between phone and tablet/desktop:
+- **`components/layout.tsx`** — On `<md` viewports, the sidebar is hidden and replaced with: a sticky top header bar (logo + avatar shortcut to `/profile`) and a fixed bottom tab nav (4 icons: Dashboard / Groups / Friends / Profile). Bottom nav respects `env(safe-area-inset-bottom)` for iPhone notches. On `md+`, the original left sidebar is preserved. Main content uses `pb-24 md:pb-8` so the fixed bottom nav never covers content. Sign-out lives only on the Profile page on mobile (the sidebar still shows it on desktop).
+- **`index.html`** — viewport meta is `width=device-width, initial-scale=1, viewport-fit=cover` (zoom is allowed for accessibility; `viewport-fit=cover` lets the safe-area env vars work).
+- Page-level header rows (`dashboard.tsx`, `groups.tsx`, `friends.tsx`, `friend-detail.tsx`, `non-group-expenses.tsx`, `group-detail.tsx`) use `flex-wrap` with smaller `text-xl`/`text-2xl` h1 sizes on mobile that scale up to `text-3xl` at `sm`/`md`. Action buttons truncate labels (e.g. "Add group" → "Group") on tiny screens.
+- Friend list rows on `friends.tsx` stack vertically on `<sm` (avatar+balance row, then full-width action buttons row); on `sm+` they are a single horizontal row.

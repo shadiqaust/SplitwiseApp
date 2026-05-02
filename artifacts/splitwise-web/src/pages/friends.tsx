@@ -200,8 +200,8 @@ export function FriendsPage() {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-bold">Friends</h1>
             <p className="text-muted-foreground text-sm mt-1">
               People you share groups with and your balance with each.
@@ -261,31 +261,39 @@ export function FriendsPage() {
                 key={friend.id}
                 className="hover:shadow-sm transition-shadow"
               >
-                <CardContent className="flex items-center gap-4 py-4">
-                  <Link
-                    href={`/friends/${friend.id}`}
-                    className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
-                  >
-                    <FriendAvatar name={friend.name} avatarUrl={friend.avatarUrl} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate hover:underline">
-                        {friend.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {friend.email}
-                      </p>
-                      {friend.sharedGroups.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {friend.sharedGroups.map((g) => g.name).join(", ")}
+                <CardContent className="py-4 px-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <Link
+                      href={`/friends/${friend.id}`}
+                      className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
+                    >
+                      <FriendAvatar name={friend.name} avatarUrl={friend.avatarUrl} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate hover:underline">
+                          {friend.name}
                         </p>
-                      )}
+                        <p className="text-xs text-muted-foreground truncate">
+                          {friend.email}
+                        </p>
+                        {friend.sharedGroups.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {friend.sharedGroups.map((g) => g.name).join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                    <div className="sm:hidden ml-auto">
+                      <BalanceBadge amount={friend.netBalance} />
                     </div>
-                  </Link>
-                  <BalanceBadge amount={friend.netBalance} />
-                  <div className="flex flex-col gap-1.5">
+                  </div>
+                  <div className="hidden sm:block">
+                    <BalanceBadge amount={friend.netBalance} />
+                  </div>
+                  <div className="flex flex-row sm:flex-col gap-1.5 sm:shrink-0">
                     <Button
                       size="sm"
                       variant="outline"
+                      className="flex-1 sm:flex-none"
                       disabled={!me.data?.id}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -297,6 +305,7 @@ export function FriendsPage() {
                     <Button
                       size="sm"
                       variant="outline"
+                      className="flex-1 sm:flex-none"
                       disabled={!me.data?.id}
                       onClick={(e) => {
                         e.stopPropagation();
