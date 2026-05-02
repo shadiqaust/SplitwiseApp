@@ -15,6 +15,7 @@ interface GroupRowData {
   name: string;
   balance: number;
   isVirtual: boolean;
+  avatarUrl?: string | null;
 }
 
 export function DashboardPage() {
@@ -39,6 +40,7 @@ export function DashboardPage() {
       name: g.groupName,
       balance: g.myNetBalance,
       isVirtual: false,
+      avatarUrl: g.avatarUrl ?? null,
     }));
     return [virtualRow, ...real];
   }, [summary]);
@@ -153,9 +155,21 @@ export function DashboardPage() {
                     <Link key={group.href} href={group.href}>
                       <div className="flex items-center justify-between gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
                         <div className="flex items-center gap-3 min-w-0">
-                          {group.isVirtual && (
+                          {group.isVirtual ? (
                             <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
                               <DollarSign className="w-4 h-4 text-accent-foreground" />
+                            </div>
+                          ) : group.avatarUrl ? (
+                            <img
+                              src={group.avatarUrl}
+                              alt={group.name}
+                              className="w-9 h-9 rounded-lg object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                              <span className="text-sm font-semibold text-accent-foreground">
+                                {group.name.charAt(0).toUpperCase()}
+                              </span>
                             </div>
                           )}
                           <span className="font-medium truncate">{group.name}</span>

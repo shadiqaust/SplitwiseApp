@@ -35,6 +35,7 @@ export interface Group {
   name: string;
   description?: string | null;
   category?: string | null;
+  avatarUrl?: string | null;
   createdByUserId: string;
   createdAt: string;
 }
@@ -209,6 +210,7 @@ export interface CreatePaymentBody {
 export interface GroupBalanceSummary {
   groupId: string;
   groupName: string;
+  avatarUrl?: string | null;
   myNetBalance: number;
 }
 

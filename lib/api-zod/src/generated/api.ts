@@ -56,6 +56,7 @@ export const ListGroupsResponseItem = zod
     name: zod.string(),
     description: zod.string().nullish(),
     category: zod.string().nullish(),
+    avatarUrl: zod.string().nullish(),
     createdByUserId: zod.string().uuid(),
     createdAt: zod.coerce.date(),
   })
@@ -92,6 +93,7 @@ export const GetGroupResponse = zod
     name: zod.string(),
     description: zod.string().nullish(),
     category: zod.string().nullish(),
+    avatarUrl: zod.string().nullish(),
     createdByUserId: zod.string().uuid(),
     createdAt: zod.coerce.date(),
   })
@@ -136,6 +138,7 @@ export const UpdateGroupResponse = zod.object({
   name: zod.string(),
   description: zod.string().nullish(),
   category: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
   createdByUserId: zod.string().uuid(),
   createdAt: zod.coerce.date(),
 });
@@ -747,6 +750,7 @@ export const GetDashboardSummaryResponse = zod.object({
     zod.object({
       groupId: zod.string().uuid(),
       groupName: zod.string(),
+      avatarUrl: zod.string().nullish(),
       myNetBalance: zod.number(),
     }),
   ),

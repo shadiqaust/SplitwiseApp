@@ -715,6 +715,9 @@ components:
         category:
           type: string
           nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
         createdByUserId:
           type: string
           format: uuid
@@ -1115,6 +1118,9 @@ components:
           format: uuid
         groupName:
           type: string
+        avatarUrl:
+          type: string
+          nullable: true
         myNetBalance:
           type: number
       required: [groupId, groupName, myNetBalance]

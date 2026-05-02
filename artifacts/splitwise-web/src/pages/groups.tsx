@@ -59,7 +59,22 @@ export function GroupsPage() {
                 <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
                   <CardContent className="p-6 flex flex-col h-full">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-lg line-clamp-1">{group.name}</h3>
+                      <div className="flex items-center gap-3 mb-2">
+                        {group.avatarUrl ? (
+                          <img
+                            src={group.avatarUrl}
+                            alt={group.name}
+                            className="w-11 h-11 rounded-lg object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="w-11 h-11 rounded-lg bg-accent flex items-center justify-center shrink-0">
+                            <span className="text-base font-semibold text-accent-foreground">
+                              {group.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <h3 className="font-semibold text-lg line-clamp-1">{group.name}</h3>
+                      </div>
                       <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
                         <Users className="w-3 h-3" />
                         {group.memberCount} members

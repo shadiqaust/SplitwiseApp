@@ -9,5 +9,6 @@
 export interface GroupBalanceSummary {
   groupId: string;
   groupName: string;
+  avatarUrl?: string | null;
   myNetBalance: number;
 }

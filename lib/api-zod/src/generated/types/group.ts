@@ -11,6 +11,7 @@ export interface Group {
   name: string;
   description?: string | null;
   category?: string | null;
+  avatarUrl?: string | null;
   createdByUserId: string;
   createdAt: Date;
 }
