@@ -1,4 +1,4 @@
-import { useListGroups } from "@workspace/api-client-react";
+import { useListGroups, type GroupWithBalance } from "@workspace/api-client-react";
 import { formatCurrency, cn, formatDate } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Layout } from "@/components/layout";
@@ -8,10 +8,33 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Calendar, ChevronRight, DollarSign, LayoutGrid, List, Plus, Users } from "lucide-react";
 import { useViewMode, type ViewMode } from "@/hooks/use-view-mode";
+import { useMemo } from "react";
+
+const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
+
+type GroupItem = GroupWithBalance;
+
+function groupByMonth(items: GroupItem[]): { key: string; label: string; items: GroupItem[] }[] {
+  const sorted = [...items].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tb - ta;
+  });
+  const buckets = new Map<string, { key: string; label: string; items: GroupItem[] }>();
+  for (const g of sorted) {
+    const d = g.createdAt ? new Date(g.createdAt) : new Date(0);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const label = g.createdAt ? MONTH_FMT.format(d) : "Undated";
+    if (!buckets.has(key)) buckets.set(key, { key, label, items: [] });
+    buckets.get(key)!.items.push(g);
+  }
+  return Array.from(buckets.values());
+}
 
 export function GroupsPage() {
   const { data: groups, isLoading } = useListGroups();
   const [viewMode, setViewMode] = useViewMode("groups", "card");
+  const sections = useMemo(() => (groups ? groupByMonth(groups) : []), [groups]);
 
   return (
     <Layout>
@@ -92,113 +115,122 @@ export function GroupsPage() {
             </div>
           )
         ) : groups?.length ? (
-          viewMode === "card" ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {groups.map((group) => (
-                <Link key={group.id} href={`/groups/${group.id}`}>
-                  <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
-                    <CardContent className="p-6 flex flex-col h-full">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          {group.avatarUrl ? (
-                            <img
-                              src={group.avatarUrl}
-                              alt={group.name}
-                              className="w-11 h-11 rounded-lg object-cover shrink-0"
-                            />
-                          ) : (
-                            <div className="w-11 h-11 rounded-lg bg-accent flex items-center justify-center shrink-0">
-                              <span className="text-base font-semibold text-accent-foreground">
-                                {group.name.charAt(0).toUpperCase()}
-                              </span>
+          <div className="space-y-8">
+            {sections.map((section) => (
+              <section key={section.key} className="space-y-3">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  {section.label}
+                </h2>
+                {viewMode === "card" ? (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {section.items.map((group) => (
+                      <Link key={group.id} href={`/groups/${group.id}`}>
+                        <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+                          <CardContent className="p-6 flex flex-col h-full">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                {group.avatarUrl ? (
+                                  <img
+                                    src={group.avatarUrl}
+                                    alt={group.name}
+                                    className="w-11 h-11 rounded-lg object-cover shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-11 h-11 rounded-lg bg-accent flex items-center justify-center shrink-0">
+                                    <span className="text-base font-semibold text-accent-foreground">
+                                      {group.name.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                )}
+                                <h3 className="font-semibold text-lg line-clamp-1">{group.name}</h3>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                {group.memberCount} members
+                              </p>
+                              {group.createdAt ? (
+                                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  Created {formatDate(group.createdAt)}
+                                </p>
+                              ) : null}
+                              {group.description && (
+                                <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{group.description}</p>
+                              )}
                             </div>
-                          )}
-                          <h3 className="font-semibold text-lg line-clamp-1">{group.name}</h3>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-                          <Users className="w-3 h-3" />
-                          {group.memberCount} members
-                        </p>
-                        {group.createdAt ? (
-                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            Created {formatDate(group.createdAt)}
-                          </p>
-                        ) : null}
-                        {group.description && (
-                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{group.description}</p>
-                        )}
-                      </div>
-                      <div className="mt-4 pt-4 border-t">
-                        <p className="text-sm text-muted-foreground mb-1">Your balance</p>
-                        <p className={cn(
-                          "font-bold text-lg",
-                          group.myNetBalance > 0 ? "text-primary" : group.myNetBalance < 0 ? "text-destructive" : "text-muted-foreground"
-                        )}>
-                          {group.myNetBalance > 0 ? "+" : ""}{formatCurrency(group.myNetBalance)}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {groups.map((group) => (
-                <Link key={group.id} href={`/groups/${group.id}`}>
-                  <Card className="hover:border-primary/50 transition-colors cursor-pointer">
-                    <CardContent className="p-4 flex items-center gap-4">
-                      {group.avatarUrl ? (
-                        <img
-                          src={group.avatarUrl}
-                          alt={group.name}
-                          className="w-11 h-11 rounded-lg object-cover shrink-0"
-                        />
-                      ) : (
-                        <div className="w-11 h-11 rounded-lg bg-accent flex items-center justify-center shrink-0">
-                          <span className="text-base font-semibold text-accent-foreground">
-                            {group.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold line-clamp-1">{group.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            {group.memberCount} members
-                          </span>
-                          {group.createdAt ? (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {formatDate(group.createdAt)}
-                            </span>
-                          ) : null}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className={cn(
-                          "font-semibold",
-                          group.myNetBalance > 0 ? "text-primary" : group.myNetBalance < 0 ? "text-destructive" : "text-muted-foreground"
-                        )}>
-                          {group.myNetBalance > 0 ? "+" : ""}{formatCurrency(group.myNetBalance)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {group.myNetBalance > 0
-                            ? "you are owed"
-                            : group.myNetBalance < 0
-                              ? "you owe"
-                              : "settled"}
-                        </p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )
+                            <div className="mt-4 pt-4 border-t">
+                              <p className="text-sm text-muted-foreground mb-1">Your balance</p>
+                              <p className={cn(
+                                "font-bold text-lg",
+                                group.myNetBalance > 0 ? "text-primary" : group.myNetBalance < 0 ? "text-destructive" : "text-muted-foreground"
+                              )}>
+                                {group.myNetBalance > 0 ? "+" : ""}{formatCurrency(group.myNetBalance)}
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {section.items.map((group) => (
+                      <Link key={group.id} href={`/groups/${group.id}`}>
+                        <Card className="hover:border-primary/50 transition-colors cursor-pointer">
+                          <CardContent className="p-4 flex items-center gap-4">
+                            {group.avatarUrl ? (
+                              <img
+                                src={group.avatarUrl}
+                                alt={group.name}
+                                className="w-11 h-11 rounded-lg object-cover shrink-0"
+                              />
+                            ) : (
+                              <div className="w-11 h-11 rounded-lg bg-accent flex items-center justify-center shrink-0">
+                                <span className="text-base font-semibold text-accent-foreground">
+                                  {group.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold line-clamp-1">{group.name}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                                <span className="flex items-center gap-1">
+                                  <Users className="w-3 h-3" />
+                                  {group.memberCount} members
+                                </span>
+                                {group.createdAt ? (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {formatDate(group.createdAt)}
+                                  </span>
+                                ) : null}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className={cn(
+                                "font-semibold",
+                                group.myNetBalance > 0 ? "text-primary" : group.myNetBalance < 0 ? "text-destructive" : "text-muted-foreground"
+                              )}>
+                                {group.myNetBalance > 0 ? "+" : ""}{formatCurrency(group.myNetBalance)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {group.myNetBalance > 0
+                                  ? "you are owed"
+                                  : group.myNetBalance < 0
+                                    ? "you owe"
+                                    : "settled"}
+                              </p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </section>
+            ))}
+          </div>
         ) : (
           <div className="text-center py-12 px-4 border rounded-xl bg-card">
             <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
