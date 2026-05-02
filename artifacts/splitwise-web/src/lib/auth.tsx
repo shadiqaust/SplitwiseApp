@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
-import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setBaseUrl, setUnauthorizedHandler } from "@workspace/api-client-react";
+import { queryClient } from "./queryClient";
 
 const TOKEN_KEY = "sw_auth_token";
 const USER_KEY = "sw_auth_user";
 
 export interface AuthUser {
-  id: number;
+  id: string;
   name: string;
   email: string;
   avatarUrl: string | null;
@@ -48,6 +49,20 @@ interface AuthResponse {
   user: AuthUser;
 }
 
+function clearStoredAuth() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  setAuthTokenGetter(null);
+}
+
+function redirectToSignIn() {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const target = `${basePath}/sign-in`;
+  if (typeof window !== "undefined" && window.location.pathname !== target) {
+    window.location.assign(target);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     isLoaded: false,
@@ -66,15 +81,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState({ isLoaded: true, isSignedIn: true, user, token });
         setAuthTokenGetter(() => token);
       } catch {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
+        clearStoredAuth();
         setState({ isLoaded: true, isSignedIn: false, user: null, token: null });
-        setAuthTokenGetter(null);
       }
     } else {
       setState({ isLoaded: true, isSignedIn: false, user: null, token: null });
       setAuthTokenGetter(null);
     }
+  }, []);
+
+  // Wire the global 401 handler so any expired/invalid JWT signs the user
+  // out and bounces them back to the sign-in page.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      clearStoredAuth();
+      queryClient.clear();
+      setState({ isLoaded: true, isSignedIn: false, user: null, token: null });
+      redirectToSignIn();
+    });
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
@@ -94,9 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    setAuthTokenGetter(null);
+    clearStoredAuth();
+    queryClient.clear();
     setState({ isLoaded: true, isSignedIn: false, user: null, token: null });
   }, []);
 

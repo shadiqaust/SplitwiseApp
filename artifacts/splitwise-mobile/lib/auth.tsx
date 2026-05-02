@@ -6,7 +6,7 @@ const TOKEN_KEY = "sw_auth_token";
 const USER_KEY = "sw_auth_user";
 
 export interface AuthUser {
-  id: number;
+  id: string;
   name: string;
   email: string;
   avatarUrl: string | null;

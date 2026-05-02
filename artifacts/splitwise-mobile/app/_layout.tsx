@@ -14,7 +14,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { configureApi } from "@/lib/api";
+import { configureApi, configureUnauthorizedHandler } from "@/lib/api";
 import { AuthProvider, useAuth, getToken } from "@/lib/auth";
 
 SplashScreen.preventAutoHideAsync();
@@ -33,13 +33,22 @@ const domain = process.env.EXPO_PUBLIC_DOMAIN;
 const API_BASE_URL = domain ? `https://${domain}` : "";
 
 function AuthGate() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, signOut } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     configureApi(() => getToken());
   }, []);
+
+  // Auto-logout on any 401 from the API. signOut clears stored creds,
+  // and the redirect effect below sends the user to /sign-in.
+  useEffect(() => {
+    configureUnauthorizedHandler(() => {
+      void signOut();
+    });
+    return () => configureUnauthorizedHandler(null);
+  }, [signOut]);
 
   useEffect(() => {
     if (!isLoaded) return;

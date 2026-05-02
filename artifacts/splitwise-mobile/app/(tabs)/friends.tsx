@@ -18,7 +18,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency } from "@/lib/format";
-import { getToken } from "@/lib/auth";
+import { authFetch } from "@/lib/api";
 
 const domain = process.env.EXPO_PUBLIC_DOMAIN;
 const API_BASE_URL = domain ? `https://${domain}` : "";
@@ -40,16 +40,7 @@ interface UserResult {
   avatarUrl: string | null;
 }
 
-async function authFetch(path: string, options: RequestInit = {}) {
-  const token = await getToken();
-  return fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      ...(options.headers ?? {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-}
+// authFetch is provided by lib/api.ts (shared, with 401 → auto-logout).
 
 function AddFriendModal({ existingIds, onClose }: { existingIds: Set<number>; onClose: () => void }) {
   const colors = useColors();

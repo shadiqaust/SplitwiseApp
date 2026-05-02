@@ -8,6 +8,8 @@ export type BodyType<T> = T;
 
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
 
+export type UnauthorizedHandler = () => void | Promise<void>;
+
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
@@ -17,6 +19,8 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _unauthorizedHandler: UnauthorizedHandler | null = null;
+let _unauthorizedInFlight = false;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -42,6 +46,32 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/**
+ * Register a handler that is invoked whenever an API request returns 401
+ * Unauthorized. Typically used to clear the auth token and redirect the
+ * user to the sign-in screen when their JWT has expired.
+ *
+ * The handler is debounced so that a burst of concurrent 401s only triggers
+ * a single sign-out flow. Pass `null` to clear the handler.
+ */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  _unauthorizedHandler = handler;
+  _unauthorizedInFlight = false;
+}
+
+async function notifyUnauthorized(): Promise<void> {
+  if (!_unauthorizedHandler || _unauthorizedInFlight) return;
+  _unauthorizedInFlight = true;
+  try {
+    await _unauthorizedHandler();
+  } finally {
+    // Reset shortly after so subsequent expirations (e.g., after re-login) still fire.
+    setTimeout(() => {
+      _unauthorizedInFlight = false;
+    }, 1000);
+  }
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
@@ -364,6 +394,9 @@ export async function customFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
+    if (response.status === 401) {
+      void notifyUnauthorized();
+    }
     throw new ApiError(response, errorData, requestInfo);
   }
 

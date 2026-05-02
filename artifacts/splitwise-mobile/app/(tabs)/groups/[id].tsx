@@ -30,7 +30,7 @@ import {
   useListPayments,
   useUpdateGroup,
 } from "@workspace/api-client-react";
-import { getToken } from "@/lib/auth";
+import { authFetch } from "@/lib/api";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -61,16 +61,7 @@ const GROUP_PRESETS = [
 const domain = process.env.EXPO_PUBLIC_DOMAIN;
 const API_BASE_URL = domain ? `https://${domain}` : "";
 
-async function authFetch(path: string, options: RequestInit = {}) {
-  const token = await getToken();
-  return fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      ...(options.headers ?? {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-}
+// authFetch is provided by lib/api.ts (shared, with 401 → auto-logout).
 
 interface UserResult {
   id: string;
