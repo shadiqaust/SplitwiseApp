@@ -291,7 +291,7 @@ function GroupAvatarDialog({
   const { toast } = useToast();
   const updateGroup = useUpdateGroup();
 
-  const initials = getInitials(groupName);
+  const initials = groupName.charAt(0).toUpperCase();
   const previewUrl = selectedUrl ?? currentUrl ?? null;
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {

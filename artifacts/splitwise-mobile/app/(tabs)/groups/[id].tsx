@@ -520,7 +520,7 @@ export default function GroupDetailScreen() {
               ) : (
                 <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
                   <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>
-                    {group.data.name.slice(0, 2).toUpperCase()}
+                    {group.data.name.charAt(0).toUpperCase()}
                   </Text>
                 </View>
               )}
@@ -1005,7 +1005,7 @@ export default function GroupDetailScreen() {
                 ) : (
                   <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
                     <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>
-                      {group.data.name.slice(0, 2).toUpperCase()}
+                      {group.data.name.charAt(0).toUpperCase()}
                     </Text>
                   </View>
                 )}
