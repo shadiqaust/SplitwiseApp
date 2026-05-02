@@ -390,7 +390,7 @@ export default function GroupDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: group.data.name,
+          title: "",
           headerBackTitle: "Groups",
           // Always send the user to the Groups list — the label literally
           // says "Groups", and a generic router.back() can land on the wrong
@@ -410,9 +410,6 @@ export default function GroupDetailScreen() {
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Pressable onPress={openEditSheet} style={{ paddingHorizontal: 10 }}>
                 <Feather name="edit-2" size={18} color={colors.primary} />
-              </Pressable>
-              <Pressable onPress={() => setShowAvatarSheet(true)} style={{ paddingHorizontal: 10 }}>
-                <Feather name="camera" size={20} color={colors.primary} />
               </Pressable>
               <Pressable onPress={() => setShowInviteModal(true)} style={{ paddingHorizontal: 10 }}>
                 <MaterialCommunityIcons name="qrcode" size={22} color={colors.primary} />
@@ -531,8 +528,14 @@ export default function GroupDetailScreen() {
               </View>
             </Pressable>
             <View style={{ flex: 1 }}>
+              <Text
+                style={{ color: colors.foreground, fontSize: 18, fontWeight: "600" }}
+                numberOfLines={2}
+              >
+                {group.data.name}
+              </Text>
               {group.data.description ? (
-                <Text style={[styles.desc, { color: colors.mutedForeground, marginBottom: 0 }]} numberOfLines={2}>
+                <Text style={[styles.desc, { color: colors.mutedForeground, marginBottom: 0, marginTop: 2 }]} numberOfLines={2}>
                   {group.data.description}
                 </Text>
               ) : null}
