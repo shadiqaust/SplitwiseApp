@@ -201,6 +201,11 @@ export default function GroupsScreen() {
                       <Text style={[styles.cardSub, { color: colors.mutedForeground }]} numberOfLines={1}>
                         {g.memberCount} {g.memberCount === 1 ? "member" : "members"}
                       </Text>
+                      {g.createdAt ? (
+                        <Text style={[styles.cardMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
+                          Created {formatDate(g.createdAt)}
+                        </Text>
+                      ) : null}
                     </View>
                     <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
                       <Text style={[styles.cardFooterLabel, { color: colors.mutedForeground }]}>
@@ -284,6 +289,7 @@ const styles = StyleSheet.create({
   cardAvatarText: { fontFamily: "Inter_700Bold", fontSize: 18 },
   cardName: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   cardSub: { fontFamily: "Inter_400Regular", fontSize: 11 },
+  cardMeta: { fontFamily: "Inter_400Regular", fontSize: 10, marginTop: 2 },
   cardFooter: {
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
