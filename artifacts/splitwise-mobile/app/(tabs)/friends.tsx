@@ -246,18 +246,21 @@ export default function FriendsScreen() {
                       {friend.sharedGroups.map((g) => g.name).join(", ")}
                     </Text>
                   )}
-                  <View style={{ flexDirection: "row", gap: 14, marginTop: 6 }}>
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                     <Pressable
                       onPress={(e) => {
                         e.stopPropagation();
                         setExpenseFriend(friend);
                       }}
                       disabled={!me.data?.id}
-                      style={{ flexDirection: "row", alignItems: "center" }}
+                      style={({ pressed }) => [
+                        styles.actionButton,
+                        { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 },
+                      ]}
                       hitSlop={6}
                     >
-                      <Feather name="plus" size={13} color={colors.primary} />
-                      <Text style={[styles.addExpenseText, { color: colors.primary }]}>Add expense</Text>
+                      <Feather name="plus" size={13} color={colors.primaryForeground} />
+                      <Text style={[styles.actionButtonText, { color: colors.primaryForeground }]}>Add expense</Text>
                     </Pressable>
                     <Pressable
                       onPress={(e) => {
@@ -265,11 +268,14 @@ export default function FriendsScreen() {
                         setSettleFriend(friend);
                       }}
                       disabled={!me.data?.id}
-                      style={{ flexDirection: "row", alignItems: "center" }}
+                      style={({ pressed }) => [
+                        styles.actionButtonOutline,
+                        { borderColor: colors.primary, opacity: pressed ? 0.8 : 1 },
+                      ]}
                       hitSlop={6}
                     >
                       <Feather name="check-circle" size={13} color={colors.primary} />
-                      <Text style={[styles.addExpenseText, { color: colors.primary }]}>Settle up</Text>
+                      <Text style={[styles.actionButtonText, { color: colors.primary }]}>Settle up</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -354,6 +360,24 @@ const styles = StyleSheet.create({
   addBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#fff" },
   // Add-expense-with-friend modal
   addExpenseText: { fontFamily: "Inter_500Medium", fontSize: 12, marginLeft: 4 },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    gap: 4,
+  },
+  actionButtonOutline: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
+  },
+  actionButtonText: { fontFamily: "Inter_500Medium", fontSize: 12 },
   fieldLabel: { fontFamily: "Inter_500Medium", fontSize: 12 },
   fieldInput: {
     borderWidth: 1,
