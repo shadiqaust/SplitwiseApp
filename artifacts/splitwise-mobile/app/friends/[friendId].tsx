@@ -45,6 +45,7 @@ export default function FriendDetailScreen() {
   const { friendId } = useLocalSearchParams<{ friendId: string }>();
   const colors = useColors();
   const me = useGetMe();
+  const defaultCurrency = me.data?.defaultCurrency ?? "USD";
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [showSettle, setShowSettle] = useState(false);
@@ -172,7 +173,7 @@ export default function FriendDetailScreen() {
                         { color: net > 0 ? colors.positive : colors.negative },
                       ]}
                     >
-                      {formatCurrency(Math.abs(net))}
+                      {formatCurrency(Math.abs(net), defaultCurrency)}
                     </Text>
                     <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
                       {net > 0 ? "owes you" : "you owe"}
@@ -252,6 +253,7 @@ export default function FriendDetailScreen() {
                     key={`p-${item.data.id}`}
                     payment={item.data}
                     myId={myId}
+                    currency={defaultCurrency}
                     onPress={() => setSelectedPayment(item.data)}
                   />
                 ),
@@ -325,7 +327,7 @@ function ExpenseRow({
           {expense.description}
         </Text>
         <Text style={[styles.itemMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
-          {iPaid ? `You paid ${formatCurrency(total)}` : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total)}`}
+          {iPaid ? `You paid ${formatCurrency(total, expense.currency)}` : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total, expense.currency)}`}
           {expense.groupId ? ` · group expense` : ""}
         </Text>
         <Text style={[styles.itemDate, { color: colors.mutedForeground }]}>{expense.date}</Text>
@@ -340,7 +342,7 @@ function ExpenseRow({
               ]}
             >
               {impact > 0 ? "+" : "-"}
-              {formatCurrency(Math.abs(impact))}
+              {formatCurrency(Math.abs(impact), expense.currency)}
             </Text>
             <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>{label}</Text>
           </>
@@ -357,10 +359,12 @@ function PaymentRow({
   payment,
   myId,
   onPress,
+  currency,
 }: {
   payment: Payment;
   myId: string | undefined;
   onPress?: () => void;
+  currency: string;
 }) {
   const colors = useColors();
   const amount = Number(payment.amount);
@@ -401,7 +405,7 @@ function PaymentRow({
           ]}
         >
           {impact > 0 ? "+" : "-"}
-          {formatCurrency(Math.abs(impact))}
+          {formatCurrency(Math.abs(impact), currency)}
         </Text>
         <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>
           {iPaid ? "you settled" : "they settled"}

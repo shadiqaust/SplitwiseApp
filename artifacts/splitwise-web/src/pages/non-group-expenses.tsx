@@ -68,6 +68,7 @@ type FilterPeriod = "all" | "7d" | "30d";
 export function NonGroupExpensesPage() {
   const me = useGetMe();
   const myId = me.data?.id;
+  const defaultCurrency = me.data?.defaultCurrency ?? "USD";
   const [settleTarget, setSettleTarget] = useState<{
     friend: SettleFriend;
     impact: number;
@@ -248,10 +249,10 @@ export function NonGroupExpensesPage() {
                 )}
               >
                 {net > 0
-                  ? `+${formatCurrency(net)}`
+                  ? `+${formatCurrency(net, defaultCurrency)}`
                   : net < 0
-                    ? `-${formatCurrency(Math.abs(net))}`
-                    : formatCurrency(0)}
+                    ? `-${formatCurrency(Math.abs(net), defaultCurrency)}`
+                    : formatCurrency(0, defaultCurrency)}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {net > 0
@@ -374,6 +375,7 @@ export function NonGroupExpensesPage() {
                               key={item.id}
                               payment={item.data}
                               myId={myId}
+                              currency={defaultCurrency}
                               onClick={() => setSelectedPayment(item.data)}
                             />
                           ),
@@ -397,6 +399,7 @@ export function NonGroupExpensesPage() {
                 friends.map((f) => (
                   <FriendBalanceRow
                     key={f.id}
+                    currency={defaultCurrency}
                     friend={f}
                     onSettle={(impact) =>
                       setSettleTarget({
@@ -440,9 +443,11 @@ export function NonGroupExpensesPage() {
 function FriendBalanceRow({
   friend,
   onSettle,
+  currency,
 }: {
   friend: FriendRow;
   onSettle: (impact: number) => void;
+  currency: string;
 }) {
   const settled = Math.abs(friend.net) < 0.01;
   return (
@@ -469,8 +474,8 @@ function FriendBalanceRow({
             {settled
               ? "All settled up"
               : friend.net > 0
-                ? `owes you ${formatCurrency(friend.net)}`
-                : `you owe ${formatCurrency(Math.abs(friend.net))}`}
+                ? `owes you ${formatCurrency(friend.net, currency)}`
+                : `you owe ${formatCurrency(Math.abs(friend.net), currency)}`}
           </p>
         </div>
         {!settled && (
@@ -548,8 +553,8 @@ function ExpenseRow({
           <p className="font-semibold truncate">{expense.description}</p>
           <p className="text-sm text-muted-foreground truncate">
             {iPaid
-              ? `You paid ${formatCurrency(total)}`
-              : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total)}`}
+              ? `You paid ${formatCurrency(total, expense.currency)}`
+              : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total, expense.currency)}`}
             {peopleLine ? ` · ${peopleLine}` : ""}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -561,22 +566,22 @@ function ExpenseRow({
             <>
               <p className="font-semibold text-muted-foreground">
                 {iPaid
-                  ? `+${formatCurrency(owedToMe)}`
-                  : `-${formatCurrency(iOwe)}`}
+                  ? `+${formatCurrency(owedToMe, expense.currency)}`
+                  : `-${formatCurrency(iOwe, expense.currency)}`}
               </p>
               <p className="text-xs text-primary">settled up</p>
             </>
           ) : owedToMe > 0 ? (
             <>
               <p className="font-semibold text-primary">
-                +{formatCurrency(owedToMe)}
+                +{formatCurrency(owedToMe, expense.currency)}
               </p>
               <p className="text-xs text-muted-foreground">you lent</p>
             </>
           ) : iOwe > 0 ? (
             <>
               <p className="font-semibold text-destructive">
-                -{formatCurrency(iOwe)}
+                -{formatCurrency(iOwe, expense.currency)}
               </p>
               <p className="text-xs text-muted-foreground">you owe</p>
             </>
@@ -593,10 +598,12 @@ function PaymentRow({
   payment,
   myId,
   onClick,
+  currency,
 }: {
   payment: Payment;
   myId: string | undefined;
   onClick: () => void;
+  currency: string;
 }) {
   const fromYou = payment.fromUserId === myId;
   const toYou = payment.toUserId === myId;
@@ -620,7 +627,7 @@ function PaymentRow({
           </p>
         </div>
         <div className="font-medium text-sm whitespace-nowrap text-green-700">
-          {formatCurrency(payment.amount)}
+          {formatCurrency(payment.amount, currency)}
         </div>
       </CardContent>
     </Card>
