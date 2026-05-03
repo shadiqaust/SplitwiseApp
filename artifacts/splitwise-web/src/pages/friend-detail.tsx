@@ -7,7 +7,6 @@ import {
   CreditCard,
   FileText,
   Plus,
-  Settings,
   Users,
 } from "lucide-react";
 import {
@@ -312,16 +311,6 @@ export function FriendDetailPage() {
                 className="rounded-full bg-background/95 hover:bg-background h-9 w-9 text-foreground"
               >
                 <ChevronLeft className="w-5 h-5" />
-              </Button>
-            </Link>
-            <Link href="/profile">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Open profile settings"
-                className="rounded-full bg-background/95 hover:bg-background h-9 w-9 text-foreground"
-              >
-                <Settings className="w-4 h-4" />
               </Button>
             </Link>
           </div>

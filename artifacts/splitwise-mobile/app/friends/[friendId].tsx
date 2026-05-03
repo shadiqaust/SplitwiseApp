@@ -9,7 +9,6 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -95,7 +94,6 @@ export default function FriendDetailScreen() {
   const { friendId } = useLocalSearchParams<{ friendId: string }>();
   const colors = useColors();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const me = useGetMe();
   const myId = me.data?.id;
   const { data: groupsList } = useListGroups();
@@ -303,7 +301,29 @@ export default function FriendDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen
+        options={{
+          title: "",
+          headerBackTitle: "Friends",
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: colors.primaryForeground,
+          headerLeft: () => (
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Back to friends"
+              style={{ paddingHorizontal: 10, flexDirection: "row", alignItems: "center" }}
+            >
+              <Feather name="chevron-left" size={26} color={colors.primaryForeground} />
+              <Text style={{ color: colors.primaryForeground, fontSize: 16, marginLeft: 2 }}>
+                Friends
+              </Text>
+            </Pressable>
+          ),
+        }}
+      />
       <ScrollView
         style={{ backgroundColor: colors.background }}
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -320,26 +340,6 @@ export default function FriendDetailScreen() {
           <View style={[styles.bannerTri1, { backgroundColor: "rgba(255,255,255,0.10)" }]} />
           <View style={[styles.bannerTri2, { backgroundColor: "rgba(255,255,255,0.06)" }]} />
           <View style={[styles.bannerTri3, { backgroundColor: "rgba(255,255,255,0.08)" }]} />
-          <View style={[styles.bannerNav, { paddingTop: insets.top + 4 }]}>
-            <Pressable
-              onPress={() => router.back()}
-              style={[styles.iconBtn, { backgroundColor: colors.background }]}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Back to friends"
-            >
-              <Feather name="chevron-left" size={20} color={colors.foreground} />
-            </Pressable>
-            <Pressable
-              onPress={() => router.push("/(tabs)/profile")}
-              style={[styles.iconBtn, { backgroundColor: colors.background }]}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Open profile settings"
-            >
-              <Feather name="settings" size={18} color={colors.foreground} />
-            </Pressable>
-          </View>
         </View>
 
         {/* Avatar overlapping the banner */}
