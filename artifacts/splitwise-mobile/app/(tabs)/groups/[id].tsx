@@ -71,8 +71,16 @@ type Tab = "expenses" | "balances";
 export default function GroupDetailScreen() {
   const colors = useColors();
   const router = useRouter();
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; from?: string }>();
   const groupId = params.id!;
+  // Honor an explicit `from` param so back returns to the screen that sent
+  // us here (e.g. friend detail) instead of always landing on the Groups list.
+  const fromHref =
+    typeof params.from === "string" &&
+    params.from.startsWith("/") &&
+    !params.from.startsWith("//")
+      ? params.from
+      : null;
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<Tab>("expenses");
@@ -380,19 +388,24 @@ export default function GroupDetailScreen() {
       <Stack.Screen
         options={{
           title: "",
-          headerBackTitle: "Groups",
-          // Always send the user to the Groups list — the label literally
-          // says "Groups", and a generic router.back() can land on the wrong
-          // place (e.g. Home tab) when this screen is reached via deep link,
-          // cross-tab navigation, or after a router.replace from /groups/new.
+          headerBackTitle: fromHref ? "Back" : "Groups",
+          // When an explicit `from` was provided (e.g. coming from friend
+          // detail), return there. Otherwise fall back to the Groups list to
+          // avoid landing on the wrong place after deep links or cross-tab
+          // navigation where router.back() is unreliable.
           headerLeft: () => (
             <Pressable
-              onPress={() => router.replace("/(tabs)/groups")}
+              onPress={() => {
+                if (fromHref) router.replace(fromHref as never);
+                else router.replace("/(tabs)/groups");
+              }}
               hitSlop={12}
               style={{ paddingHorizontal: 10, flexDirection: "row", alignItems: "center" }}
             >
               <Feather name="chevron-left" size={26} color={colors.primary} />
-              <Text style={{ color: colors.primary, fontSize: 16, marginLeft: 2 }}>Groups</Text>
+              <Text style={{ color: colors.primary, fontSize: 16, marginLeft: 2 }}>
+                {fromHref ? "Back" : "Groups"}
+              </Text>
             </Pressable>
           ),
           headerRight: () => (

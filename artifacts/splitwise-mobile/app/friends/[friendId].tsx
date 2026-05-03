@@ -226,7 +226,7 @@ export default function FriendDetailScreen() {
         subtitle: `${agg.count} shared ${agg.count === 1 ? "expense" : "expenses"} · Shared group`,
         kind: "expense",
         delta: agg.delta,
-        href: `/(tabs)/groups/${gid}`,
+        href: `/(tabs)/groups/${gid}?from=${encodeURIComponent(`/friends/${friendId}`)}`,
       });
     }
 
@@ -257,7 +257,9 @@ export default function FriendDetailScreen() {
           : "Recorded payment",
         kind: "payment",
         delta,
-        href: p.groupId ? `/(tabs)/groups/${p.groupId}` : null,
+        href: p.groupId
+          ? `/(tabs)/groups/${p.groupId}?from=${encodeURIComponent(`/friends/${friendId}`)}`
+          : null,
       });
     }
     rows.sort((a, b) => b.date.getTime() - a.date.getTime());
