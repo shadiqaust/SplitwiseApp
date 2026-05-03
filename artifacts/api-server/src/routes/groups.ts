@@ -23,6 +23,7 @@ import {
   IncludeMemberInPastExpensesBody,
   JoinGroupBody,
 } from "@workspace/api-zod";
+import { isSupportedCurrency } from "../lib/currencies.js";
 
 const router: IRouter = Router();
 
@@ -161,13 +162,19 @@ router.post("/groups", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const currency = parsed.data.currency ?? "USD";
+  if (!(await isSupportedCurrency(currency))) {
+    res.status(400).json({ error: "Unsupported currency code" });
+    return;
+  }
+
   const [group] = await db
     .insert(groupsTable)
     .values({
       name: parsed.data.name,
       description: parsed.data.description ?? null,
       category: parsed.data.category ?? null,
-      currency: parsed.data.currency ?? "USD",
+      currency,
       createdByUserId: req.dbUserId!,
       inviteCode: generateInviteCode(),
     })
@@ -311,7 +318,13 @@ router.put(
     if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
     if (parsed.data.category !== undefined) updateData.category = parsed.data.category;
     if (parsed.data.avatarUrl !== undefined) updateData.avatarUrl = parsed.data.avatarUrl ?? null;
-    if (parsed.data.currency !== undefined && parsed.data.currency) updateData.currency = parsed.data.currency;
+    if (parsed.data.currency !== undefined && parsed.data.currency) {
+      if (!(await isSupportedCurrency(parsed.data.currency))) {
+        res.status(400).json({ error: "Unsupported currency code" });
+        return;
+      }
+      updateData.currency = parsed.data.currency;
+    }
 
     const [group] = await db
       .update(groupsTable)

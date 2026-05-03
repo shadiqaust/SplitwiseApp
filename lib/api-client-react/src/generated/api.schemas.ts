@@ -24,6 +24,12 @@ export interface User {
   createdAt: string;
 }
 
+export interface Currency {
+  code: string;
+  name: string;
+  symbol: string;
+}
+
 export interface UpdateUserBody {
   name?: string;
   avatarUrl?: string | null;

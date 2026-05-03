@@ -17,6 +17,7 @@ export * from "./createFriendExpenseBody";
 export * from "./createGroupBody";
 export * from "./createNonGroupPaymentBody";
 export * from "./createPaymentBody";
+export * from "./currency";
 export * from "./dashboardSummary";
 export * from "./errorEnvelope";
 export * from "./errorResponse";

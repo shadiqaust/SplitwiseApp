@@ -1,21 +1,11 @@
-// Supported currency codes. Keep in sync with COMMON_CURRENCIES on web/mobile.
-export const SUPPORTED_CURRENCY_CODES = [
-  "USD",
-  "EUR",
-  "GBP",
-  "INR",
-  "JPY",
-  "CAD",
-  "AUD",
-  "CHF",
-  "CNY",
-  "SGD",
-  "AED",
-  "BDT",
-] as const;
+import { db, currenciesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
-export type SupportedCurrencyCode = (typeof SUPPORTED_CURRENCY_CODES)[number];
-
-export function isSupportedCurrency(code: unknown): code is SupportedCurrencyCode {
-  return typeof code === "string" && (SUPPORTED_CURRENCY_CODES as readonly string[]).includes(code);
+export async function isSupportedCurrency(code: unknown): Promise<boolean> {
+  if (typeof code !== "string" || code.trim() === "") return false;
+  const [row] = await db
+    .select({ code: currenciesTable.code })
+    .from(currenciesTable)
+    .where(eq(currenciesTable.code, code));
+  return !!row;
 }

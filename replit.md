@@ -33,6 +33,7 @@ This workspace hosts **Splitix** (a Splitwise-style shared-expense app). The app
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm --filter @workspace/db run seed:currencies` — upsert the 12 supported currencies (idempotent; required after `push` on a fresh DB before users/groups can be created, since `users.default_currency` and `groups.currency` are FKs to `currencies.code`)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 ## Auth System

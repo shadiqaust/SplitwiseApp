@@ -92,7 +92,7 @@ import { queryClient } from "@/lib/queryClient";
 import { cn, formatCurrency, formatDate } from "@/lib/format";
 import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/error";
-import { COMMON_CURRENCIES } from "@/lib/currencies";
+import { useListCurrencies } from "@workspace/api-client-react";
 
 function getInitials(name: string): string {
   return name
@@ -183,6 +183,7 @@ function EditGroupDialog({
   const [currency, setCurrency] = useState(currentCurrency);
   const { toast } = useToast();
   const updateGroup = useUpdateGroup();
+  const { data: currencies } = useListCurrencies();
 
   useEffect(() => {
     if (open) {
@@ -273,7 +274,7 @@ function EditGroupDialog({
                 <SelectValue placeholder="Select a currency" />
               </SelectTrigger>
               <SelectContent>
-                {COMMON_CURRENCIES.map((c) => (
+                {(currencies ?? []).map((c) => (
                   <SelectItem key={c.code} value={c.code}>
                     {c.symbol} {c.code} — {c.name}
                   </SelectItem>

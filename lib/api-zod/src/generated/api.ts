@@ -15,6 +15,16 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * @summary List supported currencies
+ */
+export const ListCurrenciesResponseItem = zod.object({
+  code: zod.string(),
+  name: zod.string(),
+  symbol: zod.string(),
+});
+export const ListCurrenciesResponse = zod.array(ListCurrenciesResponseItem);
+
+/**
  * @summary Get current user profile
  */
 export const GetMeResponse = zod.object({

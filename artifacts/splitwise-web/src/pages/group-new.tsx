@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useCreateGroup, getListGroupsQueryKey, useGetMe } from "@workspace/api-client-react";
+import { useCreateGroup, getListGroupsQueryKey, useGetMe, useListCurrencies } from "@workspace/api-client-react";
 import { useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { COMMON_CURRENCIES } from "@/lib/currencies";
 
 const formSchema = z.object({
   name: z.string().min(1, "Group name is required").max(100),
@@ -25,6 +24,7 @@ export function NewGroupPage() {
   const { toast } = useToast();
   const createGroup = useCreateGroup();
   const me = useGetMe();
+  const { data: currencies } = useListCurrencies();
   const userDefaultCurrency = me.data?.defaultCurrency ?? "USD";
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -103,7 +103,7 @@ export function NewGroupPage() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {COMMON_CURRENCIES.map((c) => (
+                      {(currencies ?? []).map((c) => (
                         <SelectItem key={c.code} value={c.code}>
                           {c.symbol} {c.code} — {c.name}
                         </SelectItem>

@@ -2,6 +2,7 @@ import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
+import { currenciesTable } from "./currencies";
 
 export const groupsTable = pgTable("groups", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -9,7 +10,10 @@ export const groupsTable = pgTable("groups", {
   description: text("description"),
   category: text("category"),
   avatarUrl: text("avatar_url"),
-  currency: text("currency").notNull().default("USD"),
+  currency: text("currency")
+    .notNull()
+    .default("USD")
+    .references(() => currenciesTable.code),
   inviteCode: text("invite_code").unique(),
   createdByUserId: uuid("created_by_user_id")
     .notNull()

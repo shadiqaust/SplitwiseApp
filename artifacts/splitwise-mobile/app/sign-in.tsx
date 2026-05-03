@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/lib/auth";
-import { COMMON_CURRENCIES } from "@/lib/currencies";
+import { useListCurrencies } from "@workspace/api-client-react";
 
 type Mode = "sign-in" | "sign-up";
 
@@ -31,7 +31,11 @@ export default function SignInScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedCurrency = COMMON_CURRENCIES.find((c) => c.code === defaultCurrency) ?? COMMON_CURRENCIES[0];
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
+  const selectedCurrency =
+    currencies.find((c) => c.code === defaultCurrency) ??
+    { code: defaultCurrency, symbol: defaultCurrency, name: defaultCurrency };
 
   const handleSignIn = async () => {
     setError(null);
@@ -157,7 +161,7 @@ export default function SignInScreen() {
                   }}
                 >
                   <ScrollView nestedScrollEnabled>
-                    {COMMON_CURRENCIES.map((c) => {
+                    {currencies.map((c) => {
                       const active = c.code === defaultCurrency;
                       return (
                         <Pressable

@@ -4,7 +4,7 @@ import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { signToken } from "../lib/jwt";
 import { z } from "zod";
-import { SUPPORTED_CURRENCY_CODES } from "../lib/currencies.js";
+import { isSupportedCurrency } from "../lib/currencies.js";
 
 const router: IRouter = Router();
 
@@ -12,7 +12,7 @@ const RegisterBody = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(8),
-  defaultCurrency: z.enum(SUPPORTED_CURRENCY_CODES).optional(),
+  defaultCurrency: z.string().min(1).optional(),
 });
 
 const LoginBody = z.object({
@@ -28,6 +28,11 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 
   const { name, email, password, defaultCurrency } = parsed.data;
+
+  if (defaultCurrency !== undefined && !(await isSupportedCurrency(defaultCurrency))) {
+    res.status(400).json({ error: "Unsupported currency code" });
+    return;
+  }
 
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email));
   if (existing) {

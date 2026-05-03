@@ -15,6 +15,7 @@ import {
   getListGroupsQueryKey,
   useCreateGroup,
   useGetMe,
+  useListCurrencies,
 } from "@workspace/api-client-react";
 import { useEffect } from "react";
 import { Feather } from "@expo/vector-icons";
@@ -22,7 +23,6 @@ import { Feather } from "@expo/vector-icons";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
-import { COMMON_CURRENCIES } from "@/lib/currencies";
 
 export default function NewGroupScreen() {
   const colors = useColors();
@@ -44,7 +44,11 @@ export default function NewGroupScreen() {
     }
   }, [me.data?.defaultCurrency, currencyTouched]);
 
-  const selectedCurrency = COMMON_CURRENCIES.find((c) => c.code === currency) ?? COMMON_CURRENCIES[0];
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
+  const selectedCurrency =
+    currencies.find((c) => c.code === currency) ??
+    { code: currency, symbol: currency, name: currency };
 
   const onSubmit = () => {
     if (!name.trim()) {
@@ -130,7 +134,7 @@ export default function NewGroupScreen() {
                     overflow: "hidden",
                   }}
                 >
-                  {COMMON_CURRENCIES.map((c) => {
+                  {currencies.map((c) => {
                     const active = c.code === currency;
                     return (
                       <Pressable

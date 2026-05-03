@@ -17,7 +17,7 @@ import { useLocation } from "wouter";
 import { Camera, Upload, Check, MapPin, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { COMMON_CURRENCIES } from "@/lib/currencies";
+import { useListCurrencies } from "@workspace/api-client-react";
 
 // ─── Predefined avatar presets ────────────────────────────────────────────────
 const PRESETS = [
@@ -98,6 +98,7 @@ function UserAvatar({ name, url, size = 80 }: { name?: string; url?: string | nu
 export function ProfilePage() {
   const { data: userProfile, isLoading } = useGetMe();
   const updateMe = useUpdateMe();
+  const { data: currencies } = useListCurrencies();
   const { toast } = useToast();
   const { signOut, updateUser } = useAuth();
   const [, setLocation] = useLocation();
@@ -334,7 +335,7 @@ export function ProfilePage() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {COMMON_CURRENCIES.map((c) => (
+                      {(currencies ?? []).map((c) => (
                         <SelectItem key={c.code} value={c.code}>
                           {c.symbol} {c.code} — {c.name}
                         </SelectItem>

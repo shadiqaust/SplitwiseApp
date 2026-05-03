@@ -17,7 +17,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
-import { useGetMe, useUpdateMe, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMe, getGetMeQueryKey, useListCurrencies } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Avatar } from "@/components/ui/Avatar";
@@ -25,7 +25,6 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/lib/auth";
-import { COMMON_CURRENCIES } from "@/lib/currencies";
 
 // ─── Predefined avatar presets ────────────────────────────────────────────────
 const PRESETS = [
@@ -78,7 +77,11 @@ export default function ProfileScreen() {
     }
   }, [me]);
 
-  const selectedCurrency = COMMON_CURRENCIES.find((c) => c.code === defaultCurrency) ?? COMMON_CURRENCIES[0];
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
+  const selectedCurrency =
+    currencies.find((c) => c.code === defaultCurrency) ??
+    { code: defaultCurrency, symbol: defaultCurrency, name: defaultCurrency };
 
   const handleSignOut = async () => {
     await signOut();
@@ -321,7 +324,7 @@ export default function ProfileScreen() {
                   }}
                 >
                   <ScrollView nestedScrollEnabled>
-                    {COMMON_CURRENCIES.map((c) => {
+                    {currencies.map((c) => {
                       const active = c.code === defaultCurrency;
                       return (
                         <Pressable

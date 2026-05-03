@@ -27,6 +27,7 @@ import type {
   CreateGroupBody,
   CreateNonGroupPaymentBody,
   CreatePaymentBody,
+  Currency,
   DashboardSummary,
   ErrorEnvelope,
   ErrorResponse,
@@ -132,6 +133,81 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List supported currencies
+ */
+export const getListCurrenciesUrl = () => {
+  return `/api/currencies`;
+};
+
+export const listCurrencies = async (
+  options?: RequestInit,
+): Promise<Currency[]> => {
+  return customFetch<Currency[]>(getListCurrenciesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCurrenciesQueryKey = () => {
+  return [`/api/currencies`] as const;
+};
+
+export const getListCurrenciesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCurrencies>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCurrencies>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCurrenciesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCurrencies>>> = ({
+    signal,
+  }) => listCurrencies({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCurrencies>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCurrenciesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCurrencies>>
+>;
+export type ListCurrenciesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List supported currencies
+ */
+
+export function useListCurrencies<
+  TData = Awaited<ReturnType<typeof listCurrencies>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCurrencies>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCurrenciesQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

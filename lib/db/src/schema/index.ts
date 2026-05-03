@@ -1,3 +1,4 @@
+export * from "./currencies";
 export * from "./users";
 export * from "./groups";
 export * from "./expenses";

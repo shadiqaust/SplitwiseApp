@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { COMMON_CURRENCIES } from "@/lib/currencies";
+import { useListCurrencies } from "@workspace/api-client-react";
 
 type AuthMode = "sign-in" | "sign-up";
 
@@ -29,6 +29,8 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [defaultCurrency, setDefaultCurrency] = useState("USD");
+  const currenciesQuery = useListCurrencies();
+  const currencies = currenciesQuery.data ?? [];
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -175,7 +177,7 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
                     <SelectValue placeholder="Select a currency" />
                   </SelectTrigger>
                   <SelectContent>
-                    {COMMON_CURRENCIES.map((c) => (
+                    {currencies.map((c) => (
                       <SelectItem key={c.code} value={c.code}>
                         {c.symbol} {c.code} — {c.name}
                       </SelectItem>

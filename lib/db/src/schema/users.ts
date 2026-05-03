@@ -1,6 +1,7 @@
 import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { currenciesTable } from "./currencies";
 
 export const usersTable = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -10,7 +11,10 @@ export const usersTable = pgTable("users", {
   avatarUrl: text("avatar_url"),
   country: text("country"),
   location: text("location"),
-  defaultCurrency: text("default_currency").notNull().default("USD"),
+  defaultCurrency: text("default_currency")
+    .notNull()
+    .default("USD")
+    .references(() => currenciesTable.code),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

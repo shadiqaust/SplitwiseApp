@@ -17,7 +17,6 @@ import {
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import { COMMON_CURRENCIES } from "@/lib/currencies";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -31,6 +30,7 @@ import {
   useGetGroupBalances,
   useGetMe,
   useIncludeMemberInPastExpenses,
+  useListCurrencies,
   useListExpenses,
   useListPayments,
   useUpdateGroup,
@@ -100,6 +100,8 @@ export default function GroupDetailScreen() {
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editCurrency, setEditCurrency] = useState("USD");
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
   const [showEditCurrency, setShowEditCurrency] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
@@ -997,7 +999,7 @@ export default function GroupDetailScreen() {
                   }}
                 >
                   {(() => {
-                    const sel = COMMON_CURRENCIES.find((c) => c.code === editCurrency) ?? COMMON_CURRENCIES[0];
+                    const sel = currencies.find((c) => c.code === editCurrency) ?? { code: editCurrency, symbol: editCurrency, name: editCurrency };
                     return (
                       <Text style={{ fontFamily: "Inter_400Regular", color: colors.foreground }}>
                         {sel.symbol} {sel.code} — {sel.name}
@@ -1016,7 +1018,7 @@ export default function GroupDetailScreen() {
                       overflow: "hidden",
                     }}
                   >
-                    {COMMON_CURRENCIES.map((c) => {
+                    {currencies.map((c) => {
                       const active = c.code === editCurrency;
                       return (
                         <Pressable

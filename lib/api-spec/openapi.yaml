@@ -36,6 +36,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  # ─── Currencies ──────────────────────────────────────────────────────────
+  /currencies:
+    get:
+      operationId: listCurrencies
+      tags: [currencies]
+      summary: List supported currencies
+      responses:
+        "200":
+          description: Supported currencies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Currency"
+
   # ─── Users ────────────────────────────────────────────────────────────────
   /users/me:
     get:
@@ -926,6 +942,17 @@ components:
           type: string
           format: date-time
       required: [id, name, email, defaultCurrency, createdAt]
+
+    Currency:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        symbol:
+          type: string
+      required: [code, name, symbol]
 
     UpdateUserBody:
       type: object
