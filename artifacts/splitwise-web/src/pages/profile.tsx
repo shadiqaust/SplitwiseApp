@@ -325,17 +325,23 @@ export function ProfilePage() {
             <FormField
               control={form.control}
               name="defaultCurrency"
-              render={({ field }) => (
+              render={({ field }) => {
+                const selected = (currencies ?? []).find((c) => c.code === field.value);
+                return (
                 <FormItem>
                   <FormLabel>Default currency</FormLabel>
                   <Select
-                    key={currencies?.length ?? 0}
+                    key={`${currencies?.length ?? 0}-${field.value}`}
                     value={field.value}
                     onValueChange={field.onChange}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a currency" />
+                        <SelectValue placeholder="Select a currency">
+                          {selected
+                            ? `${selected.symbol} ${selected.code} — ${selected.name}`
+                            : field.value || undefined}
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -351,7 +357,8 @@ export function ProfilePage() {
                   </p>
                   <FormMessage />
                 </FormItem>
-              )}
+                );
+              }}
             />
 
             <Button type="submit" disabled={updateMe.isPending}>
