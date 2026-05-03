@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, sum } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -317,6 +318,30 @@ router.post(
   requireSuperadmin,
   async (req, res): Promise<void> => {
     const me = req.dbUserId!;
+    // Require the admin to re-enter their password before doing something
+    // this destructive — the same pattern used for "danger zone" actions
+    // elsewhere. Stops accidental clicks and stops a hijacked admin tab
+    // from nuking every session without knowing the password.
+    const parsed = z
+      .object({ password: z.string().min(1, "Password is required") })
+      .safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
+      return;
+    }
+    const [meRow] = await db
+      .select({ passwordHash: usersTable.passwordHash })
+      .from(usersTable)
+      .where(eq(usersTable.id, me));
+    if (!meRow) {
+      res.status(401).json({ error: "Session no longer valid" });
+      return;
+    }
+    const ok = await bcrypt.compare(parsed.data.password, meRow.passwordHash);
+    if (!ok) {
+      res.status(401).json({ error: "Incorrect password" });
+      return;
+    }
     const updated = await db
       .update(usersTable)
       .set({ tokenVersion: sql`${usersTable.tokenVersion} + 1` })

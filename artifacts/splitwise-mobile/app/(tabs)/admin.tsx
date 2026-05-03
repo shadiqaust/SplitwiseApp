@@ -9,6 +9,9 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useEffect } from "react";
@@ -421,29 +424,37 @@ function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
     onError: (err: Error) => Alert.alert("Couldn't force logout", err.message),
   });
 
+  const [logoutAllOpen, setLogoutAllOpen] = useState(false);
+  const [logoutAllPassword, setLogoutAllPassword] = useState("");
+  const [logoutAllError, setLogoutAllError] = useState<string | null>(null);
+
   const forceLogoutAll = useMutation({
-    mutationFn: () => adminApi.forceLogoutAll(),
-    onSuccess: (res) =>
+    mutationFn: (password: string) => adminApi.forceLogoutAll(password),
+    onSuccess: (res) => {
+      setLogoutAllOpen(false);
+      setLogoutAllPassword("");
+      setLogoutAllError(null);
       Alert.alert(
         "Everyone signed out",
         `Signed out ${res.count} user${res.count === 1 ? "" : "s"}. You're still signed in.`,
-      ),
-    onError: (err: Error) => Alert.alert("Couldn't force logout", err.message),
+      );
+    },
+    onError: (err: Error) => setLogoutAllError(err.message),
   });
 
+  const submitForceLogoutAll = () => {
+    setLogoutAllError(null);
+    if (!logoutAllPassword) {
+      setLogoutAllError("Enter your password to confirm.");
+      return;
+    }
+    forceLogoutAll.mutate(logoutAllPassword);
+  };
+
   const confirmForceLogoutAll = () => {
-    Alert.alert(
-      "Force logout EVERYONE?",
-      "This signs every user out of every device (except you). They'll all need to sign in again.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign everyone out",
-          style: "destructive",
-          onPress: () => forceLogoutAll.mutate(),
-        },
-      ],
-    );
+    setLogoutAllPassword("");
+    setLogoutAllError(null);
+    setLogoutAllOpen(true);
   };
 
   const confirmForceLogout = (id: string, name: string) => {
@@ -485,7 +496,6 @@ function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
     <ScrollView contentContainerStyle={{ padding: 16 }}>
       <Pressable
         onPress={confirmForceLogoutAll}
-        disabled={forceLogoutAll.isPending}
         style={{
           flexDirection: "row",
           alignItems: "center",
@@ -496,14 +506,9 @@ function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
           borderRadius: 8,
           backgroundColor: colors.destructive,
           marginBottom: 12,
-          opacity: forceLogoutAll.isPending ? 0.6 : 1,
         }}
       >
-        {forceLogoutAll.isPending ? (
-          <ActivityIndicator size="small" color={colors.destructiveForeground} />
-        ) : (
-          <Feather name="log-out" size={16} color={colors.destructiveForeground} />
-        )}
+        <Feather name="log-out" size={16} color={colors.destructiveForeground} />
         <Text
           style={{
             color: colors.destructiveForeground,
@@ -513,6 +518,115 @@ function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
           Force-logout everyone
         </Text>
       </Pressable>
+
+      <Modal
+        visible={logoutAllOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!forceLogoutAll.isPending) setLogoutAllOpen(false);
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: 12,
+              padding: 20,
+              gap: 12,
+            }}
+          >
+            <Text
+              style={{
+                color: colors.foreground,
+                fontFamily: "Inter_700Bold",
+                fontSize: 18,
+              }}
+            >
+              Force-logout every user?
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 13, lineHeight: 18 }}>
+              Every user will be signed out of every device immediately and will need to sign in
+              again. Your own session is preserved. Re-enter your superadmin password to confirm.
+            </Text>
+            <View style={{ gap: 4 }}>
+              <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>Your password</Text>
+              <TextInput
+                value={logoutAllPassword}
+                onChangeText={setLogoutAllPassword}
+                secureTextEntry
+                autoFocus
+                editable={!forceLogoutAll.isPending}
+                placeholder="Password"
+                placeholderTextColor={colors.mutedForeground}
+                style={[
+                  styles.input,
+                  {
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              />
+            </View>
+            {logoutAllError && (
+              <Text style={{ color: colors.destructive, fontSize: 12 }}>{logoutAllError}</Text>
+            )}
+            <View style={{ flexDirection: "row", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+              <Pressable
+                onPress={() => setLogoutAllOpen(false)}
+                disabled={forceLogoutAll.isPending}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  opacity: forceLogoutAll.isPending ? 0.5 : 1,
+                }}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>
+                  Cancel
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={submitForceLogoutAll}
+                disabled={forceLogoutAll.isPending}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                  backgroundColor: colors.destructive,
+                  opacity: forceLogoutAll.isPending ? 0.6 : 1,
+                }}
+              >
+                {forceLogoutAll.isPending && (
+                  <ActivityIndicator size="small" color={colors.destructiveForeground} />
+                )}
+                <Text
+                  style={{
+                    color: colors.destructiveForeground,
+                    fontFamily: "Inter_600SemiBold",
+                  }}
+                >
+                  Sign everyone out
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <TextInput
         value={q}

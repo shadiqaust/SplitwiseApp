@@ -7,6 +7,15 @@ import { AdminLayout } from "./layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Shield, ChevronLeft, ChevronRight, Mail, MailCheck, MailWarning, LogOut, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 const PAGE_SIZE = 25;
 
@@ -30,25 +39,32 @@ export function AdminUsersPage() {
     onError: (err: Error) => setFlash({ kind: "error", text: err.message }),
   });
 
+  const [logoutAllOpen, setLogoutAllOpen] = useState(false);
+  const [logoutAllPassword, setLogoutAllPassword] = useState("");
+  const [logoutAllError, setLogoutAllError] = useState<string | null>(null);
+
   const forceLogoutAll = useMutation({
-    mutationFn: () => adminApi.forceLogoutAll(),
+    mutationFn: (password: string) => adminApi.forceLogoutAll(password),
     onSuccess: (res) => {
+      setLogoutAllOpen(false);
+      setLogoutAllPassword("");
+      setLogoutAllError(null);
       setFlash({
         kind: "success",
         text: `Signed out ${res.count} user${res.count === 1 ? "" : "s"}. You're still signed in.`,
       });
     },
-    onError: (err: Error) => setFlash({ kind: "error", text: err.message }),
+    onError: (err: Error) => setLogoutAllError(err.message),
   });
 
-  const onForceLogoutAll = () => {
-    if (
-      !window.confirm(
-        "Sign out EVERY user from every device? This will revoke all active sessions across web and mobile (except yours). Users will have to sign in again.",
-      )
-    )
+  const submitForceLogoutAll = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setLogoutAllError(null);
+    if (!logoutAllPassword) {
+      setLogoutAllError("Enter your password to confirm.");
       return;
-    forceLogoutAll.mutate();
+    }
+    forceLogoutAll.mutate(logoutAllPassword);
   };
 
   const onForceLogout = (id: string, name: string) => {
@@ -90,18 +106,74 @@ export function AdminUsersPage() {
         </div>
         <Button
           variant="destructive"
-          onClick={onForceLogoutAll}
-          disabled={forceLogoutAll.isPending}
+          onClick={() => {
+            setLogoutAllPassword("");
+            setLogoutAllError(null);
+            setLogoutAllOpen(true);
+          }}
           title="Sign every user out of every device"
         >
-          {forceLogoutAll.isPending ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <LogOut className="w-4 h-4 mr-2" />
-          )}
+          <LogOut className="w-4 h-4 mr-2" />
           Force-logout everyone
         </Button>
       </div>
+
+      <Dialog
+        open={logoutAllOpen}
+        onOpenChange={(o) => {
+          if (forceLogoutAll.isPending) return;
+          setLogoutAllOpen(o);
+          if (!o) {
+            setLogoutAllPassword("");
+            setLogoutAllError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Force-logout every user?</DialogTitle>
+            <DialogDescription>
+              Every user will be signed out of every device immediately and will need to sign in again.
+              Your own session is preserved. Re-enter your superadmin password to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitForceLogoutAll} className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="confirm-password">Your password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                autoComplete="current-password"
+                autoFocus
+                value={logoutAllPassword}
+                onChange={(e) => setLogoutAllPassword(e.target.value)}
+                disabled={forceLogoutAll.isPending}
+              />
+            </div>
+            {logoutAllError && (
+              <p className="text-sm text-destructive">{logoutAllError}</p>
+            )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLogoutAllOpen(false)}
+                disabled={forceLogoutAll.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="destructive" disabled={forceLogoutAll.isPending}>
+                {forceLogoutAll.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <LogOut className="w-4 h-4 mr-2" />
+                )}
+                Sign everyone out
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {flash && (
         <div
