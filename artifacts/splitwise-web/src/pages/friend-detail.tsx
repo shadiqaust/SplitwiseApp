@@ -1,7 +1,15 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation, useParams } from "wouter";
-import { ChevronLeft, ChevronRight, HandCoins, Users } from "lucide-react";
+import { Link, useParams } from "wouter";
+import {
+  CheckCircle2,
+  ChevronLeft,
+  CreditCard,
+  FileText,
+  Plus,
+  Settings,
+  Users,
+} from "lucide-react";
 import {
   type ExpenseWithSplits,
   type Payment,
@@ -11,7 +19,6 @@ import {
 } from "@workspace/api-client-react";
 
 import { Layout } from "@/components/layout";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettleUpWithFriendDialog } from "@/components/settle-up-with-friend-dialog";
@@ -26,36 +33,83 @@ interface FriendActivityResponse {
   payments: (Payment & { currency?: string })[];
 }
 
-type GroupBalance = {
+type Bucket = { key: string; label: string; amount: number };
+
+type ActivityRow = {
   key: string;
-  groupId: string | null;
-  name: string;
-  href: string;
-  // Single net amount (positive = friend owes you). Currency is rendered with
-  // the viewer's display symbol, so we no longer carry a per-currency list.
-  amount: number;
+  date: Date;
+  monthKey: string;
+  monthLabel: string;
+  dayMonth: string;
+  dayNum: string;
+  icon: "file-text" | "users" | "credit-card";
+  title: string;
+  subtitle: string;
+  kind: "expense" | "payment";
+  delta: number;
 };
+
+const monthShort = new Intl.DateTimeFormat("en-US", { month: "short" });
+const monthLong = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
 
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem("sw_auth_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-function FriendAvatar({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
-  const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+function shortName(full: string): string {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return full;
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[1][0]?.toUpperCase() ?? ""}.`;
+}
+
+// Parse date strings without TZ shifts. `YYYY-MM-DD` strings are treated as
+// local calendar dates so the day/month displayed matches what the user
+// picked, regardless of their timezone.
+function parseLocalDate(raw: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return new Date(raw);
+}
+
+function expenseDate(e: ExpenseWithSplits): Date {
+  const raw = (e as unknown as { date?: string }).date ?? e.createdAt;
+  return parseLocalDate(raw);
+}
+
+function paymentDate(p: Payment): Date {
+  const raw = (p as unknown as { date?: string }).date ?? p.createdAt;
+  return parseLocalDate(raw);
+}
+
+function HeroAvatar({
+  name,
+  avatarUrl,
+}: {
+  name: string;
+  avatarUrl: string | null;
+}) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
   const resolved = avatarUrl ? (resolveAvatarUrl(avatarUrl) ?? avatarUrl) : null;
-  if (resolved) {
-    return (
-      <img
-        src={resolved}
-        alt={name}
-        className="w-14 h-14 rounded-full object-cover flex-shrink-0"
-      />
-    );
-  }
   return (
-    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-base flex-shrink-0">
-      {initials}
+    <div className="w-24 h-24 rounded-full bg-background p-1.5 shadow-md ring-1 ring-border">
+      {resolved ? (
+        <img
+          src={resolved}
+          alt={name}
+          className="w-full h-full rounded-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl font-semibold">
+          {initials}
+        </div>
+      )}
     </div>
   );
 }
@@ -66,11 +120,9 @@ export function FriendDetailPage() {
   const me = useGetMe();
   const myId = me.data?.id;
   const { data: groupsList } = useListGroups();
-  const groupInfoById = useMemo(() => {
-    const m = new Map<string, { name: string; currency: string }>();
-    for (const g of groupsList ?? []) {
-      m.set(g.id, { name: g.name, currency: g.currency || "USD" });
-    }
+  const groupNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of groupsList ?? []) m.set(g.id, g.name);
     return m;
   }, [groupsList]);
   const [settleOpen, setSettleOpen] = useState(false);
@@ -78,100 +130,233 @@ export function FriendDetailPage() {
   const { data, isLoading } = useQuery<FriendActivityResponse>({
     queryKey: ["friend-activity", friendId],
     queryFn: async () => {
-      const res = await fetch(`/api/friends/${friendId}/activity`, { headers: authHeaders() });
+      const res = await fetch(`/api/friends/${friendId}/activity`, {
+        headers: authHeaders(),
+      });
       if (!res.ok) throw new Error("Failed to load activity");
       return res.json();
     },
     enabled: typeof friendId === "string" && friendId.length > 0,
   });
 
-  const groupBalances = useMemo<GroupBalance[]>(() => {
+  const buckets = useMemo<Bucket[]>(() => {
     if (!data || !myId) return [];
-    // bucketKey -> signed sum (positive = friend owes me). Stored currencies
-    // are ignored; the viewer's display symbol is applied at render.
-    const buckets = new Map<string, number>();
-    const bump = (bucket: string, delta: number) => {
-      buckets.set(bucket, (buckets.get(bucket) ?? 0) + delta);
-    };
+    const m = new Map<string, number>();
+    const bump = (k: string, d: number) => m.set(k, (m.get(k) ?? 0) + d);
     for (const e of data.expenses) {
-      const bucket = e.groupId ?? "__none__";
+      const k = e.groupId ?? "__none__";
       if (e.paidByUserId === myId) {
         const fs = e.splits.find((s) => s.userId === friendId);
-        if (fs) bump(bucket, parseFloat(String(fs.amount)));
+        if (fs) bump(k, parseFloat(String(fs.amount)));
       } else if (e.paidByUserId === friendId) {
         const ms = e.splits.find((s) => s.userId === myId);
-        if (ms) bump(bucket, -parseFloat(String(ms.amount)));
+        if (ms) bump(k, -parseFloat(String(ms.amount)));
       }
     }
     for (const p of data.payments) {
-      const bucket = p.groupId ?? "__none__";
+      const k = p.groupId ?? "__none__";
       const amt = parseFloat(String(p.amount));
-      if (p.fromUserId === myId) bump(bucket, amt);
-      else bump(bucket, -amt);
+      if (p.fromUserId === myId) bump(k, amt);
+      else bump(k, -amt);
     }
-
-    const out: GroupBalance[] = [];
-    for (const [bucketKey, amount] of buckets) {
-      if (bucketKey === "__none__") {
-        out.push({
-          key: "__none__",
-          groupId: null,
-          name: "Non-group expenses",
-          href: "/non-group-expenses",
-          amount,
-        });
-      } else {
-        const info = groupInfoById.get(bucketKey);
-        out.push({
-          key: bucketKey,
-          groupId: bucketKey,
-          name: info?.name ?? "Group",
-          href: `/groups/${bucketKey}`,
-          amount,
-        });
-      }
+    const out: Bucket[] = [];
+    for (const [k, amount] of m) {
+      if (Math.abs(amount) < 0.01) continue;
+      out.push({
+        key: k,
+        label:
+          k === "__none__"
+            ? "non-group expenses"
+            : `“${groupNameById.get(k) ?? "Group"}”`,
+        amount,
+      });
     }
-    // Sort: non-settled first, then settled. Within settled, non-group bucket last.
-    const isSettled = (gb: GroupBalance) => Math.abs(gb.amount) < 0.01;
-    out.sort((a, b) => {
-      const aS = isSettled(a) ? 1 : 0;
-      const bS = isSettled(b) ? 1 : 0;
-      if (aS !== bS) return aS - bS;
-      if (aS === 1) {
-        if (a.groupId === null && b.groupId !== null) return 1;
-        if (b.groupId === null && a.groupId !== null) return -1;
-      }
-      return a.name.localeCompare(b.name);
-    });
+    out.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
     return out;
-  }, [data, myId, friendId, groupInfoById]);
+  }, [data, myId, friendId, groupNameById]);
+
+  const activity = useMemo<ActivityRow[]>(() => {
+    if (!data || !myId) return [];
+    const friendShort = shortName(data.friend.name);
+    const rows: ActivityRow[] = [];
+    for (const e of data.expenses) {
+      let delta = 0;
+      let subtitle = "Shared group";
+      if (e.paidByUserId === myId) {
+        const fs = e.splits.find((s) => s.userId === friendId);
+        delta = fs ? parseFloat(String(fs.amount)) : 0;
+        subtitle = `You paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+      } else if (e.paidByUserId === friendId) {
+        const ms = e.splits.find((s) => s.userId === myId);
+        delta = ms ? -parseFloat(String(ms.amount)) : 0;
+        subtitle = `${friendShort} paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+      }
+      const d = expenseDate(e);
+      rows.push({
+        key: `e:${e.id}`,
+        date: d,
+        monthKey: `${d.getFullYear()}-${d.getMonth()}`,
+        monthLabel: monthLong.format(d),
+        dayMonth: monthShort.format(d),
+        dayNum: String(d.getDate()),
+        icon: e.groupId ? "users" : "file-text",
+        title: e.description,
+        subtitle,
+        kind: "expense",
+        delta,
+      });
+    }
+    for (const p of data.payments) {
+      const amt = parseFloat(String(p.amount));
+      let delta = 0;
+      let title = "Payment";
+      if (p.fromUserId === myId) {
+        delta = amt;
+        title = `You paid ${friendShort}`;
+      } else {
+        delta = -amt;
+        title = `${friendShort} paid you`;
+      }
+      const d = paymentDate(p);
+      rows.push({
+        key: `p:${p.id}`,
+        date: d,
+        monthKey: `${d.getFullYear()}-${d.getMonth()}`,
+        monthLabel: monthLong.format(d),
+        dayMonth: monthShort.format(d),
+        dayNum: String(d.getDate()),
+        icon: "credit-card",
+        title,
+        subtitle: "Recorded payment",
+        kind: "payment",
+        delta,
+      });
+    }
+    rows.sort((a, b) => b.date.getTime() - a.date.getTime());
+    return rows;
+  }, [data, myId, friendId]);
 
   const friend = data?.friend;
   const net = data?.netBalance ?? 0;
-  const hasAny =
-    (data?.expenses.length ?? 0) > 0 || (data?.payments.length ?? 0) > 0;
+  const settled = Math.abs(net) < 0.01;
+  const owedOverall = net > 0;
+  const friendShort = friend ? shortName(friend.name) : "";
 
   return (
     <Layout>
-      <div className="space-y-6 pb-24">
-        <div className="flex items-center gap-3">
-          <Link href="/friends">
-            <Button variant="ghost" size="sm">
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Friends
-            </Button>
-          </Link>
-          {friend && myId && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto"
-              onClick={() => setSettleOpen(true)}
-            >
-              <HandCoins className="w-4 h-4 mr-1.5" /> Settle up
-            </Button>
-          )}
+      <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 pb-16">
+        {/* Decorative banner */}
+        <div className="relative h-36 bg-primary overflow-hidden">
+          <div className="absolute -top-24 -right-12 w-56 h-56 rotate-45 bg-white/10" />
+          <div className="absolute -bottom-16 -left-10 w-44 h-44 rotate-12 bg-white/5" />
+          <div className="absolute -bottom-12 right-12 w-32 h-32 rotate-6 bg-white/10" />
+          <div className="relative z-10 flex items-center justify-between px-4 pt-4">
+            <Link href="/friends">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Back to friends"
+                className="rounded-full bg-background/95 hover:bg-background h-9 w-9 text-foreground"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <Link href="/profile">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Open profile settings"
+                className="rounded-full bg-background/95 hover:bg-background h-9 w-9 text-foreground"
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
+
+        {/* Avatar overlapping the banner */}
+        <div className="px-5 -mt-12">
+          {isLoading && !data ? (
+            <Skeleton className="w-24 h-24 rounded-full" />
+          ) : friend ? (
+            <HeroAvatar name={friend.name} avatarUrl={friend.avatarUrl ?? null} />
+          ) : null}
+        </div>
+
+        {/* Header content */}
+        <div className="px-5 pt-3 space-y-2">
+          {isLoading && !data ? (
+            <>
+              <Skeleton className="h-7 w-1/2" />
+              <Skeleton className="h-4 w-2/3" />
+            </>
+          ) : friend ? (
+            <>
+              <h1 className="text-2xl font-bold truncate">{friend.name}</h1>
+              {settled ? (
+                <p className="text-base text-muted-foreground">
+                  you are all settled up
+                </p>
+              ) : (
+                <p
+                  className={cn(
+                    "text-base font-medium",
+                    owedOverall ? "text-green-600" : "text-red-500",
+                  )}
+                >
+                  {owedOverall ? "You are owed" : "You owe"}{" "}
+                  <span className="font-bold">{formatCurrency(Math.abs(net))}</span>{" "}
+                  overall
+                </p>
+              )}
+              {buckets.length > 0 && (
+                <div className="space-y-0.5 pt-1">
+                  {buckets.map((b) => {
+                    const friendOwes = b.amount > 0;
+                    const tone = friendOwes ? "text-green-600" : "text-red-500";
+                    const subj = friendOwes
+                      ? `${friendShort} owes you`
+                      : `You owe ${friendShort}`;
+                    return (
+                      <p
+                        key={b.key}
+                        className="text-sm text-muted-foreground"
+                      >
+                        {subj}{" "}
+                        <span className={cn("font-semibold", tone)}>
+                          {formatCurrency(Math.abs(b.amount))}
+                        </span>{" "}
+                        in {b.label}
+                      </p>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : null}
+        </div>
+
+        {/* Action chip row */}
+        {friend && myId && (
+          <div className="px-5 pt-5 pb-2 flex gap-2 overflow-x-auto">
+            <Button
+              onClick={() => setSettleOpen(true)}
+              className="rounded-full h-9 px-4 gap-1.5 shrink-0"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Settle up
+            </Button>
+            <Link href={`/expenses/new?friendId=${friend.id}`}>
+              <Button
+                variant="outline"
+                className="rounded-full h-9 px-4 gap-1.5 shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                Add expense
+              </Button>
+            </Link>
+          </div>
+        )}
 
         {friend && myId && (
           <SettleUpWithFriendDialog
@@ -184,121 +369,88 @@ export function FriendDetailPage() {
           />
         )}
 
-        {isLoading && !data ? (
-          <Card>
-            <CardContent className="p-6 flex items-center gap-4">
-              <Skeleton className="w-14 h-14 rounded-full" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-5 w-1/3" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            </CardContent>
-          </Card>
-        ) : friend ? (
-          <Card>
-            <CardContent className="p-4 sm:p-6 flex items-center gap-3 sm:gap-4">
-              <FriendAvatar name={friend.name} avatarUrl={friend.avatarUrl ?? null} />
-              <div className="flex-1 min-w-0">
-                <p className="text-lg sm:text-xl font-bold truncate">{friend.name}</p>
-                <p className="text-xs sm:text-sm text-muted-foreground truncate">{friend.email}</p>
-              </div>
-              <div className="text-right shrink-0 space-y-1">
-                {Math.abs(net) < 0.01 ? (
-                  <p className="text-sm text-muted-foreground">settled up</p>
-                ) : (
-                  (() => {
-                    const owed = net > 0;
-                    return (
-                      <div>
-                        <p
-                          className={cn(
-                            "text-base sm:text-lg font-bold whitespace-nowrap",
-                            owed ? "text-green-600" : "text-red-500",
-                          )}
-                        >
-                          {formatCurrency(Math.abs(net))}
-                        </p>
-                        <p className={cn("text-[10px] uppercase tracking-wide", owed ? "text-green-600" : "text-red-500")}>
-                          {owed ? "owes you" : "you owe"}
-                        </p>
-                      </div>
-                    );
-                  })()
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {!isLoading && !hasAny ? (
-          <div className="text-center py-12 px-4 border rounded-xl bg-card">
-            <p className="text-lg font-semibold mb-1">No activity yet</p>
-            <p className="text-sm text-muted-foreground">
-              Add an expense or record a payment with{" "}
-              {friend?.name ?? "this friend"} to get started.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              By group
-            </p>
-            {groupBalances.map((gb) => (
-              <GroupBalanceRow key={gb.key} balance={gb} />
-            ))}
-          </div>
-        )}
+        {/* Activity timeline */}
+        <div className="px-5 pt-3">
+          {!isLoading && activity.length === 0 ? (
+            <div className="text-center py-12 px-4 border rounded-xl bg-card mt-4">
+              <p className="text-lg font-semibold mb-1">No activity yet</p>
+              <p className="text-sm text-muted-foreground">
+                Add an expense or record a payment with{" "}
+                {friend?.name ?? "this friend"} to get started.
+              </p>
+            </div>
+          ) : (
+            <Timeline rows={activity} />
+          )}
+        </div>
       </div>
     </Layout>
   );
 }
 
-function GroupBalanceRow({ balance }: { balance: GroupBalance }) {
-  const [, navigate] = useLocation();
-  const settled = Math.abs(balance.amount) < 0.01;
-  const owed = balance.amount > 0;
-  return (
-    <Card
-      onClick={() => navigate(balance.href)}
-      className="cursor-pointer hover:bg-accent/40 transition-colors"
-    >
-      <CardContent className="p-4 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-          <Users className="w-5 h-5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold truncate">{balance.name}</p>
-          <p className="text-xs text-muted-foreground">
-            {settled ? "all settled" : "open balance"}
-          </p>
-        </div>
-        <div className="text-right shrink-0 space-y-1">
-          {settled ? (
-            <p className="text-sm text-muted-foreground">settled up</p>
-          ) : (
-            <div>
-              <p
-                className={cn(
-                  "font-semibold whitespace-nowrap",
-                  owed ? "text-green-600" : "text-red-500",
-                )}
-              >
-                {formatCurrency(Math.abs(balance.amount))}
-              </p>
-              <p
-                className={cn(
-                  "text-[10px] uppercase tracking-wide",
-                  owed ? "text-green-600" : "text-red-500",
-                )}
-              >
-                {owed ? "owes you" : "you owe"}
-              </p>
-            </div>
-          )}
-        </div>
-        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-      </CardContent>
-    </Card>
-  );
+function Timeline({ rows }: { rows: ActivityRow[] }) {
+  const out: React.ReactNode[] = [];
+  let lastMonth: string | null = null;
+  for (const row of rows) {
+    if (row.monthKey !== lastMonth) {
+      out.push(
+        <h2
+          key={`m:${row.monthKey}`}
+          className="text-sm font-bold mt-5 mb-2 text-foreground"
+        >
+          {row.monthLabel}
+        </h2>,
+      );
+      lastMonth = row.monthKey;
+    }
+    out.push(<TimelineRow key={row.key} row={row} />);
+  }
+  return <div>{out}</div>;
 }
 
+function TimelineRow({ row }: { row: ActivityRow }) {
+  const settled = Math.abs(row.delta) < 0.01;
+  const positive = row.delta > 0;
+  // Payments are settle-up activity even though they shift the balance;
+  // we show "settled up" rather than lent/borrowed.
+  const isPayment = row.kind === "payment";
+  const tone = settled || isPayment
+    ? "text-muted-foreground"
+    : positive
+      ? "text-green-600"
+      : "text-red-500";
+  const label = isPayment
+    ? "settled up"
+    : settled
+      ? "settled up"
+      : positive
+        ? "you lent"
+        : "you borrowed";
+  const Icon = row.icon === "users" ? Users : row.icon === "credit-card" ? CreditCard : FileText;
+  const iconTint = row.icon === "users" ? "text-primary" : "text-muted-foreground";
+  return (
+    <div className="flex items-center gap-3 py-2.5">
+      <div className="w-9 flex flex-col items-center shrink-0">
+        <span className="text-[10px] font-medium uppercase text-muted-foreground leading-tight">
+          {row.dayMonth}
+        </span>
+        <span className="text-base font-bold leading-tight">{row.dayNum}</span>
+      </div>
+      <div className="w-10 h-10 rounded-md bg-muted border flex items-center justify-center shrink-0">
+        <Icon className={cn("w-4 h-4", iconTint)} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-sm truncate">{row.title}</p>
+        <p className="text-xs text-muted-foreground truncate">{row.subtitle}</p>
+      </div>
+      <div className="text-right shrink-0">
+        <p className={cn("text-[10px] font-medium", tone)}>{label}</p>
+        {!settled && !isPayment && (
+          <p className={cn("font-bold text-sm", tone)}>
+            {formatCurrency(Math.abs(row.delta))}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}

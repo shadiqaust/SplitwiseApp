@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -20,7 +21,6 @@ import {
 } from "@workspace/api-client-react";
 
 import { Avatar } from "@/components/ui/Avatar";
-import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SettleUpWithFriendModal } from "@/components/SettleUpWithFriendModal";
 import { useColors } from "@/hooks/useColors";
@@ -35,27 +35,68 @@ interface FriendActivityResponse {
   payments: (Payment & { currency?: string })[];
 }
 
-type GroupBalance = {
+type Bucket = {
   key: string;
-  groupId: string | null;
-  name: string;
-  // Single net amount (positive = friend owes you). Currency rendered with
-  // the viewer's display symbol via formatCurrency.
+  label: string;
   amount: number;
 };
+
+type ActivityRow = {
+  key: string;
+  date: Date;
+  monthKey: string;
+  monthLabel: string;
+  dayMonth: string;
+  dayNum: string;
+  icon: "file-text" | "users" | "credit-card";
+  iconTint: string;
+  title: string;
+  subtitle: string;
+  kind: "expense" | "payment";
+  delta: number;
+};
+
+const monthShort = new Intl.DateTimeFormat("en-US", { month: "short" });
+const monthLong = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
+
+function shortName(full: string): string {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return full;
+  if (parts.length === 1) return parts[0];
+  const last = parts[1];
+  return `${parts[0]} ${last[0]?.toUpperCase() ?? ""}.`;
+}
+
+// Parse date strings without TZ shifts. `YYYY-MM-DD` strings are treated as
+// local calendar dates so the day/month displayed matches what the user
+// picked, regardless of their timezone.
+function parseLocalDate(raw: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return new Date(raw);
+}
+
+function expenseDate(e: ExpenseWithSplits): Date {
+  const raw = (e as unknown as { date?: string }).date ?? e.createdAt;
+  return parseLocalDate(raw);
+}
+
+function paymentDate(p: Payment): Date {
+  const raw = (p as unknown as { date?: string }).date ?? p.createdAt;
+  return parseLocalDate(raw);
+}
 
 export default function FriendDetailScreen() {
   const { friendId } = useLocalSearchParams<{ friendId: string }>();
   const colors = useColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const me = useGetMe();
   const myId = me.data?.id;
   const { data: groupsList } = useListGroups();
-  const groupInfoById = useMemo(() => {
-    const m = new Map<string, { name: string; currency: string }>();
-    for (const g of groupsList ?? []) {
-      m.set(g.id, { name: g.name, currency: g.currency || "USD" });
-    }
+  const groupNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of groupsList ?? []) m.set(g.id, g.name);
     return m;
   }, [groupsList]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -77,67 +118,112 @@ export default function FriendDetailScreen() {
     setIsRefreshing(false);
   }, [query]);
 
-  const groupBalances = useMemo<GroupBalance[]>(() => {
+  const buckets = useMemo<Bucket[]>(() => {
     const data = query.data;
     if (!data || !myId) return [];
-    const buckets = new Map<string, number>();
-    const bump = (bucket: string, delta: number) => {
-      buckets.set(bucket, (buckets.get(bucket) ?? 0) + delta);
-    };
+    // bucketKey -> signed sum (positive = friend owes me)
+    const m = new Map<string, number>();
+    const bump = (k: string, d: number) => m.set(k, (m.get(k) ?? 0) + d);
     for (const e of data.expenses) {
-      const bucket = e.groupId ?? "__none__";
+      const k = e.groupId ?? "__none__";
       if (e.paidByUserId === myId) {
         const fs = e.splits.find((s) => s.userId === friendId);
-        if (fs) bump(bucket, parseFloat(String(fs.amount)));
+        if (fs) bump(k, parseFloat(String(fs.amount)));
       } else if (e.paidByUserId === friendId) {
         const ms = e.splits.find((s) => s.userId === myId);
-        if (ms) bump(bucket, -parseFloat(String(ms.amount)));
+        if (ms) bump(k, -parseFloat(String(ms.amount)));
       }
     }
     for (const p of data.payments) {
-      const bucket = p.groupId ?? "__none__";
+      const k = p.groupId ?? "__none__";
       const amt = parseFloat(String(p.amount));
-      if (p.fromUserId === myId) bump(bucket, amt);
-      else bump(bucket, -amt);
+      if (p.fromUserId === myId) bump(k, amt);
+      else bump(k, -amt);
+    }
+    const out: Bucket[] = [];
+    for (const [k, amount] of m) {
+      if (Math.abs(amount) < 0.01) continue;
+      out.push({
+        key: k,
+        label: k === "__none__" ? "non-group expenses" : `“${groupNameById.get(k) ?? "Group"}”`,
+        amount,
+      });
+    }
+    out.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+    return out;
+  }, [query.data, myId, friendId, groupNameById]);
+
+  const activity = useMemo<ActivityRow[]>(() => {
+    const data = query.data;
+    if (!data || !myId) return [];
+    const friend = data.friend;
+    const friendShort = shortName(friend.name);
+    const rows: ActivityRow[] = [];
+
+    for (const e of data.expenses) {
+      let delta = 0;
+      let subtitle = "Shared group";
+      if (e.paidByUserId === myId) {
+        const fs = e.splits.find((s) => s.userId === friendId);
+        delta = fs ? parseFloat(String(fs.amount)) : 0;
+        subtitle = `You paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+      } else if (e.paidByUserId === friendId) {
+        const ms = e.splits.find((s) => s.userId === myId);
+        delta = ms ? -parseFloat(String(ms.amount)) : 0;
+        subtitle = `${friendShort} paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+      }
+      const d = expenseDate(e);
+      rows.push({
+        key: `e:${e.id}`,
+        date: d,
+        monthKey: `${d.getFullYear()}-${d.getMonth()}`,
+        monthLabel: monthLong.format(d),
+        dayMonth: monthShort.format(d),
+        dayNum: String(d.getDate()),
+        icon: e.groupId ? "users" : "file-text",
+        iconTint: e.groupId ? colors.primary : colors.mutedForeground,
+        title: e.description,
+        subtitle,
+        kind: "expense",
+        delta,
+      });
     }
 
-    const out: GroupBalance[] = [];
-    for (const [bucketKey, amount] of buckets) {
-      if (bucketKey === "__none__") {
-        out.push({
-          key: "__none__",
-          groupId: null,
-          name: "Non-group expenses",
-          amount,
-        });
+    for (const p of data.payments) {
+      const amt = parseFloat(String(p.amount));
+      let delta = 0;
+      let title = "Payment";
+      if (p.fromUserId === myId) {
+        delta = amt;
+        title = `You paid ${friendShort}`;
       } else {
-        const info = groupInfoById.get(bucketKey);
-        out.push({
-          key: bucketKey,
-          groupId: bucketKey,
-          name: info?.name ?? "Group",
-          amount,
-        });
+        delta = -amt;
+        title = `${friendShort} paid you`;
       }
+      const d = paymentDate(p);
+      rows.push({
+        key: `p:${p.id}`,
+        date: d,
+        monthKey: `${d.getFullYear()}-${d.getMonth()}`,
+        monthLabel: monthLong.format(d),
+        dayMonth: monthShort.format(d),
+        dayNum: String(d.getDate()),
+        icon: "credit-card",
+        iconTint: colors.primary,
+        title,
+        subtitle: "Recorded payment",
+        kind: "payment",
+        delta,
+      });
     }
-    const isSettled = (gb: GroupBalance) => Math.abs(gb.amount) < 0.01;
-    out.sort((a, b) => {
-      const aS = isSettled(a) ? 1 : 0;
-      const bS = isSettled(b) ? 1 : 0;
-      if (aS !== bS) return aS - bS;
-      if (aS === 1) {
-        if (a.groupId === null && b.groupId !== null) return 1;
-        if (b.groupId === null && a.groupId !== null) return -1;
-      }
-      return a.name.localeCompare(b.name);
-    });
-    return out;
-  }, [query.data, myId, friendId, groupInfoById]);
+    rows.sort((a, b) => b.date.getTime() - a.date.getTime());
+    return rows;
+  }, [query.data, myId, friendId, colors.primary, colors.mutedForeground]);
 
   if (query.isLoading && !query.data) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Stack.Screen options={{ title: "Activity" }} />
+        <Stack.Screen options={{ headerShown: false }} />
         <ActivityIndicator color={colors.primary} />
       </View>
     );
@@ -145,21 +231,26 @@ export default function FriendDetailScreen() {
 
   const friend = query.data?.friend;
   const net = query.data?.netBalance ?? 0;
-  const hasAny =
-    (query.data?.expenses.length ?? 0) > 0 ||
-    (query.data?.payments.length ?? 0) > 0;
-
-  const onPressGroup = (gb: GroupBalance) => {
-    if (gb.groupId) router.push(`/(tabs)/groups/${gb.groupId}`);
-    else router.push("/non-group-expenses");
-  };
+  const settled = Math.abs(net) < 0.01;
+  const owedOverall = net > 0;
+  const balanceTone = settled
+    ? colors.mutedForeground
+    : owedOverall
+      ? colors.positive
+      : colors.negative;
+  const balanceVerb = settled
+    ? "you are settled up overall"
+    : owedOverall
+      ? "You are owed"
+      : "You owe";
+  const friendShort = friend ? shortName(friend.name) : "";
 
   return (
     <>
-      <Stack.Screen options={{ title: friend?.name ?? "Activity" }} />
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         style={{ backgroundColor: colors.background }}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -168,75 +259,122 @@ export default function FriendDetailScreen() {
           />
         }
       >
-        {friend && (
-          <>
-            <Card style={styles.headerCard}>
-              <Avatar name={friend.name} url={friend.avatarUrl ?? null} size={56} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.friendName, { color: colors.foreground }]} numberOfLines={1}>
-                  {friend.name}
-                </Text>
-                <Text style={[styles.friendEmail, { color: colors.mutedForeground }]} numberOfLines={1}>
-                  {friend.email}
-                </Text>
-              </View>
-              <View style={{ alignItems: "flex-end", gap: 6 }}>
-                {Math.abs(net) < 0.01 ? (
-                  <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>settled</Text>
-                ) : (
-                  (() => {
-                    const owed = net > 0;
-                    const tone = owed ? colors.positive : colors.negative;
-                    return (
-                      <View style={{ alignItems: "flex-end" }}>
-                        <Text style={[styles.balanceAmount, { color: tone }]}>
-                          {formatCurrency(Math.abs(net))}
-                        </Text>
-                        <Text style={[styles.balanceSub, { color: tone }]}>
-                          {owed ? "owes you" : "you owe"}
-                        </Text>
-                      </View>
-                    );
-                  })()
-                )}
-              </View>
-            </Card>
-            {myId && (
-              <Pressable
-                onPress={() => setShowSettle(true)}
-                style={[
-                  styles.settleBtn,
-                  { borderColor: colors.border, backgroundColor: colors.card },
-                ]}
-              >
-                <Feather name="check-circle" size={16} color={colors.primary} />
-                <Text style={[styles.settleBtnText, { color: colors.primary }]}>
-                  Settle up with {friend.name}
-                </Text>
-              </Pressable>
-            )}
-          </>
+        {/* Decorative banner */}
+        <View style={[styles.banner, { backgroundColor: colors.primary }]}>
+          <View style={[styles.bannerTri1, { backgroundColor: "rgba(255,255,255,0.10)" }]} />
+          <View style={[styles.bannerTri2, { backgroundColor: "rgba(255,255,255,0.06)" }]} />
+          <View style={[styles.bannerTri3, { backgroundColor: "rgba(255,255,255,0.08)" }]} />
+          <View style={[styles.bannerNav, { paddingTop: insets.top + 4 }]}>
+            <Pressable
+              onPress={() => router.back()}
+              style={[styles.iconBtn, { backgroundColor: colors.background }]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Back to friends"
+            >
+              <Feather name="chevron-left" size={20} color={colors.foreground} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push("/(tabs)/profile")}
+              style={[styles.iconBtn, { backgroundColor: colors.background }]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Open profile settings"
+            >
+              <Feather name="settings" size={18} color={colors.foreground} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Avatar overlapping the banner */}
+        <View style={styles.avatarWrap}>
+          <View style={[styles.avatarRing, { backgroundColor: colors.background }]}>
+            {friend && <Avatar name={friend.name} url={friend.avatarUrl ?? null} size={84} />}
+          </View>
+        </View>
+
+        <View style={styles.headerContent}>
+          <Text style={[styles.friendName, { color: colors.foreground }]} numberOfLines={1}>
+            {friend?.name ?? ""}
+          </Text>
+          {settled ? (
+            <Text style={[styles.balanceLine, { color: colors.mutedForeground }]}>
+              you are all settled up
+            </Text>
+          ) : (
+            <Text style={[styles.balanceLine, { color: balanceTone }]}>
+              {balanceVerb} <Text style={styles.balanceAmount}>{formatCurrency(Math.abs(net))}</Text> overall
+            </Text>
+          )}
+
+          {buckets.length > 0 && (
+            <View style={{ gap: 4, marginTop: 10 }}>
+              {buckets.map((b) => {
+                const friendOwes = b.amount > 0;
+                const tone = friendOwes ? colors.positive : colors.negative;
+                const subj = friendOwes ? `${friendShort} owes you` : `You owe ${friendShort}`;
+                return (
+                  <Text
+                    key={b.key}
+                    style={[styles.breakdownLine, { color: colors.mutedForeground }]}
+                  >
+                    {subj}{" "}
+                    <Text style={{ color: tone, fontFamily: "Inter_600SemiBold" }}>
+                      {formatCurrency(Math.abs(b.amount))}
+                    </Text>{" "}
+                    in {b.label}
+                  </Text>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* Action chip row */}
+        {friend && myId && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+          >
+            <Pressable
+              onPress={() => setShowSettle(true)}
+              style={[styles.chip, styles.chipPrimary, { backgroundColor: colors.primary }]}
+            >
+              <Feather name="check-circle" size={14} color={colors.primaryForeground} />
+              <Text style={[styles.chipTextPrimary, { color: colors.primaryForeground }]}>
+                Settle up
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/expenses/new",
+                  params: { friendId: friend.id },
+                })
+              }
+              style={[styles.chip, { borderColor: colors.border, backgroundColor: colors.card }]}
+            >
+              <Feather name="plus" size={14} color={colors.foreground} />
+              <Text style={[styles.chipText, { color: colors.foreground }]}>Add expense</Text>
+            </Pressable>
+          </ScrollView>
         )}
 
-        {!hasAny ? (
-          <Card>
+        {/* Activity timeline */}
+        <View style={styles.activityWrap}>
+          {activity.length === 0 ? (
             <EmptyState
               icon="activity"
               title="No activity yet"
               message={`Add an expense or record a payment with ${friend?.name ?? "this friend"} to get started.`}
             />
-          </Card>
-        ) : (
-          <View style={{ gap: 8 }}>
-            <Text style={[styles.sectionHeader, { color: colors.mutedForeground }]}>
-              By group
-            </Text>
-            {groupBalances.map((gb) => (
-              <GroupBalanceRow key={gb.key} balance={gb} onPress={() => onPressGroup(gb)} />
-            ))}
-          </View>
-        )}
+          ) : (
+            renderTimeline(activity, colors)
+          )}
+        </View>
       </ScrollView>
+
       {showSettle && friend && myId && (
         <SettleUpWithFriendModal
           friend={{ id: friend.id, name: friend.name }}
@@ -250,102 +388,203 @@ export default function FriendDetailScreen() {
   );
 }
 
-function GroupBalanceRow({
-  balance,
-  onPress,
-}: {
-  balance: GroupBalance;
-  onPress: () => void;
-}) {
-  const colors = useColors();
-  const settled = Math.abs(balance.amount) < 0.01;
-  const owed = balance.amount > 0;
-  return (
-    <Pressable
-      onPress={onPress}
-      android_ripple={{ color: colors.accent }}
-      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-    >
-      <Card style={[styles.row, { flexDirection: "row", alignItems: "center", gap: 12 }]}>
-        <View
-          style={[
-            styles.iconBubble,
-            { backgroundColor: colors.muted },
-          ]}
+function renderTimeline(rows: ActivityRow[], colors: ReturnType<typeof useColors>) {
+  const out: React.ReactNode[] = [];
+  let lastMonth: string | null = null;
+  for (const row of rows) {
+    if (row.monthKey !== lastMonth) {
+      out.push(
+        <Text
+          key={`m:${row.monthKey}`}
+          style={[styles.monthHeader, { color: colors.foreground }]}
         >
-          <Feather name="users" size={18} color={colors.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={[styles.itemTitle, { color: colors.foreground }]}
-            numberOfLines={1}
-          >
-            {balance.name}
+          {row.monthLabel}
+        </Text>,
+      );
+      lastMonth = row.monthKey;
+    }
+    out.push(<ActivityRowView key={row.key} row={row} colors={colors} />);
+  }
+  return out;
+}
+
+function ActivityRowView({
+  row,
+  colors,
+}: {
+  row: ActivityRow;
+  colors: ReturnType<typeof useColors>;
+}) {
+  const settled = Math.abs(row.delta) < 0.01;
+  const positive = row.delta > 0;
+  // Payments are settle-up activity even though they shift the balance;
+  // we show "settled up" rather than lent/borrowed.
+  const isPayment = row.kind === "payment";
+  const tone = settled || isPayment
+    ? colors.mutedForeground
+    : positive
+      ? colors.positive
+      : colors.negative;
+  const label = isPayment
+    ? "settled up"
+    : settled
+      ? "settled up"
+      : positive
+        ? "you lent"
+        : "you borrowed";
+  return (
+    <View style={styles.activityRow}>
+      <View style={styles.dateCol}>
+        <Text style={[styles.dateMonth, { color: colors.mutedForeground }]}>{row.dayMonth}</Text>
+        <Text style={[styles.dateDay, { color: colors.foreground }]}>{row.dayNum}</Text>
+      </View>
+      <View
+        style={[
+          styles.activityIcon,
+          { backgroundColor: colors.muted, borderColor: colors.border },
+        ]}
+      >
+        <Feather name={row.icon} size={18} color={row.iconTint} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.activityTitle, { color: colors.foreground }]} numberOfLines={1}>
+          {row.title}
+        </Text>
+        <Text style={[styles.activitySub, { color: colors.mutedForeground }]} numberOfLines={1}>
+          {row.subtitle}
+        </Text>
+      </View>
+      <View style={{ alignItems: "flex-end" }}>
+        <Text style={[styles.activityHint, { color: tone }]}>{label}</Text>
+        {!settled && !isPayment && (
+          <Text style={[styles.activityAmount, { color: tone }]}>
+            {formatCurrency(Math.abs(row.delta))}
           </Text>
-          <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>
-            {settled ? "all settled" : "open balance"}
-          </Text>
-        </View>
-        <View style={{ alignItems: "flex-end", gap: 4 }}>
-          {settled ? (
-            <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>
-              settled up
-            </Text>
-          ) : (() => {
-            const tone = owed ? colors.positive : colors.negative;
-            return (
-              <View style={{ alignItems: "flex-end" }}>
-                <Text style={[styles.itemAmount, { color: tone }]}>
-                  {formatCurrency(Math.abs(balance.amount))}
-                </Text>
-                <Text style={[styles.itemSub, { color: tone }]}>
-                  {owed ? "owes you" : "you owe"}
-                </Text>
-              </View>
-            );
-          })()}
-        </View>
-        <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
-      </Card>
-    </Pressable>
+        )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  scroll: { padding: 16, gap: 16, paddingBottom: 32 },
-  headerCard: { flexDirection: "row", alignItems: "center", gap: 12 },
-  friendName: { fontFamily: "Inter_700Bold", fontSize: 17 },
-  friendEmail: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
-  balanceAmount: { fontFamily: "Inter_700Bold", fontSize: 18 },
-  balanceSub: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
-  sectionHeader: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginTop: 6,
-    marginLeft: 2,
+  banner: {
+    height: 140,
+    overflow: "hidden",
+    position: "relative",
   },
-  row: { flexDirection: "row", alignItems: "center", gap: 12 },
-  iconBubble: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  bannerTri1: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    transform: [{ rotate: "45deg" }],
+    top: -120,
+    right: -60,
+  },
+  bannerTri2: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    transform: [{ rotate: "30deg" }],
+    bottom: -80,
+    left: -40,
+  },
+  bannerTri3: {
+    position: "absolute",
+    width: 140,
+    height: 140,
+    transform: [{ rotate: "20deg" }],
+    bottom: -60,
+    right: 40,
+  },
+  bannerNav: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
-  itemTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  itemAmount: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  itemSub: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
-  settleBtn: {
+  avatarWrap: {
+    marginTop: -52,
+    paddingLeft: 20,
+  },
+  avatarRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    padding: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerContent: { paddingHorizontal: 20, paddingTop: 12 },
+  friendName: { fontFamily: "Inter_700Bold", fontSize: 24 },
+  balanceLine: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 16,
+    marginTop: 6,
+  },
+  balanceAmount: { fontFamily: "Inter_700Bold", fontSize: 16 },
+  breakdownLine: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19 },
+  chipRow: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 10,
+  },
+  chip: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderColor: "transparent",
   },
-  settleBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  chipPrimary: { borderColor: "transparent" },
+  chipText: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  chipTextPrimary: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  activityWrap: { paddingHorizontal: 20, gap: 4 },
+  monthHeader: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  activityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+  },
+  dateCol: {
+    width: 36,
+    alignItems: "center",
+  },
+  dateMonth: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+    textTransform: "uppercase",
+  },
+  dateDay: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    lineHeight: 18,
+  },
+  activityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  activityTitle: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  activitySub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  activityHint: { fontFamily: "Inter_500Medium", fontSize: 11 },
+  activityAmount: { fontFamily: "Inter_700Bold", fontSize: 14, marginTop: 1 },
 });
