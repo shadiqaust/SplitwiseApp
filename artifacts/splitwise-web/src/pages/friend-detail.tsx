@@ -8,6 +8,7 @@ import {
   type Payment,
   type User,
   useGetMe,
+  useListGroups,
 } from "@workspace/api-client-react";
 
 import { Layout } from "@/components/layout";
@@ -63,6 +64,12 @@ export function FriendDetailPage() {
   const friendId = params.friendId;
   const me = useGetMe();
   const myId = me.data?.id;
+  const { data: groupsList } = useListGroups();
+  const groupNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of groupsList ?? []) m.set(g.id, g.name);
+    return m;
+  }, [groupsList]);
   const [search, setSearch] = useState("");
   const [settleOpen, setSettleOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
@@ -271,6 +278,7 @@ export function FriendDetailPage() {
                 {bucket.items.map((item) =>
                   item.kind === "expense" ? (
                     <ExpenseRow
+                    groupName={item.data.groupId ? groupNameById.get(item.data.groupId) ?? null : null}
                       key={`e-${item.data.id}`}
                       expense={item.data}
                       myId={myId}
@@ -298,10 +306,12 @@ function ExpenseRow({
   expense,
   myId,
   friendId,
+  groupName,
 }: {
   expense: ExpenseWithSplits;
   myId: string | undefined;
   friendId: string;
+  groupName: string | null;
 }) {
   const [, navigate] = useLocation();
   const total = Number(expense.totalAmount);
@@ -339,7 +349,7 @@ function ExpenseRow({
             {iPaid
               ? `You paid ${formatCurrency(total)}`
               : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total)}`}
-            {expense.groupId ? " · group expense" : ""}
+            {expense.groupId ? ` · ${groupName ?? "group"}` : ""}
           </p>
           <p className="text-xs text-muted-foreground mt-1">{expense.date}</p>
         </div>

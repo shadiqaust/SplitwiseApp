@@ -17,6 +17,7 @@ import {
   type Payment,
   type User,
   useGetMe,
+  useListGroups,
 } from "@workspace/api-client-react";
 
 import { Avatar } from "@/components/ui/Avatar";
@@ -47,6 +48,12 @@ export default function FriendDetailScreen() {
   const colors = useColors();
   const me = useGetMe();
   const defaultCurrency = me.data?.defaultCurrency ?? "USD";
+  const { data: groupsList } = useListGroups();
+  const groupNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of groupsList ?? []) m.set(g.id, g.name);
+    return m;
+  }, [groupsList]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [showSettle, setShowSettle] = useState(false);
@@ -251,7 +258,13 @@ export default function FriendDetailScreen() {
               </Text>
               {bucket.items.map((item) =>
                 item.kind === "expense" ? (
-                  <ExpenseRow key={`e-${item.data.id}`} expense={item.data} myId={myId} friendId={String(friendId)} />
+                  <ExpenseRow
+                    key={`e-${item.data.id}`}
+                    expense={item.data}
+                    myId={myId}
+                    friendId={String(friendId)}
+                    groupName={item.data.groupId ? groupNameById.get(item.data.groupId) ?? null : null}
+                  />
                 ) : (
                   <PaymentRow
                     key={`p-${item.data.id}`}
@@ -290,10 +303,12 @@ function ExpenseRow({
   expense,
   myId,
   friendId,
+  groupName,
 }: {
   expense: ExpenseWithSplits;
   myId: string | undefined;
   friendId: string;
+  groupName: string | null;
 }) {
   const colors = useColors();
   const router = useRouter();
@@ -333,7 +348,7 @@ function ExpenseRow({
         </Text>
         <Text style={[styles.itemMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
           {iPaid ? `You paid ${formatCurrency(total, expense.currency)}` : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total, expense.currency)}`}
-          {expense.groupId ? ` · group expense` : ""}
+          {expense.groupId ? ` · ${groupName ?? "group"}` : ""}
         </Text>
         <Text style={[styles.itemDate, { color: colors.mutedForeground }]}>{expense.date}</Text>
       </View>
