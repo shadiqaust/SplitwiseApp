@@ -351,7 +351,7 @@ function ExpenseRow({
         </Text>
         {expense.groupId ? (
           <Text style={[styles.itemMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
-            in {groupName ?? "group"}
+            {groupName ?? "group"}
           </Text>
         ) : null}
         <Text style={[styles.itemDate, { color: colors.mutedForeground }]}>{expense.date}</Text>
