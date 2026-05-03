@@ -999,6 +999,9 @@ components:
           nullable: true
         defaultCurrency:
           type: string
+        role:
+          type: string
+          enum: [user, superadmin]
         createdAt:
           type: string
           format: date-time

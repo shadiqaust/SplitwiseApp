@@ -55,3 +55,4 @@ export * from "./updateUserBody";
 export * from "./uploadUrlRequest";
 export * from "./uploadUrlResponse";
 export * from "./user";
+export * from "./userRole";

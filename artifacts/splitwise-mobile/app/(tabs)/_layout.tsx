@@ -1,7 +1,8 @@
 import { Tabs } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect } from "react";
 import { Platform, StyleSheet, View } from "react-native";
+import { useGetMe } from "@workspace/api-client-react";
 
 import { useColors } from "@/hooks/useColors";
 import { NotificationsBell } from "@/components/NotificationsBell";
@@ -10,7 +11,18 @@ import { useAuth } from "@/lib/auth";
 export default function TabLayout() {
   const colors = useColors();
   const isWeb = Platform.OS === "web";
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const { data: me } = useGetMe();
+
+  // Sync server-side role into the cached auth user so existing sessions
+  // (cached before role was added) show the Admin tab without re-login.
+  useEffect(() => {
+    const serverRole = (me as { role?: "user" | "superadmin" } | undefined)?.role;
+    if (serverRole && serverRole !== user?.role) {
+      updateUser({ role: serverRole });
+    }
+  }, [me, user?.role, updateUser]);
+
   const isSuperadmin = user?.role === "superadmin";
 
   return (

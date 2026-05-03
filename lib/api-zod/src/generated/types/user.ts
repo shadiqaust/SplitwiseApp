@@ -5,6 +5,7 @@
  * Splitix API
  * OpenAPI spec version: 0.1.0
  */
+import type { UserRole } from "./userRole";
 
 export interface User {
   id: string;
@@ -14,5 +15,6 @@ export interface User {
   country?: string | null;
   location?: string | null;
   defaultCurrency: string;
+  role?: UserRole;
   createdAt: Date;
 }

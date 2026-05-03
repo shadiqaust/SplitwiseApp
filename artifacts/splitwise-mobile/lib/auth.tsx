@@ -25,6 +25,7 @@ interface AuthContextValue extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string, defaultCurrency?: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateUser: (patch: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -117,8 +118,17 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
     setState({ isLoaded: true, isSignedIn: false, user: null, token: null });
   }, []);
 
+  const updateUser = useCallback((patch: Partial<AuthUser>) => {
+    setState((prev) => {
+      if (!prev.user) return prev;
+      const next = { ...prev.user, ...patch };
+      void storeItem(USER_KEY, JSON.stringify(next));
+      return { ...prev, user: next };
+    });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

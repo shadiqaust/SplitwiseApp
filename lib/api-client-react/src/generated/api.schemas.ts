@@ -13,6 +13,13 @@ export interface ErrorResponse {
   error: string;
 }
 
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+export const UserRole = {
+  user: "user",
+  superadmin: "superadmin",
+} as const;
+
 export interface User {
   id: string;
   name: string;
@@ -21,6 +28,7 @@ export interface User {
   country?: string | null;
   location?: string | null;
   defaultCurrency: string;
+  role?: UserRole;
   createdAt: string;
 }
 

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Users, User, LogOut, UserCheck, Shield } from "lucide-react";
@@ -42,9 +43,18 @@ function Logo({ className }: { className?: string }) {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { user: authUser, signOut } = useAuth();
+  const { user: authUser, signOut, updateUser } = useAuth();
   const { data: me } = useGetMe();
   const [location] = useLocation();
+
+  // Keep cached authUser.role in sync with the latest server-side profile so
+  // existing sessions (cached before role was added) auto-upgrade without a
+  // sign-out + sign-in.
+  useEffect(() => {
+    if (me && (me as { role?: string }).role && (me as { role?: string }).role !== authUser?.role) {
+      updateUser({ role: (me as { role?: string }).role });
+    }
+  }, [me, authUser?.role, updateUser]);
 
   // Prefer the freshest server-side profile (useGetMe) so the header avatar
   // and name update immediately after a profile change anywhere in the app.
