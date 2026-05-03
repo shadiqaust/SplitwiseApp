@@ -15,6 +15,10 @@ export const usersTable = pgTable("users", {
     .notNull()
     .default("USD")
     .references(() => currenciesTable.code),
+  // Authorization role. 'user' is the default; 'superadmin' grants access to
+  // the /admin section. Promotion is automatic when SUPERADMIN_EMAIL matches
+  // the user's email at login/register time.
+  role: text("role").notNull().default("user"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

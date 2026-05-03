@@ -5,10 +5,13 @@ import { Platform, StyleSheet, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { NotificationsBell } from "@/components/NotificationsBell";
+import { useAuth } from "@/lib/auth";
 
 export default function TabLayout() {
   const colors = useColors();
   const isWeb = Platform.OS === "web";
+  const { user } = useAuth();
+  const isSuperadmin = user?.role === "superadmin";
 
   return (
     <Tabs
@@ -75,6 +78,17 @@ export default function TabLayout() {
           title: "Profile",
           tabBarIcon: ({ color }) => (
             <Feather name="user" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="admin"
+        options={{
+          title: "Admin",
+          // Hide the tab entirely for non-superadmin users.
+          href: isSuperadmin ? "/admin" : null,
+          tabBarIcon: ({ color }) => (
+            <Feather name="shield" size={22} color={color} />
           ),
         }}
       />

@@ -20,6 +20,11 @@ import { FriendDetailPage } from "./pages/friend-detail";
 import { NonGroupExpensesPage } from "./pages/non-group-expenses";
 import { ExpenseDetailPage } from "./pages/expense-detail";
 import { ExpenseEditPage } from "./pages/expense-edit";
+import { AdminOverviewPage } from "./pages/admin/overview";
+import { AdminUsersPage } from "./pages/admin/users";
+import { AdminUserDetailPage } from "./pages/admin/user-detail";
+import { AdminCurrenciesPage } from "./pages/admin/currencies";
+import { AdminNotificationsPage } from "./pages/admin/notifications";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -83,6 +88,21 @@ function Routes() {
       </Route>
       <Route path="/profile">
         <PrivateRoute><ProfilePage /></PrivateRoute>
+      </Route>
+      <Route path="/admin">
+        <PrivateRoute><AdminOverviewPage /></PrivateRoute>
+      </Route>
+      <Route path="/admin/users">
+        <PrivateRoute><AdminUsersPage /></PrivateRoute>
+      </Route>
+      <Route path="/admin/users/:userId">
+        <PrivateRoute><AdminUserDetailPage /></PrivateRoute>
+      </Route>
+      <Route path="/admin/currencies">
+        <PrivateRoute><AdminCurrenciesPage /></PrivateRoute>
+      </Route>
+      <Route path="/admin/notifications">
+        <PrivateRoute><AdminNotificationsPage /></PrivateRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>

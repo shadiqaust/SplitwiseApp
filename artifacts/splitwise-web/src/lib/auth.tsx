@@ -13,6 +13,7 @@ export interface AuthUser {
   country?: string | null;
   location?: string | null;
   defaultCurrency?: string;
+  role?: "user" | "superadmin";
 }
 
 interface AuthState {

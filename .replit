@@ -52,6 +52,7 @@ externalPort = 4200
 [userenv.shared]
 VITE_CLERK_PUBLISHABLE_KEY = "pk_test_c2Vuc2libGUtcGVuZ3Vpbi0xNC5jbGVyay5hY2NvdW50cy5kZXYk"
 CLERK_PUBLISHABLE_KEY = "pk_test_c2Vuc2ibGUtcGVuZ3Vpbi0xNC5jbGVyay5hY2NvdW50cy5kZXYk"
+SUPERADMIN_EMAIL = "Shadiq.cse@gmail.com"
 
 [nix]
 channel = "stable-25_05"

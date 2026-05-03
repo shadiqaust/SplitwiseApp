@@ -1,0 +1,383 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+
+import { useColors } from "@/hooks/useColors";
+import { useAuth } from "@/lib/auth";
+import { adminApi, type AdminCurrency } from "@/lib/admin-api";
+
+type Tab = "users" | "currencies" | "notifications";
+
+export default function AdminScreen() {
+  const colors = useColors();
+  const { user } = useAuth();
+  const router = useRouter();
+  const [tab, setTab] = useState<Tab>("users");
+
+  if (user?.role !== "superadmin") {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <Text style={{ color: colors.mutedForeground }}>Admin access required.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
+        {(["users", "currencies", "notifications"] as Tab[]).map((t) => (
+          <Pressable
+            key={t}
+            onPress={() => setTab(t)}
+            style={[
+              styles.tabBtn,
+              tab === t && { borderBottomColor: colors.primary },
+            ]}
+          >
+            <Text
+              style={{
+                color: tab === t ? colors.primary : colors.mutedForeground,
+                fontFamily: "Inter_600SemiBold",
+                textTransform: "capitalize",
+              }}
+            >
+              {t}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {tab === "users" && <UsersTab onOpen={(id) => router.push(`/admin-user/${id}` as never)} />}
+      {tab === "currencies" && <CurrenciesTab />}
+      {tab === "notifications" && <NotificationsTab />}
+    </View>
+  );
+}
+
+function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
+  const colors = useColors();
+  const [q, setQ] = useState("");
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "users", q],
+    queryFn: () => adminApi.listUsers(q || undefined),
+  });
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16 }}>
+      <TextInput
+        value={q}
+        onChangeText={setQ}
+        placeholder="Search by name or email"
+        placeholderTextColor={colors.mutedForeground}
+        style={[
+          styles.input,
+          { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card },
+        ]}
+      />
+      {isLoading && <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />}
+      {data?.users.map((u) => (
+        <Pressable
+          key={u.id}
+          onPress={() => onOpen(u.id)}
+          style={[styles.row, { borderBottomColor: colors.border }]}
+        >
+          <View style={[styles.avatar, { backgroundColor: colors.primary + "20" }]}>
+            <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>
+              {u.name?.[0]?.toUpperCase() ?? "?"}
+            </Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+              {u.name}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 12 }} numberOfLines={1}>
+              {u.email}
+            </Text>
+          </View>
+          {u.role === "superadmin" && (
+            <View style={[styles.badge, { backgroundColor: colors.primary + "20" }]}>
+              <Text style={{ color: colors.primary, fontSize: 10 }}>admin</Text>
+            </View>
+          )}
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+
+function CurrenciesTab() {
+  const colors = useColors();
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "currencies"],
+    queryFn: () => adminApi.listCurrencies(),
+  });
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState<AdminCurrency>({ code: "", name: "", symbol: "", sortOrder: 9999 });
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ["admin", "currencies"] });
+
+  const create = useMutation({
+    mutationFn: () => adminApi.createCurrency(draft),
+    onSuccess: () => { setAdding(false); setDraft({ code: "", name: "", symbol: "", sortOrder: 9999 }); refresh(); },
+    onError: (e: Error) => Alert.alert("Failed", e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: (code: string) => adminApi.deleteCurrency(code),
+    onSuccess: refresh,
+    onError: (e: Error) => Alert.alert("Cannot delete", e.message),
+  });
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16 }}>
+      <TouchableOpacity
+        onPress={() => setAdding((v) => !v)}
+        style={[styles.btn, { backgroundColor: colors.primary }]}
+      >
+        <Feather name={adding ? "x" : "plus"} size={16} color={colors.primaryForeground} />
+        <Text style={{ color: colors.primaryForeground, marginLeft: 6, fontFamily: "Inter_600SemiBold" }}>
+          {adding ? "Cancel" : "Add currency"}
+        </Text>
+      </TouchableOpacity>
+
+      {adding && (
+        <View style={{ marginTop: 12, gap: 8 }}>
+          <Field label="Code" value={draft.code} onChange={(v) => setDraft({ ...draft, code: v.toUpperCase() })} />
+          <Field label="Name" value={draft.name} onChange={(v) => setDraft({ ...draft, name: v })} />
+          <Field label="Symbol" value={draft.symbol} onChange={(v) => setDraft({ ...draft, symbol: v })} />
+          <Field
+            label="Sort order"
+            value={String(draft.sortOrder)}
+            onChange={(v) => setDraft({ ...draft, sortOrder: Number(v) || 0 })}
+            keyboardType="numeric"
+          />
+          <TouchableOpacity
+            onPress={() => create.mutate()}
+            disabled={create.isPending}
+            style={[styles.btn, { backgroundColor: colors.primary }]}
+          >
+            <Text style={{ color: colors.primaryForeground, fontFamily: "Inter_600SemiBold" }}>
+              {create.isPending ? "Saving…" : "Save"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {isLoading && <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />}
+      <View style={{ marginTop: 16 }}>
+        {data?.currencies.map((c) => (
+          <View key={c.code} style={[styles.row, { borderBottomColor: colors.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>
+                {c.code} · {c.symbol}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>{c.name}</Text>
+            </View>
+            <Pressable
+              onPress={() =>
+                Alert.alert("Delete?", `Remove ${c.code}?`, [
+                  { text: "Cancel" },
+                  { text: "Delete", style: "destructive", onPress: () => remove.mutate(c.code) },
+                ])
+              }
+            >
+              <Feather name="trash-2" size={18} color={colors.destructive} />
+            </Pressable>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+function NotificationsTab() {
+  const colors = useColors();
+  const qc = useQueryClient();
+  const [mode, setMode] = useState<"all" | "user">("all");
+  const [userQ, setUserQ] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+
+  const usersQ = useQuery({
+    queryKey: ["admin", "users", "for-notif", userQ],
+    queryFn: () => adminApi.listUsers(userQ || undefined),
+    enabled: mode === "user",
+  });
+  const sentQ = useQuery({
+    queryKey: ["admin", "notifications", "sent"],
+    queryFn: () => adminApi.recentNotifications(),
+  });
+
+  const send = useMutation({
+    mutationFn: () =>
+      adminApi.sendNotification({
+        target: mode === "all" ? "all" : selectedUserId,
+        title: title.trim(),
+        body: body.trim(),
+      }),
+    onSuccess: (r) => {
+      Alert.alert("Sent", `Delivered to ${r.sent} user${r.sent === 1 ? "" : "s"}`);
+      setTitle("");
+      setBody("");
+      qc.invalidateQueries({ queryKey: ["admin", "notifications", "sent"] });
+    },
+    onError: (e: Error) => Alert.alert("Failed", e.message),
+  });
+
+  const canSend =
+    title.trim() && body.trim() && (mode === "all" || selectedUserId) && !send.isPending;
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16 }}>
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+        {(["all", "user"] as const).map((m) => (
+          <Pressable
+            key={m}
+            onPress={() => setMode(m)}
+            style={[
+              styles.modeBtn,
+              {
+                borderColor: colors.border,
+                backgroundColor: mode === m ? colors.primary : "transparent",
+              },
+            ]}
+          >
+            <Text style={{ color: mode === m ? colors.primaryForeground : colors.foreground, fontFamily: "Inter_600SemiBold" }}>
+              {m === "all" ? "Everyone" : "Specific user"}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {mode === "user" && (
+        <View style={{ marginBottom: 12 }}>
+          <TextInput
+            placeholder="Search user"
+            placeholderTextColor={colors.mutedForeground}
+            value={userQ}
+            onChangeText={setUserQ}
+            style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+          />
+          <View style={{ maxHeight: 180, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 8 }}>
+            <ScrollView>
+              {usersQ.data?.users.slice(0, 30).map((u) => (
+                <Pressable
+                  key={u.id}
+                  onPress={() => setSelectedUserId(u.id)}
+                  style={{
+                    padding: 10,
+                    backgroundColor: selectedUserId === u.id ? colors.primary + "20" : "transparent",
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                  }}
+                >
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>{u.name}</Text>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>{u.email}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      )}
+
+      <Field label="Title" value={title} onChange={setTitle} />
+      <View style={{ height: 8 }} />
+      <Field label="Message" value={body} onChange={setBody} multiline />
+
+      <TouchableOpacity
+        onPress={() => send.mutate()}
+        disabled={!canSend}
+        style={[
+          styles.btn,
+          { backgroundColor: canSend ? colors.primary : colors.muted, marginTop: 12 },
+        ]}
+      >
+        <Feather name="send" size={16} color={colors.primaryForeground} />
+        <Text style={{ color: colors.primaryForeground, marginLeft: 6, fontFamily: "Inter_600SemiBold" }}>
+          {send.isPending ? "Sending…" : mode === "all" ? "Send to everyone" : "Send"}
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", marginTop: 24, marginBottom: 8 }}>
+        Recently sent
+      </Text>
+      {sentQ.data?.items.map((n, i) => (
+        <View key={i} style={[styles.notifCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>{n.title}</Text>
+          <Text style={{ color: colors.mutedForeground, marginTop: 2 }}>{n.body}</Text>
+          <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 6 }}>
+            {n.type === "admin_broadcast" ? "Broadcast" : "Direct"} · {n.recipients} recipient{n.recipients === 1 ? "" : "s"} ·{" "}
+            {new Date(n.createdAt).toLocaleString()}
+          </Text>
+        </View>
+      ))}
+      {sentQ.data && sentQ.data.items.length === 0 && (
+        <Text style={{ color: colors.mutedForeground }}>No notifications sent yet.</Text>
+      )}
+    </ScrollView>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  multiline,
+  keyboardType,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  multiline?: boolean;
+  keyboardType?: "default" | "numeric";
+}) {
+  const colors = useColors();
+  return (
+    <View>
+      <Text style={{ color: colors.mutedForeground, fontSize: 12, marginBottom: 4 }}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        multiline={multiline}
+        keyboardType={keyboardType}
+        style={[
+          styles.input,
+          {
+            borderColor: colors.border,
+            color: colors.foreground,
+            backgroundColor: colors.card,
+            minHeight: multiline ? 90 : undefined,
+            textAlignVertical: multiline ? "top" : "center",
+          },
+        ]}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  tabs: { flexDirection: "row", borderBottomWidth: 1 },
+  tabBtn: { flex: 1, paddingVertical: 12, alignItems: "center", borderBottomWidth: 2, borderBottomColor: "transparent" },
+  input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontFamily: "Inter_400Regular" },
+  row: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, gap: 12 },
+  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  btn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 8 },
+  modeBtn: { flex: 1, padding: 10, borderWidth: 1, borderRadius: 8, alignItems: "center" },
+  notifCard: { padding: 12, borderWidth: 1, borderRadius: 8, marginBottom: 8 },
+});

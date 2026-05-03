@@ -11,6 +11,7 @@ export interface AuthUser {
   email: string;
   avatarUrl: string | null;
   defaultCurrency?: string;
+  role?: "user" | "superadmin";
 }
 
 interface AuthState {

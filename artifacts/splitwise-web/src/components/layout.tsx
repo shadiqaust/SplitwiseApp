@@ -1,6 +1,6 @@
 import { useAuth } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, User, LogOut, UserCheck } from "lucide-react";
+import { LayoutDashboard, Users, User, LogOut, UserCheck, Shield } from "lucide-react";
 import { useGetMe } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -110,6 +110,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Button>
             </Link>
           ))}
+          {authUser?.role === "superadmin" && (
+            <Link href="/admin">
+              <Button
+                variant={location.startsWith("/admin") ? "secondary" : "ghost"}
+                className="w-full justify-start"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Admin
+              </Button>
+            </Link>
+          )}
         </nav>
 
         <div className="p-4 border-t shrink-0 bg-card">

@@ -6,6 +6,12 @@ import { signToken } from "../lib/jwt";
 import { z } from "zod";
 import { isSupportedCurrency } from "../lib/currencies.js";
 
+function isSuperadminEmail(email: string): boolean {
+  const target = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase();
+  if (!target) return false;
+  return email.trim().toLowerCase() === target;
+}
+
 const router: IRouter = Router();
 
 const RegisterBody = z.object({
@@ -41,12 +47,14 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+  const role = isSuperadminEmail(email) ? "superadmin" : "user";
   const [user] = await db
     .insert(usersTable)
     .values({
       name,
       email,
       passwordHash,
+      role,
       ...(defaultCurrency ? { defaultCurrency } : {}),
     })
     .returning();
@@ -60,6 +68,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       email: user.email,
       avatarUrl: user.avatarUrl,
       defaultCurrency: user.defaultCurrency,
+      role: user.role,
     },
   });
 });
@@ -85,6 +94,18 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  // Auto-promote: if this user's email matches SUPERADMIN_EMAIL and they
+  // aren't already a superadmin, upgrade their role on the fly. This lets the
+  // designated owner gain admin access without a manual DB edit.
+  let role = user.role;
+  if (role !== "superadmin" && isSuperadminEmail(user.email)) {
+    await db
+      .update(usersTable)
+      .set({ role: "superadmin" })
+      .where(eq(usersTable.id, user.id));
+    role = "superadmin";
+  }
+
   const token = signToken({ userId: user.id });
   res.json({
     token,
@@ -94,6 +115,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       email: user.email,
       avatarUrl: user.avatarUrl,
       defaultCurrency: user.defaultCurrency,
+      role,
     },
   });
 });

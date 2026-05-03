@@ -250,3 +250,19 @@ The web app (`artifacts/splitwise-web`) is fully responsive. Tailwind's default 
 - **`index.html`** — viewport meta is `width=device-width, initial-scale=1, viewport-fit=cover` (zoom is allowed for accessibility; `viewport-fit=cover` lets the safe-area env vars work).
 - Page-level header rows (`dashboard.tsx`, `groups.tsx`, `friends.tsx`, `friend-detail.tsx`, `non-group-expenses.tsx`, `group-detail.tsx`) use `flex-wrap` with smaller `text-xl`/`text-2xl` h1 sizes on mobile that scale up to `text-3xl` at `sm`/`md`. Action buttons truncate labels (e.g. "Add group" → "Group") on tiny screens.
 - Friend list rows on `friends.tsx` stack vertically on `<sm` (avatar+balance row, then full-width action buttons row); on `sm+` they are a single horizontal row.
+
+## Superadmin / Admin section (web + mobile)
+- Added a `role` column to `users` (`text NOT NULL DEFAULT 'user'`, values `'user' | 'superadmin'`). Pushed via `pnpm --filter @workspace/db run push`.
+- Bootstrapping: when a user with the email matching the `SUPERADMIN_EMAIL` env var registers OR logs in, their role is auto-promoted to `superadmin`. This avoids needing manual DB edits. Initial superadmin is `Shadiq.cse@gmail.com` (env var already set).
+- Auth response (`/api/auth/login`, `/api/auth/register`) now includes `role`. Both `AuthUser` interfaces (web `lib/auth.tsx`, mobile `lib/auth.tsx`) carry an optional `role`.
+- Server middleware: `artifacts/api-server/src/middlewares/requireSuperadmin.ts` runs `requireAuth` then verifies `users.role === 'superadmin'` and returns 403 otherwise.
+- Admin API routes (`artifacts/api-server/src/routes/admin.ts`, mounted in `routes/index.ts`):
+  - `GET /api/admin/stats` — counts of users/groups/expenses/payments/currencies
+  - `GET /api/admin/users?q=` — list (search by name/email)
+  - `GET /api/admin/users/:id` — user detail + stats + recent groups/expenses/payments
+  - `GET /api/admin/currencies`, `POST`, `PATCH /:code`, `DELETE /:code` (delete refuses if currency is referenced by any user/group/expense)
+  - `POST /api/admin/notifications {target: "all" | userId, title, body}` — inserts a notification row per recipient with type `admin_broadcast` or `admin_direct`
+  - `GET /api/admin/notifications/sent` — recently sent admin notifications, deduplicated by (title, body, createdAt) with recipient count
+- Web `/admin/*` section (`artifacts/splitwise-web/src/pages/admin/`): Overview, Users (search + table), User detail (stats + groups/expenses/payments), Currencies (CRUD inline-edit table), Notifications (target = everyone or specific user, recent sends list). Routes registered in `App.tsx` wrapped in `PrivateRoute`; `AdminLayout` enforces `role === 'superadmin'` and redirects to `/dashboard` otherwise. Sidebar in `components/layout.tsx` shows a conditional "Admin" link with `Shield` icon when `authUser.role === 'superadmin'`.
+- Mobile admin: new tab `app/(tabs)/admin.tsx` (segmented Users / Currencies / Notifications) registered in `(tabs)/_layout.tsx` with `href: isSuperadmin ? '/admin' : null` so it disappears for normal users. Detail screen at `app/admin-user/[userId].tsx` registered at the root Stack in `app/_layout.tsx`; it also performs an in-component `Redirect` for non-superadmin deep-links.
+- Both clients call admin endpoints via thin manual fetch helpers (`lib/admin-api.ts` on each side) instead of going through the orval codegen, so the OpenAPI spec was intentionally NOT modified for these routes — keep that in mind if regenerating the client.
