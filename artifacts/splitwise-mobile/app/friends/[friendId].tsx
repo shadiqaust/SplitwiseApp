@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -94,6 +95,7 @@ export default function FriendDetailScreen() {
   const { friendId } = useLocalSearchParams<{ friendId: string }>();
   const colors = useColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const me = useGetMe();
   const myId = me.data?.id;
   const { data: groupsList } = useListGroups();
@@ -314,7 +316,16 @@ export default function FriendDetailScreen() {
         }
       >
         {/* Decorative banner */}
-        <View style={[styles.banner, { backgroundColor: colors.primary }]}>
+        <View
+          style={[
+            styles.banner,
+            {
+              backgroundColor: colors.primary,
+              paddingTop: insets.top,
+              height: 140 + insets.top,
+            },
+          ]}
+        >
           <View style={[styles.bannerTri1, { backgroundColor: "rgba(255,255,255,0.10)" }]} />
           <View style={[styles.bannerTri2, { backgroundColor: "rgba(255,255,255,0.06)" }]} />
           <View style={[styles.bannerTri3, { backgroundColor: "rgba(255,255,255,0.08)" }]} />
@@ -325,10 +336,18 @@ export default function FriendDetailScreen() {
             accessibilityLabel="Back to friends"
             style={[
               styles.bannerBackBtn,
-              { backgroundColor: "rgba(255,255,255,0.92)" },
+              {
+                top: insets.top + 12,
+                backgroundColor: "rgba(255,255,255,0.95)",
+                shadowColor: "#000",
+                shadowOpacity: 0.18,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 2 },
+                elevation: 4,
+              },
             ]}
           >
-            <Feather name="chevron-left" size={20} color={colors.foreground} />
+            <Feather name="chevron-left" size={22} color={colors.foreground} />
           </Pressable>
         </View>
 
@@ -575,11 +594,10 @@ const styles = StyleSheet.create({
   },
   bannerBackBtn: {
     position: "absolute",
-    top: 12,
-    left: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    left: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 5,
