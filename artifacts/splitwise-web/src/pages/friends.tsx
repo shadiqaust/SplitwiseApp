@@ -348,6 +348,7 @@ export function FriendsPage() {
             friend={settleFriend}
             currentUserId={me.data.id}
             netBalance={settleFriend.netBalance}
+            balances={settleFriend.balances}
             open
             onOpenChange={(o) => {
               if (!o) setSettleFriend(null);

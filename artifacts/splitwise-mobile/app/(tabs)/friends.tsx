@@ -319,6 +319,7 @@ export default function FriendsScreen() {
           friend={settleFriend}
           currentUserId={me.data.id}
           netBalance={settleFriend.netBalance}
+          balances={settleFriend.balances}
           onClose={() => setSettleFriend(null)}
         />
       )}
