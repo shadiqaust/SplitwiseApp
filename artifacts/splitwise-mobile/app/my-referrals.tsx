@@ -72,6 +72,47 @@ export default function MyReferralsScreen() {
 
         <View
           style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 12,
+            backgroundColor: colors.card,
+          }}
+        >
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: colors.primary + "26",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Feather name="users" size={18} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>
+              Total referred users
+            </Text>
+            <Text
+              style={{
+                color: colors.foreground,
+                fontSize: 22,
+                fontFamily: "Inter_700Bold",
+                lineHeight: 26,
+              }}
+            >
+              {isLoading ? "—" : (data?.count ?? 0)}
+            </Text>
+          </View>
+        </View>
+
+        <View
+          style={{
             borderWidth: 1,
             borderColor: colors.border,
             borderRadius: 12,
