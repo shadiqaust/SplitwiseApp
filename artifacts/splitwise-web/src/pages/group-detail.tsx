@@ -1531,6 +1531,13 @@ export function GroupDetailPage() {
                 <h1 className="text-xl sm:text-3xl font-bold tracking-tight truncate">
                   {group.data.name}
                 </h1>
+                <span
+                  className="shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                  title="Group currency"
+                  data-testid="badge-group-currency"
+                >
+                  {groupCurrency}
+                </span>
                 <EditGroupDialog
                   groupId={groupId}
                   currentName={group.data.name}

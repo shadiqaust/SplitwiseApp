@@ -538,12 +538,27 @@ export default function GroupDetailScreen() {
               </View>
             </Pressable>
             <View style={{ flex: 1 }}>
-              <Text
-                style={{ color: colors.foreground, fontSize: 18, fontWeight: "600" }}
-                numberOfLines={2}
-              >
-                {group.data.name}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <Text
+                  style={{ color: colors.foreground, fontSize: 18, fontWeight: "600", flexShrink: 1 }}
+                  numberOfLines={2}
+                >
+                  {group.data.name}
+                </Text>
+                <View
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground }}>
+                    {groupCurrency}
+                  </Text>
+                </View>
+              </View>
               {group.data.description ? (
                 <Text style={[styles.desc, { color: colors.mutedForeground, marginBottom: 0, marginTop: 2 }]} numberOfLines={2}>
                   {group.data.description}
