@@ -121,14 +121,16 @@ export function AdminUsersPage() {
                 <td className="p-3">
                   {u.emailVerifiedAt ? (
                     <span
-                      className="inline-flex items-center gap-1 text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded"
+                      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded"
+                      style={{ backgroundColor: "#10b98122", color: "#059669" }}
                       title={`Verified ${new Date(u.emailVerifiedAt).toLocaleString()}`}
                     >
                       <MailCheck className="w-3 h-3" /> verified
                     </span>
                   ) : (
                     <span
-                      className="inline-flex items-center gap-1 text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded"
+                      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded"
+                      style={{ backgroundColor: "#f59e0b22", color: "#d97706" }}
                       title="Email not verified"
                     >
                       <MailWarning className="w-3 h-3" /> unverified

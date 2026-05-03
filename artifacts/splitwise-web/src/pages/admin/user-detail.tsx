@@ -112,13 +112,17 @@ export function AdminUserDetailPage() {
             )}
             {user.emailVerifiedAt ? (
               <span
-                className="inline-flex items-center gap-1 text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded"
+                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded"
+                style={{ backgroundColor: "#10b98122", color: "#059669" }}
                 title={`Verified ${new Date(user.emailVerifiedAt).toLocaleString()}`}
               >
                 <MailCheck className="w-3 h-3" /> verified
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded">
+              <span
+                className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded"
+                style={{ backgroundColor: "#f59e0b22", color: "#d97706" }}
+              >
                 <MailWarning className="w-3 h-3" /> unverified
               </span>
             )}
@@ -179,7 +183,14 @@ export function AdminUserDetailPage() {
         </div>
       )}
       {verifyMessage && (
-        <div className="mb-4 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded p-2">
+        <div
+          className="mb-4 text-sm border rounded p-2"
+          style={{
+            backgroundColor: "#10b98122",
+            borderColor: "#10b98155",
+            color: "#059669",
+          }}
+        >
           {verifyMessage}
         </div>
       )}
