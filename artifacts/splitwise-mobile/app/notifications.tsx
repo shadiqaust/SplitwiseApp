@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,13 @@ import {
   type Notification,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import {
+  getPushStatus,
+  registerForPushNotificationsAsync,
+  subscribePushStatus,
+  type PushStatus,
+} from "@/lib/push";
+import { useAuth } from "@/lib/auth";
 
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -40,6 +47,31 @@ function targetPath(n: Notification): string | null {
   return null;
 }
 
+function statusLabel(code: PushStatus["code"]): { text: string; tone: "ok" | "warn" | "error" | "muted" } {
+  switch (code) {
+    case "ok":
+      return { text: "Push notifications enabled", tone: "ok" };
+    case "registering":
+      return { text: "Registering for push…", tone: "muted" };
+    case "idle":
+      return { text: "Push not registered yet", tone: "muted" };
+    case "web-unsupported":
+      return { text: "Push unavailable on web", tone: "muted" };
+    case "simulator-unsupported":
+      return { text: "Push unavailable on simulator", tone: "warn" };
+    case "expo-go-unsupported":
+      return { text: "Push unsupported in Expo Go (need dev build)", tone: "error" };
+    case "permission-denied":
+      return { text: "Notification permission denied", tone: "error" };
+    case "no-project-id":
+      return { text: "Missing EAS projectId in app.json", tone: "error" };
+    case "token-error":
+      return { text: "Could not get Expo push token", tone: "error" };
+    case "register-failed":
+      return { text: "Backend rejected device token", tone: "error" };
+  }
+}
+
 export default function NotificationsScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -47,6 +79,25 @@ export default function NotificationsScreen() {
   const { data, isFetching, refetch } = useListNotifications({ limit: 50 });
   const markRead = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
+  const { isSignedIn } = useAuth();
+  const [pushStatus, setPushStatus] = useState<PushStatus>(() => getPushStatus());
+  useEffect(() => subscribePushStatus(setPushStatus), []);
+
+  const apiBaseUrl =
+    (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined) ?? "";
+  const retryRegister = () => {
+    if (apiBaseUrl) void registerForPushNotificationsAsync(apiBaseUrl);
+  };
+
+  const lbl = statusLabel(pushStatus.code);
+  const toneColor =
+    lbl.tone === "ok"
+      ? "#16a34a"
+      : lbl.tone === "warn"
+      ? "#d97706"
+      : lbl.tone === "error"
+      ? "#dc2626"
+      : colors.mutedForeground;
 
   const list = data?.notifications ?? [];
   const unread = data?.unreadCount ?? 0;
@@ -100,6 +151,27 @@ export default function NotificationsScreen() {
         }}
       />
       <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {isSignedIn && pushStatus.code !== "ok" && (
+          <View
+            style={[
+              styles.statusCard,
+              { backgroundColor: colors.muted ?? colors.background, borderColor: colors.border },
+            ]}
+          >
+            <View style={[styles.statusDot, { backgroundColor: toneColor }]} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.statusTitle, { color: colors.foreground }]}>{lbl.text}</Text>
+              {pushStatus.detail && (
+                <Text style={[styles.statusDetail, { color: colors.mutedForeground }]}>
+                  {pushStatus.detail}
+                </Text>
+              )}
+            </View>
+            <Pressable onPress={retryRegister} hitSlop={8} style={styles.retryBtn}>
+              <Text style={[styles.retryText, { color: colors.primary }]}>Retry</Text>
+            </Pressable>
+          </View>
+        )}
         <FlatList
           data={list}
           keyExtractor={(n) => n.id}
@@ -172,4 +244,21 @@ const styles = StyleSheet.create({
   title: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   body: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
   time: { fontFamily: "Inter_400Regular", fontSize: 10, marginTop: 4 },
+  statusCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  statusDot: { width: 10, height: 10, borderRadius: 5 },
+  statusTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13 },
+  statusDetail: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
+  retryBtn: { paddingVertical: 4, paddingHorizontal: 8 },
+  retryText: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
 });

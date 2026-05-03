@@ -1,10 +1,63 @@
 import { Platform } from "react-native";
-import Constants from "expo-constants";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 
 import { getToken } from "./auth";
+
+// ─── Public status surface ────────────────────────────────────────────────
+// Components can subscribe to know exactly what happened on the last
+// registration attempt. This is what powers the diagnostic panel on the
+// Notifications screen so users / devs can see why push isn't working.
+
+export type PushStatusCode =
+  | "idle"
+  | "registering"
+  | "ok"
+  | "web-unsupported"
+  | "simulator-unsupported"
+  | "expo-go-unsupported"
+  | "permission-denied"
+  | "no-project-id"
+  | "token-error"
+  | "register-failed";
+
+export interface PushStatus {
+  code: PushStatusCode;
+  detail?: string;
+  token?: string | null;
+  projectId?: string | null;
+  platform?: string;
+  updatedAt: number;
+}
+
+let currentStatus: PushStatus = { code: "idle", updatedAt: Date.now() };
+const listeners = new Set<(s: PushStatus) => void>();
+
+function setStatus(next: Omit<PushStatus, "updatedAt">) {
+  currentStatus = { ...next, updatedAt: Date.now() };
+  console.log(`[PUSH] status -> ${next.code}${next.detail ? ` (${next.detail})` : ""}`);
+  listeners.forEach((fn) => {
+    try {
+      fn(currentStatus);
+    } catch {
+      // ignore subscriber failures
+    }
+  });
+}
+
+export function getPushStatus(): PushStatus {
+  return currentStatus;
+}
+
+export function subscribePushStatus(fn: (s: PushStatus) => void): () => void {
+  listeners.add(fn);
+  fn(currentStatus); // emit current value immediately
+  return () => {
+    listeners.delete(fn);
+  };
+}
 
 // Foreground behaviour: still show banners + play sound when the app is open.
 Notifications.setNotificationHandler({
@@ -33,10 +86,14 @@ function targetPathFromData(data: Record<string, unknown> | undefined | null): s
 let lastRegisteredToken: string | null = null;
 let responseSubscription: Notifications.EventSubscription | null = null;
 
-async function postJson(apiBaseUrl: string, path: string, body: unknown): Promise<void> {
+async function postJson(
+  apiBaseUrl: string,
+  path: string,
+  body: unknown,
+): Promise<{ ok: boolean; status: number; text: string }> {
   const token = await getToken();
-  if (!token) return;
-  await fetch(`${apiBaseUrl}${path}`, {
+  if (!token) return { ok: false, status: 0, text: "no-auth-token" };
+  const res = await fetch(`${apiBaseUrl}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -44,15 +101,61 @@ async function postJson(apiBaseUrl: string, path: string, body: unknown): Promis
     },
     body: JSON.stringify(body),
   });
+  let text = "";
+  try {
+    text = await res.text();
+  } catch {
+    /* ignore */
+  }
+  return { ok: res.ok, status: res.status, text };
+}
+
+function readProjectId(): string | null {
+  // EAS / Expo Go both expose a projectId via Constants; prefer expoConfig.extra.eas.projectId.
+  const fromExtra = (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)
+    ?.eas?.projectId;
+  const fromEas = (Constants.easConfig as { projectId?: string } | undefined)?.projectId;
+  return fromExtra ?? fromEas ?? null;
 }
 
 // Ask the OS for permission, fetch the Expo push token, and POST it to the
 // backend. Safe to call repeatedly — duplicate tokens are upserted server-side.
-export async function registerForPushNotificationsAsync(apiBaseUrl: string): Promise<string | null> {
+export async function registerForPushNotificationsAsync(apiBaseUrl: string): Promise<PushStatus> {
+  setStatus({ code: "registering", platform: Platform.OS });
+
   // Push notifications don't work on the web preview — Expo push targets APNs/FCM.
-  if (Platform.OS === "web") return null;
+  if (Platform.OS === "web") {
+    setStatus({
+      code: "web-unsupported",
+      detail: "Web preview can't receive native push.",
+      platform: Platform.OS,
+    });
+    return currentStatus;
+  }
+
   // Simulators/emulators can't receive remote pushes.
-  if (!Device.isDevice) return null;
+  if (!Device.isDevice) {
+    setStatus({
+      code: "simulator-unsupported",
+      detail: "Simulators/emulators can't receive remote push. Use a physical device.",
+      platform: Platform.OS,
+    });
+    return currentStatus;
+  }
+
+  // SDK 53+ removed remote push from Expo Go. Detect and report clearly.
+  const inExpoGo =
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient ||
+    Constants.appOwnership === "expo";
+  if (inExpoGo) {
+    setStatus({
+      code: "expo-go-unsupported",
+      detail:
+        "Remote push is not supported in Expo Go (SDK 53+). Build a development build with EAS to receive push.",
+      platform: Platform.OS,
+    });
+    return currentStatus;
+  }
 
   try {
     if (Platform.OS === "android") {
@@ -70,30 +173,76 @@ export async function registerForPushNotificationsAsync(apiBaseUrl: string): Pro
       const req = await Notifications.requestPermissionsAsync();
       status = req.status;
     }
-    if (status !== "granted") return null;
+    if (status !== "granted") {
+      setStatus({
+        code: "permission-denied",
+        detail: "User declined notification permission. Enable it in system Settings.",
+        platform: Platform.OS,
+      });
+      return currentStatus;
+    }
 
-    // EAS / Expo Go both expose a projectId via Constants; prefer it when set.
-    const projectId =
-      (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)?.eas
-        ?.projectId ??
-      (Constants.easConfig as { projectId?: string } | undefined)?.projectId;
+    const projectId = readProjectId();
+    if (!projectId) {
+      setStatus({
+        code: "no-project-id",
+        detail:
+          "expo.extra.eas.projectId is not set in app.json. Run `eas init` or set it manually.",
+        platform: Platform.OS,
+      });
+      return currentStatus;
+    }
 
-    const tokenResp = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined,
-    );
-    const expoToken = tokenResp.data;
+    let expoToken: string;
+    try {
+      const tokenResp = await Notifications.getExpoPushTokenAsync({ projectId });
+      expoToken = tokenResp.data;
+    } catch (err) {
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      setStatus({
+        code: "token-error",
+        detail: msg,
+        projectId,
+        platform: Platform.OS,
+      });
+      return currentStatus;
+    }
 
     if (expoToken && expoToken !== lastRegisteredToken) {
-      await postJson(apiBaseUrl, "/api/devices/register", {
+      const r = await postJson(apiBaseUrl, "/api/devices/register", {
         token: expoToken,
         platform: Platform.OS,
       });
+      if (!r.ok) {
+        setStatus({
+          code: "register-failed",
+          detail: `Backend returned ${r.status}: ${r.text.slice(0, 120)}`,
+          token: expoToken,
+          projectId,
+          platform: Platform.OS,
+        });
+        return currentStatus;
+      }
       lastRegisteredToken = expoToken;
     }
-    return expoToken;
+
+    setStatus({
+      code: "ok",
+      detail: "Token registered with backend.",
+      token: expoToken,
+      projectId,
+      platform: Platform.OS,
+    });
+    return currentStatus;
   } catch (err) {
-    console.warn("[push] registration failed", err);
-    return null;
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    setStatus({
+      code: "register-failed",
+      detail: msg,
+      platform: Platform.OS,
+    });
+    console.warn("[PUSH] registration failed", err);
+    return currentStatus;
   }
 }
 
@@ -107,6 +256,7 @@ export async function unregisterPushNotificationsAsync(apiBaseUrl: string): Prom
     // best effort
   }
   lastRegisteredToken = null;
+  setStatus({ code: "idle", detail: "Signed out — token cleared.", platform: Platform.OS });
 }
 
 function navigateFromData(data: Record<string, unknown> | undefined | null): void {
