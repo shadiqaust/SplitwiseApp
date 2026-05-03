@@ -165,6 +165,73 @@ router.get("/admin/users/:userId", requireSuperadmin, async (req, res): Promise<
   });
 });
 
+// ─── User role management ─────────────────────────────────────────────────
+
+const RoleBody = z.object({ role: z.enum(["user", "superadmin"]) });
+
+router.patch(
+  "/admin/users/:userId/role",
+  requireSuperadmin,
+  async (req, res): Promise<void> => {
+    const id = String(req.params.userId);
+    if (!UUID_RE.test(id)) {
+      res.status(400).json({ error: "Invalid user id" });
+      return;
+    }
+    const parsed = RoleBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid body — role must be 'user' or 'superadmin'" });
+      return;
+    }
+    const { role } = parsed.data;
+
+    // Refuse to let an admin demote themselves — easy way to lock the
+    // app's only admin out of the dashboard.
+    if (id === req.dbUserId && role !== "superadmin") {
+      res.status(400).json({ error: "You can't change your own admin role." });
+      return;
+    }
+
+    const [target] = await db
+      .select({ id: usersTable.id, role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, id));
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    // No-op if role isn't actually changing — return the current row so the
+    // client cache stays in sync without a write.
+    if (target.role === role) {
+      res.json({ id: target.id, role: target.role });
+      return;
+    }
+
+    // Don't allow demoting the last remaining superadmin — there must
+    // always be at least one admin so the /admin section stays reachable.
+    if (target.role === "superadmin" && role !== "superadmin") {
+      const [{ remaining = 0 } = {}] = await db
+        .select({ remaining: count() })
+        .from(usersTable)
+        .where(eq(usersTable.role, "superadmin"));
+      if (Number(remaining) <= 1) {
+        res
+          .status(400)
+          .json({ error: "Cannot demote the last superadmin. Promote someone else first." });
+        return;
+      }
+    }
+
+    const [updated] = await db
+      .update(usersTable)
+      .set({ role })
+      .where(eq(usersTable.id, id))
+      .returning({ id: usersTable.id, role: usersTable.role });
+    res.json(updated);
+  },
+);
+
 // ─── Currencies ────────────────────────────────────────────────────────────
 
 router.get("/admin/currencies", requireSuperadmin, async (_req, res) => {

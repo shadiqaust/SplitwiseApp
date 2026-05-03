@@ -111,6 +111,11 @@ export const adminApi = {
       `/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`,
     ),
   getUser: (id: string) => adminFetch<AdminUserDetail>(`/admin/users/${id}`),
+  setUserRole: (id: string, role: "user" | "superadmin") =>
+    adminFetch<{ id: string; role: "user" | "superadmin" }>(
+      `/admin/users/${id}/role`,
+      { method: "PATCH", body: JSON.stringify({ role }) },
+    ),
   listCurrencies: () =>
     adminFetch<{ currencies: AdminCurrency[] }>("/admin/currencies"),
   createCurrency: (input: AdminCurrency) =>

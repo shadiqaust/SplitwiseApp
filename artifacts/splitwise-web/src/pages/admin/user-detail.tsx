@@ -1,16 +1,33 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "wouter";
 import { adminApi } from "@/lib/admin-api";
+import { useAuth } from "@/lib/auth";
 import { AdminLayout } from "./layout";
-import { ArrowLeft, Shield } from "lucide-react";
+import { ArrowLeft, Shield, ShieldOff, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function AdminUserDetailPage() {
   const params = useParams<{ userId: string }>();
   const userId = params.userId;
+  const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
+  const [roleError, setRoleError] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "user", userId],
     queryFn: () => adminApi.getUser(userId),
     enabled: !!userId,
+  });
+
+  const setRole = useMutation({
+    mutationFn: (role: "user" | "superadmin") => adminApi.setUserRole(userId, role),
+    onSuccess: () => {
+      setRoleError(null);
+      queryClient.invalidateQueries({ queryKey: ["admin", "user", userId] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
+    onError: (err: Error) => setRoleError(err.message),
   });
 
   if (isLoading || !data) {
@@ -25,6 +42,18 @@ export function AdminUserDetailPage() {
   }
 
   const { user, stats, groups, expenses, payments } = data;
+  const isSelf = currentUser?.id === user.id;
+  const isAdmin = user.role === "superadmin";
+  const nextRole: "user" | "superadmin" = isAdmin ? "user" : "superadmin";
+  const verb = isAdmin ? "Demote to user" : "Promote to superadmin";
+
+  const onToggleRole = () => {
+    const msg = isAdmin
+      ? `Remove superadmin access from ${user.name}? They'll lose access to /admin.`
+      : `Promote ${user.name} to superadmin? They'll gain full access to /admin.`;
+    if (!window.confirm(msg)) return;
+    setRole.mutate(nextRole);
+  };
 
   return (
     <AdminLayout>
@@ -58,7 +87,35 @@ export function AdminUserDetailPage() {
             joined {new Date(user.createdAt).toLocaleDateString()} · default {user.defaultCurrency}
           </p>
         </div>
+        <div className="ml-auto">
+          <Button
+            variant={isAdmin ? "outline" : "default"}
+            size="sm"
+            onClick={onToggleRole}
+            disabled={setRole.isPending || isSelf}
+            title={isSelf ? "You can't change your own role" : verb}
+          >
+            {setRole.isPending ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : isAdmin ? (
+              <ShieldOff className="w-4 h-4 mr-1" />
+            ) : (
+              <Shield className="w-4 h-4 mr-1" />
+            )}
+            {verb}
+          </Button>
+          {isSelf && (
+            <p className="text-[10px] text-muted-foreground mt-1 text-right">
+              Can't change your own role
+            </p>
+          )}
+        </div>
       </div>
+      {roleError && (
+        <div className="mb-4 text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded p-2">
+          {roleError}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
         <Stat label="Groups" value={stats.groupCount} />
