@@ -136,6 +136,10 @@ export const adminApi = {
       `/admin/users/${id}/force-logout`,
       { method: "POST" },
     ),
+  forceLogoutAll: () =>
+    adminFetch<{ count: number }>(`/admin/users/force-logout-all`, {
+      method: "POST",
+    }),
   listCurrencies: () =>
     adminFetch<{ currencies: AdminCurrency[] }>("/admin/currencies"),
   createCurrency: (input: AdminCurrency) =>

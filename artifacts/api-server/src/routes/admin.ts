@@ -308,6 +308,24 @@ router.post(
   },
 );
 
+// Force-logout EVERY user (except the calling admin) in a single statement.
+// Bumps token_version for all other rows so existing JWTs stop working
+// immediately. The admin who triggered it stays signed in so they keep
+// their session and can verify the result.
+router.post(
+  "/admin/users/force-logout-all",
+  requireSuperadmin,
+  async (req, res): Promise<void> => {
+    const me = req.dbUserId!;
+    const updated = await db
+      .update(usersTable)
+      .set({ tokenVersion: sql`${usersTable.tokenVersion} + 1` })
+      .where(sql`${usersTable.id} <> ${me}`)
+      .returning({ id: usersTable.id });
+    res.json({ count: updated.length });
+  },
+);
+
 // Force-logout: invalidate every JWT currently in circulation for the
 // target user by bumping their tokenVersion. Subsequent requests with old
 // tokens get a 401 in requireAuth, and the client's auto-logout kicks in.

@@ -30,6 +30,27 @@ export function AdminUsersPage() {
     onError: (err: Error) => setFlash({ kind: "error", text: err.message }),
   });
 
+  const forceLogoutAll = useMutation({
+    mutationFn: () => adminApi.forceLogoutAll(),
+    onSuccess: (res) => {
+      setFlash({
+        kind: "success",
+        text: `Signed out ${res.count} user${res.count === 1 ? "" : "s"}. You're still signed in.`,
+      });
+    },
+    onError: (err: Error) => setFlash({ kind: "error", text: err.message }),
+  });
+
+  const onForceLogoutAll = () => {
+    if (
+      !window.confirm(
+        "Sign out EVERY user from every device? This will revoke all active sessions across web and mobile (except yours). Users will have to sign in again.",
+      )
+    )
+      return;
+    forceLogoutAll.mutate();
+  };
+
   const onForceLogout = (id: string, name: string) => {
     if (
       !window.confirm(
@@ -62,8 +83,25 @@ export function AdminUsersPage() {
 
   return (
     <AdminLayout>
-      <h1 className="text-2xl font-bold mb-1">Users</h1>
-      <p className="text-muted-foreground mb-6">All registered users on Splitix, sorted by name.</p>
+      <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">Users</h1>
+          <p className="text-muted-foreground">All registered users on Splitix, sorted by name.</p>
+        </div>
+        <Button
+          variant="destructive"
+          onClick={onForceLogoutAll}
+          disabled={forceLogoutAll.isPending}
+          title="Sign every user out of every device"
+        >
+          {forceLogoutAll.isPending ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <LogOut className="w-4 h-4 mr-2" />
+          )}
+          Force-logout everyone
+        </Button>
+      </div>
 
       {flash && (
         <div

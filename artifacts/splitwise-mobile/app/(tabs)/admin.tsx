@@ -421,6 +421,31 @@ function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
     onError: (err: Error) => Alert.alert("Couldn't force logout", err.message),
   });
 
+  const forceLogoutAll = useMutation({
+    mutationFn: () => adminApi.forceLogoutAll(),
+    onSuccess: (res) =>
+      Alert.alert(
+        "Everyone signed out",
+        `Signed out ${res.count} user${res.count === 1 ? "" : "s"}. You're still signed in.`,
+      ),
+    onError: (err: Error) => Alert.alert("Couldn't force logout", err.message),
+  });
+
+  const confirmForceLogoutAll = () => {
+    Alert.alert(
+      "Force logout EVERYONE?",
+      "This signs every user out of every device (except you). They'll all need to sign in again.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign everyone out",
+          style: "destructive",
+          onPress: () => forceLogoutAll.mutate(),
+        },
+      ],
+    );
+  };
+
   const confirmForceLogout = (id: string, name: string) => {
     Alert.alert(
       "Force logout?",
@@ -458,6 +483,37 @@ function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16 }}>
+      <Pressable
+        onPress={confirmForceLogoutAll}
+        disabled={forceLogoutAll.isPending}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          paddingVertical: 12,
+          paddingHorizontal: 14,
+          borderRadius: 8,
+          backgroundColor: colors.destructive,
+          marginBottom: 12,
+          opacity: forceLogoutAll.isPending ? 0.6 : 1,
+        }}
+      >
+        {forceLogoutAll.isPending ? (
+          <ActivityIndicator size="small" color={colors.destructiveForeground} />
+        ) : (
+          <Feather name="log-out" size={16} color={colors.destructiveForeground} />
+        )}
+        <Text
+          style={{
+            color: colors.destructiveForeground,
+            fontFamily: "Inter_600SemiBold",
+          }}
+        >
+          Force-logout everyone
+        </Text>
+      </Pressable>
+
       <TextInput
         value={q}
         onChangeText={setQ}
