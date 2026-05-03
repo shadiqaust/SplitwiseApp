@@ -172,12 +172,25 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
   }, [apiBaseUrl]);
 
   const enableBiometricLogin = useCallback(async () => {
-    if (!state.token || !state.user) {
+    // Read straight from storage rather than the React state closure: when
+    // this is invoked immediately after signIn/signUp resolves, the
+    // useCallback above still has the pre-login state captured (token=null,
+    // user=null), which would falsely throw "not signed in". The storage
+    // layer was already written synchronously inside signIn/signUp.
+    const token = await getItem(TOKEN_KEY);
+    const userStr = await getItem(USER_KEY);
+    if (!token || !userStr) {
       throw new Error("You need to be signed in first.");
     }
-    await enableBiometric(state.token, state.user);
+    let user: AuthUser;
+    try {
+      user = JSON.parse(userStr) as AuthUser;
+    } catch {
+      throw new Error("Stored session is corrupt — sign in again.");
+    }
+    await enableBiometric(token, user);
     setBiometricEnabled(true);
-  }, [state.token, state.user]);
+  }, []);
 
   const disableBiometricLogin = useCallback(async () => {
     await disableBiometric();
