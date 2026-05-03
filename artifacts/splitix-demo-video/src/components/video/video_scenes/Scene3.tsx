@@ -41,11 +41,11 @@ export function Scene3() {
         <div className="p-8 pb-4">
           <div className="flex justify-between items-center mb-6">
             <div className="text-xl font-bold">Add Expense</div>
-            <div className="bg-bg-light text-primary px-4 py-1 rounded-full font-bold">₹ INR</div>
+            <div className="bg-bg-light text-primary px-4 py-1 rounded-full font-bold">$ USD</div>
           </div>
           
           <div className="text-5xl font-black text-center mb-8 text-text-primary">
-            ₹ 4,500
+            $60.00
           </div>
           <div className="text-center text-text-secondary font-medium mb-8">
             Dinner at Thalassa
@@ -74,7 +74,7 @@ export function Scene3() {
                 <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary">A</div>
                 <div className="font-medium">Alex paid</div>
               </div>
-              <div className="font-bold">₹4,500</div>
+              <div className="font-bold">$60.00</div>
             </motion.div>
           </div>
         </div>

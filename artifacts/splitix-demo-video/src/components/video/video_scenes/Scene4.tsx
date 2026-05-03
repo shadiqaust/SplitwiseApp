@@ -44,7 +44,7 @@ export function Scene4() {
             </div>
           </div>
           <div className="text-3xl font-black text-red-400">
-            ₹1,500
+            $20.00
           </div>
         </motion.div>
 
@@ -62,7 +62,7 @@ export function Scene4() {
             </div>
           </div>
           <div className="text-3xl font-black text-red-400">
-            ₹1,500
+            $20.00
           </div>
         </motion.div>
       </div>

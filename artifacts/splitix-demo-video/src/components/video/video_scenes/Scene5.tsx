@@ -39,7 +39,7 @@ export function Scene5() {
           animate={phase >= 2 ? (phase >= 3 ? { scale: 1.1, backgroundColor: '#f0fdf4' } : { scale: 1, opacity: 1 }) : { scale: 0, opacity: 0 }}
           transition={{ type: "spring", damping: 15 }}
         >
-          {phase >= 3 ? "All Settled! 🎉" : "Pay ₹1,500"}
+          {phase >= 3 ? "All Settled! 🎉" : "Pay $20.00"}
         </motion.div>
       </div>
     </motion.div>
