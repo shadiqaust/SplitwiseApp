@@ -348,8 +348,12 @@ function ExpenseRow({
         </Text>
         <Text style={[styles.itemMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
           {iPaid ? `You paid ${formatCurrency(total, expense.currency)}` : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total, expense.currency)}`}
-          {expense.groupId ? ` · ${groupName ?? "group"}` : ""}
         </Text>
+        {expense.groupId ? (
+          <Text style={[styles.itemMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
+            in {groupName ?? "group"}
+          </Text>
+        ) : null}
         <Text style={[styles.itemDate, { color: colors.mutedForeground }]}>{expense.date}</Text>
       </View>
       <View style={{ alignItems: "flex-end" }}>
