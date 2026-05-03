@@ -47,11 +47,11 @@ export interface FriendLike {
 }
 
 export function AddExpenseWithFriendModal({
-  friend,
+  friends,
   currentUserId,
   onClose,
 }: {
-  friend: FriendLike;
+  friends: FriendLike[];
   currentUserId: string;
   onClose: () => void;
 }) {
@@ -62,18 +62,25 @@ export function AddExpenseWithFriendModal({
   const { data: me } = useGetMe();
   const defaultCurrency = me?.defaultCurrency ?? "USD";
 
-  const friendId = String(friend.id);
+  const friendIds = useMemo(() => friends.map((f) => String(f.id)), [friends]);
+  const isPair = friends.length === 1;
+  const primaryFriend = friends[0];
 
-  // Participants (me + the single friend). "You" is always first.
+  // Participants (me + selected friends). "You" is always first.
   const participants = useMemo(
     () => [
       { id: currentUserId, name: "You", isMe: true, avatarUrl: null as string | null },
-      { id: friendId, name: friend.name, isMe: false, avatarUrl: friend.avatarUrl ?? null },
+      ...friends.map((f) => ({
+        id: String(f.id),
+        name: f.name,
+        isMe: false,
+        avatarUrl: f.avatarUrl ?? null,
+      })),
     ],
-    [currentUserId, friendId, friend.name, friend.avatarUrl],
+    [currentUserId, friends],
   );
 
-  // UI-only split mode. "loan" = the payer lent the full amount to the other.
+  // UI-only split mode. "loan" = the payer lent the full amount to the other (1:1 only).
   type Mode = "equal" | "exact" | "loan";
 
   const [description, setDescription] = useState("");
@@ -82,8 +89,8 @@ export function AddExpenseWithFriendModal({
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
   const [mode, setMode] = useState<Mode>("equal");
   const lenderIsMe = paidByUserId === currentUserId;
-  const lenderName = lenderIsMe ? "You" : friend.name;
-  const borrowerName = lenderIsMe ? friend.name : "you";
+  const lenderName = isPair ? (lenderIsMe ? "You" : primaryFriend.name) : "";
+  const borrowerName = isPair ? (lenderIsMe ? primaryFriend.name : "you") : "";
   // Exact-amount inputs, keyed by user id (used only when mode === "exact").
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
 
@@ -102,6 +109,10 @@ export function AddExpenseWithFriendModal({
     });
   };
 
+  const headerSubtitle = isPair
+    ? `with ${primaryFriend.name}`
+    : `with ${friends.length} friends`;
+
   const onSubmit = () => {
     const total = parseFloat(amount);
     if (!description.trim()) {
@@ -115,14 +126,18 @@ export function AddExpenseWithFriendModal({
 
     let splits: Array<{ userId: string; amount: number }> = [];
     let splitTypeForApi: SplitType;
-    let paidByForApi = paidByUserId;
-    if (mode === "equal") {
+    const paidByForApi = paidByUserId;
+    // "loan" is only valid 1:1; for multi-friend, fall back to equal.
+    const effectiveMode: Mode = !isPair && mode === "loan" ? "equal" : mode;
+
+    if (effectiveMode === "equal") {
       splitTypeForApi = SplitType.equal;
       splits = computeEqualSplits(total);
-    } else if (mode === "loan") {
-      // The payer lent the full amount → payer owes 0, the other owes 100%.
+    } else if (effectiveMode === "loan") {
+      // 1:1 only. Payer lent the full amount → payer owes 0, the other owes 100%.
       splitTypeForApi = SplitType.exact;
-      const borrowerId = paidByUserId === currentUserId ? friendId : currentUserId;
+      const borrowerId =
+        paidByUserId === currentUserId ? friendIds[0] : currentUserId;
       splits = [
         { userId: paidByUserId, amount: 0 },
         { userId: borrowerId, amount: total },
@@ -146,7 +161,7 @@ export function AddExpenseWithFriendModal({
     createExpense.mutate(
       {
         data: {
-          friendUserIds: [friendId],
+          friendUserIds: friendIds,
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
@@ -187,7 +202,7 @@ export function AddExpenseWithFriendModal({
               Add expense
             </Text>
             <Text style={[styles.headerSub, { color: colors.mutedForeground }]} numberOfLines={1}>
-              with {friend.name}
+              {headerSubtitle}
             </Text>
           </View>
           <Pressable
@@ -211,6 +226,26 @@ export function AddExpenseWithFriendModal({
         </View>
 
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 14 }}>
+          {!isPair && (
+            <View
+              style={[
+                styles.participantBar,
+                { backgroundColor: colors.muted, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.participantBarText, { color: colors.mutedForeground }]}>
+                Splitting equally between
+              </Text>
+              <View style={styles.participantAvatars}>
+                {participants.map((p) => (
+                  <View key={p.id} style={{ marginRight: -6 }}>
+                    <Avatar name={p.name} url={p.avatarUrl} size={24} />
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
           <View style={{ gap: 6 }}>
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Description</Text>
             <TextInput
@@ -355,7 +390,7 @@ export function AddExpenseWithFriendModal({
                     { color: mode === "equal" ? "#fff" : colors.foreground },
                   ]}
                 >
-                  Equally (2 ways)
+                  {isPair ? "Equally (2 ways)" : `Equally (${participants.length} ways)`}
                 </Text>
               </Pressable>
               <Pressable
@@ -377,29 +412,31 @@ export function AddExpenseWithFriendModal({
                   Exact amounts
                 </Text>
               </Pressable>
-              <Pressable
-                onPress={() => setMode("loan")}
-                style={[
-                  styles.chip,
-                  {
-                    borderColor: mode === "loan" ? colors.primary : colors.border,
-                    backgroundColor: mode === "loan" ? colors.primary : "transparent",
-                  },
-                ]}
-              >
-                <Text
+              {isPair && (
+                <Pressable
+                  onPress={() => setMode("loan")}
                   style={[
-                    styles.chipText,
-                    { color: mode === "loan" ? "#fff" : colors.foreground },
+                    styles.chip,
+                    {
+                      borderColor: mode === "loan" ? colors.primary : colors.border,
+                      backgroundColor: mode === "loan" ? colors.primary : "transparent",
+                    },
                   ]}
                 >
-                  {lenderIsMe
-                    ? `Lent full to ${friend.name}`
-                    : `${friend.name} lent full to you`}
-                </Text>
-              </Pressable>
+                  <Text
+                    style={[
+                      styles.chipText,
+                      { color: mode === "loan" ? "#fff" : colors.foreground },
+                    ]}
+                  >
+                    {lenderIsMe
+                      ? `Lent full to ${primaryFriend.name}`
+                      : `${primaryFriend.name} lent full to you`}
+                  </Text>
+                </Pressable>
+              )}
             </View>
-            {mode === "loan" && (
+            {isPair && mode === "loan" && (
               <Text style={[styles.helperText, { color: colors.mutedForeground }]}>
                 {lenderName} paid the full amount. {borrowerName}{" "}
                 {lenderIsMe ? "owes you" : "owe"}{" "}
@@ -477,6 +514,17 @@ const styles = StyleSheet.create({
   headerSub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1 },
   headerCancel: { fontFamily: "Inter_500Medium", fontSize: 15 },
   headerSave: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  participantBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  participantBarText: { fontFamily: "Inter_500Medium", fontSize: 12 },
+  participantAvatars: { flexDirection: "row", paddingRight: 6 },
   fieldLabel: { fontFamily: "Inter_500Medium", fontSize: 12 },
   fieldInput: {
     borderWidth: 1,

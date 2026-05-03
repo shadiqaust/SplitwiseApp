@@ -52,25 +52,32 @@ export interface FriendLike {
 }
 
 export function AddExpenseWithFriendDialog({
-  friend,
+  friends,
   currentUserId,
   open,
   onOpenChange,
 }: {
-  friend: FriendLike;
+  friends: FriendLike[];
   currentUserId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const friendId = String(friend.id);
+  const friendIds = useMemo(() => friends.map((f) => String(f.id)), [friends]);
+  const isPair = friends.length === 1;
+  const primaryFriend = friends[0];
 
-  // Participants: me + the single friend. "You" is always first.
+  // Participants: me + selected friends. "You" is always first.
   const participants = useMemo(
     () => [
       { id: currentUserId, name: "You", isMe: true, avatarUrl: null as string | null },
-      { id: friendId, name: friend.name, isMe: false, avatarUrl: friend.avatarUrl ?? null },
+      ...friends.map((f) => ({
+        id: String(f.id),
+        name: f.name,
+        isMe: false,
+        avatarUrl: f.avatarUrl ?? null,
+      })),
     ],
-    [currentUserId, friendId, friend.name, friend.avatarUrl],
+    [currentUserId, friends],
   );
 
   const { toast } = useToast();
@@ -79,7 +86,7 @@ export function AddExpenseWithFriendDialog({
   const { data: me } = useGetMe();
   const defaultCurrency = me?.defaultCurrency ?? "USD";
 
-  // UI-only split mode. "loan" = lent the full amount to the friend.
+  // UI-only split mode. "loan" only available in 1:1 mode.
   type Mode = "equal" | "exact" | "loan";
 
   const [description, setDescription] = useState("");
@@ -100,10 +107,10 @@ export function AddExpenseWithFriendDialog({
     }
   }, [open, currentUserId]);
 
-  // In loan mode, the lender = whoever paid. Allow either side.
+  // In loan mode (1:1 only), the lender = whoever paid.
   const lenderIsMe = paidByUserId === currentUserId;
-  const borrowerName = lenderIsMe ? friend.name : "you";
-  const lenderName = lenderIsMe ? "You" : friend.name;
+  const borrowerName = isPair ? (lenderIsMe ? primaryFriend.name : "you") : "";
+  const lenderName = isPair ? (lenderIsMe ? "You" : primaryFriend.name) : "";
 
   const updateExactAmount = (userId: string, value: string) => {
     setExactAmounts((prev) => ({ ...prev, [userId]: value }));
@@ -120,6 +127,13 @@ export function AddExpenseWithFriendDialog({
     });
   };
 
+  const titleText = isPair
+    ? `Add expense with ${primaryFriend.name}`
+    : `Add expense with ${friends.length} friends`;
+  const descriptionText = isPair
+    ? `This expense isn't tied to a group — just between you and ${primaryFriend.name}.`
+    : `Splitting equally between you and ${friends.length} friend${friends.length > 1 ? "s" : ""}. Not tied to a group.`;
+
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const total = parseFloat(amount);
@@ -134,14 +148,18 @@ export function AddExpenseWithFriendDialog({
 
     let splits: Array<{ userId: string; amount: number }> = [];
     let splitTypeForApi: SplitType;
-    let paidByForApi = paidByUserId;
-    if (mode === "equal") {
+    const paidByForApi = paidByUserId;
+    // "loan" is only valid 1:1; for multi-friend, fall back to equal.
+    const effectiveMode: Mode = !isPair && mode === "loan" ? "equal" : mode;
+
+    if (effectiveMode === "equal") {
       splitTypeForApi = SplitType.equal;
       splits = computeEqualSplits(total);
-    } else if (mode === "loan") {
-      // The payer lent the full amount → payer owes 0, the other owes 100%.
+    } else if (effectiveMode === "loan") {
+      // 1:1 only. Payer lent the full amount → payer owes 0, the other owes 100%.
       splitTypeForApi = SplitType.exact;
-      const borrowerId = paidByUserId === currentUserId ? friendId : currentUserId;
+      const borrowerId =
+        paidByUserId === currentUserId ? friendIds[0] : currentUserId;
       splits = [
         { userId: paidByUserId, amount: 0 },
         { userId: borrowerId, amount: total },
@@ -166,16 +184,18 @@ export function AddExpenseWithFriendDialog({
     }
 
     const successLabel =
-      mode === "loan"
+      effectiveMode === "loan"
         ? lenderIsMe
-          ? `Logged loan to ${friend.name}`
-          : `Logged loan from ${friend.name}`
-        : `Expense added with ${friend.name}`;
+          ? `Logged loan to ${primaryFriend.name}`
+          : `Logged loan from ${primaryFriend.name}`
+        : isPair
+          ? `Expense added with ${primaryFriend.name}`
+          : `Expense added with ${friends.length} friends`;
 
     createExpense.mutate(
       {
         data: {
-          friendUserIds: [friendId],
+          friendUserIds: friendIds,
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
@@ -213,11 +233,8 @@ export function AddExpenseWithFriendDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
-          <DialogTitle>Add expense with {friend.name}</DialogTitle>
-          <DialogDescription>
-            This expense isn't tied to a group — just between you and{" "}
-            {friend.name}.
-          </DialogDescription>
+          <DialogTitle>{titleText}</DialogTitle>
+          <DialogDescription>{descriptionText}</DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -301,19 +318,23 @@ export function AddExpenseWithFriendDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="equal">Equally (2 ways)</SelectItem>
-                  <SelectItem value="exact">Exact amounts</SelectItem>
-                  <SelectItem value="loan">
-                    {lenderIsMe
-                      ? `Lent full amount to ${friend.name}`
-                      : `${friend.name} lent full amount to you`}
+                  <SelectItem value="equal">
+                    {isPair ? "Equally (2 ways)" : `Equally (${participants.length} ways)`}
                   </SelectItem>
+                  <SelectItem value="exact">Exact amounts</SelectItem>
+                  {isPair && (
+                    <SelectItem value="loan">
+                      {lenderIsMe
+                        ? `Lent full amount to ${primaryFriend.name}`
+                        : `${primaryFriend.name} lent full amount to you`}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {mode === "loan" && (
+          {isPair && mode === "loan" && (
             <p className="text-xs text-muted-foreground">
               {lenderName} paid the full amount. {borrowerName}{" "}
               {lenderIsMe ? "owes you" : "owe"} the entire{" "}
@@ -321,7 +342,7 @@ export function AddExpenseWithFriendDialog({
             </p>
           )}
 
-          {mode === "exact" && (
+          {(isPair ? mode === "exact" : mode === "exact") && (
             <div className="space-y-2">
               <Label>Exact amounts</Label>
               <div className="border rounded-md divide-y">

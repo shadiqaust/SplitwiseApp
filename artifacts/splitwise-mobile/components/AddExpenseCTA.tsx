@@ -34,7 +34,8 @@ export function AddExpenseCTA() {
   const insets = useSafeAreaInsets();
   const me = useGetMe();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [chosenFriend, setChosenFriend] = useState<FriendLike | null>(null);
+  const [chosenFriends, setChosenFriends] = useState<FriendLike[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
 
   const friendsQuery = useQuery<ApiFriend[]>({
@@ -48,7 +49,10 @@ export function AddExpenseCTA() {
   });
 
   useEffect(() => {
-    if (!pickerOpen) setSearch("");
+    if (!pickerOpen) {
+      setSearch("");
+      setSelectedIds(new Set());
+    }
   }, [pickerOpen]);
 
   const filtered = useMemo(() => {
@@ -62,8 +66,26 @@ export function AddExpenseCTA() {
     });
   }, [friendsQuery.data, search]);
 
-  const pickFriend = (f: ApiFriend) => {
-    setChosenFriend({ id: f.id, name: f.name, avatarUrl: f.avatarUrl ?? null });
+  const toggle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const onContinue = () => {
+    const all = friendsQuery.data ?? [];
+    const picked = all
+      .filter((f) => selectedIds.has(String(f.id)))
+      .map<FriendLike>((f) => ({
+        id: f.id,
+        name: f.name,
+        avatarUrl: f.avatarUrl ?? null,
+      }));
+    if (picked.length === 0) return;
+    setChosenFriends(picked);
     setPickerOpen(false);
   };
 
@@ -107,10 +129,27 @@ export function AddExpenseCTA() {
                 Add expense
               </Text>
               <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
-                Pick a friend to split with
+                Pick one or more friends to split with
               </Text>
             </View>
-            <View style={styles.headerSide} />
+            <Pressable
+              onPress={onContinue}
+              disabled={selectedIds.size === 0}
+              hitSlop={12}
+              style={styles.headerSide}
+            >
+              <Text
+                style={[
+                  styles.headerSave,
+                  {
+                    color: selectedIds.size === 0 ? colors.mutedForeground : colors.primary,
+                    textAlign: "right",
+                  },
+                ]}
+              >
+                Next
+              </Text>
+            </Pressable>
           </View>
 
           <View style={{ padding: 16, gap: 12, flex: 1 }}>
@@ -142,52 +181,76 @@ export function AddExpenseCTA() {
               </Text>
             ) : (
               <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
-                {filtered.map((f) => (
-                  <Pressable
-                    key={String(f.id)}
-                    onPress={() => pickFriend(f)}
-                    android_ripple={{ color: colors.accent }}
-                    style={({ pressed }) => [
-                      styles.friendRow,
-                      {
-                        borderBottomColor: colors.border,
-                        opacity: pressed ? 0.7 : 1,
-                      },
-                    ]}
-                  >
-                    <Avatar name={f.name} url={f.avatarUrl} size={36} />
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text
-                        style={[styles.friendName, { color: colors.foreground }]}
-                        numberOfLines={1}
+                {filtered.map((f) => {
+                  const id = String(f.id);
+                  const checked = selectedIds.has(id);
+                  return (
+                    <Pressable
+                      key={id}
+                      onPress={() => toggle(id)}
+                      android_ripple={{ color: colors.accent }}
+                      style={({ pressed }) => [
+                        styles.friendRow,
+                        {
+                          borderBottomColor: colors.border,
+                          opacity: pressed ? 0.7 : 1,
+                        },
+                      ]}
+                    >
+                      <Avatar name={f.name} url={f.avatarUrl} size={36} />
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text
+                          style={[styles.friendName, { color: colors.foreground }]}
+                          numberOfLines={1}
+                        >
+                          {f.name}
+                        </Text>
+                        <Text
+                          style={[styles.friendEmail, { color: colors.mutedForeground }]}
+                          numberOfLines={1}
+                        >
+                          {f.email}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.checkbox,
+                          {
+                            borderColor: checked ? colors.primary : colors.border,
+                            backgroundColor: checked ? colors.primary : "transparent",
+                          },
+                        ]}
                       >
-                        {f.name}
-                      </Text>
-                      <Text
-                        style={[styles.friendEmail, { color: colors.mutedForeground }]}
-                        numberOfLines={1}
-                      >
-                        {f.email}
-                      </Text>
-                    </View>
-                    <Feather
-                      name="chevron-right"
-                      size={18}
-                      color={colors.mutedForeground}
-                    />
-                  </Pressable>
-                ))}
+                        {checked && (
+                          <Feather name="check" size={14} color="#fff" />
+                        )}
+                      </View>
+                    </Pressable>
+                  );
+                })}
               </ScrollView>
+            )}
+
+            {selectedIds.size > 0 && (
+              <Pressable
+                onPress={onContinue}
+                style={[styles.continueBtn, { backgroundColor: colors.primary }]}
+              >
+                <Text style={styles.continueBtnText}>
+                  Continue with {selectedIds.size}{" "}
+                  {selectedIds.size === 1 ? "friend" : "friends"}
+                </Text>
+              </Pressable>
             )}
           </View>
         </View>
       </Modal>
 
-      {chosenFriend && me.data?.id && (
+      {chosenFriends && me.data?.id && (
         <AddExpenseWithFriendModal
-          friend={chosenFriend}
+          friends={chosenFriends}
           currentUserId={me.data.id}
-          onClose={() => setChosenFriend(null)}
+          onClose={() => setChosenFriends(null)}
         />
       )}
     </>
@@ -213,11 +276,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headerSide: { width: 90 },
+  headerSide: { width: 70 },
   headerCenter: { flex: 1, alignItems: "center" },
   headerTitle: { fontFamily: "Inter_700Bold", fontSize: 16 },
   headerSub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 1 },
   headerCancel: { fontFamily: "Inter_500Medium", fontSize: 15 },
+  headerSave: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -247,4 +311,23 @@ const styles = StyleSheet.create({
   },
   friendName: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   friendEmail: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  continueBtn: {
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  continueBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    color: "#fff",
+  },
 });
