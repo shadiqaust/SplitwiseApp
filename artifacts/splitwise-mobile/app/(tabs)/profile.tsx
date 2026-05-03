@@ -27,8 +27,13 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/lib/auth";
+import {
+  getBiometricCapability,
+  type BiometricCapability,
+} from "@/lib/biometrics";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
+import { Switch } from "react-native";
 
 // ─── Predefined avatar presets ────────────────────────────────────────────────
 const PRESETS = [
@@ -53,7 +58,51 @@ const PRESETS = [
 export default function ProfileScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { signOut } = useAuth();
+  const {
+    signOut,
+    biometricEnabled,
+    enableBiometricLogin,
+    disableBiometricLogin,
+  } = useAuth();
+  const [bioCapability, setBioCapability] = useState<BiometricCapability | null>(null);
+  const [bioBusy, setBioBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getBiometricCapability().then((cap) => {
+      if (!cancelled) setBioCapability(cap);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleToggleBiometric = async (next: boolean) => {
+    if (bioBusy) return;
+    setBioBusy(true);
+    try {
+      if (next) {
+        if (!bioCapability?.available) {
+          Alert.alert("Not supported", "This device doesn't support biometric authentication.");
+          return;
+        }
+        if (!bioCapability.enrolled) {
+          Alert.alert(
+            "Set up biometrics first",
+            `Please enrol ${bioCapability.label} in your device settings, then try again.`,
+          );
+          return;
+        }
+        await enableBiometricLogin();
+      } else {
+        await disableBiometricLogin();
+      }
+    } catch (err) {
+      Alert.alert("Couldn't update", err instanceof Error ? err.message : "Try again.");
+    } finally {
+      setBioBusy(false);
+    }
+  };
   const { data: me, isLoading } = useGetMe();
   const updateMe = useUpdateMe();
   const queryClient = useQueryClient();
@@ -459,6 +508,32 @@ export default function ProfileScreen() {
               </Text>
             </Pressable>
           </Card>
+
+          {/* ── Security ────────────────────────────────────────────── */}
+          {bioCapability?.available && (
+            <Card>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View style={[styles.inviteIcon, { backgroundColor: colors.primary + "22" }]}>
+                  <Feather name="shield" size={20} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.sectionTitle, { color: colors.foreground, marginBottom: 2 }]}>
+                    Sign in with {bioCapability.label}
+                  </Text>
+                  <Text style={[styles.inviteHint, { color: colors.mutedForeground }]}>
+                    {bioCapability.enrolled
+                      ? `Use ${bioCapability.label} on this device to skip the password.`
+                      : `Set up ${bioCapability.label} in your device settings to enable.`}
+                  </Text>
+                </View>
+                <Switch
+                  value={biometricEnabled}
+                  onValueChange={handleToggleBiometric}
+                  disabled={bioBusy || !bioCapability.enrolled}
+                />
+              </View>
+            </Card>
+          )}
 
           {/* ── Logout ──────────────────────────────────────────────── */}
           <Button title="Log out" variant="destructive" onPress={handleSignOut} fullWidth />

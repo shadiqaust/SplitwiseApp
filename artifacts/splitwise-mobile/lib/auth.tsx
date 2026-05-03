@@ -6,6 +6,13 @@ import {
   registerForPushNotificationsAsync,
   unregisterPushNotificationsAsync,
 } from "./push";
+import {
+  disableBiometric,
+  enableBiometric,
+  isBiometricEnabled,
+  refreshStoredBiometricToken,
+  unlockBiometricSession,
+} from "./biometrics";
 
 const TOKEN_KEY = "sw_auth_token";
 const USER_KEY = "sw_auth_user";
@@ -28,10 +35,19 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
+  biometricEnabled: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string, defaultCurrency?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (patch: Partial<AuthUser>) => void;
+  /** Prompt for biometrics and, on success, sign in using the saved
+   *  session. Throws if biometrics fail or no session is stored. */
+  signInWithBiometrics: () => Promise<void>;
+  /** Persist the current session for future biometric unlocks. Requires
+   *  the user to already be signed in (token in state). */
+  enableBiometricLogin: () => Promise<void>;
+  /** Forget the stored biometric session. */
+  disableBiometricLogin: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -71,12 +87,15 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
     user: null,
     token: null,
   });
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
 
   useEffect(() => {
     attachNotificationResponseListener();
     (async () => {
       const token = await getItem(TOKEN_KEY);
       const userStr = await getItem(USER_KEY);
+      const bio = await isBiometricEnabled();
+      setBiometricEnabled(bio);
       if (token && userStr) {
         try {
           const user = JSON.parse(userStr) as AuthUser;
@@ -112,6 +131,10 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
     const { token, user } = await callApi("/api/auth/login", { email, password });
     await storeItem(TOKEN_KEY, token);
     await storeItem(USER_KEY, JSON.stringify(user));
+    // Keep the biometric vault in sync if the user already opted in: store
+    // the freshest token so the next biometric unlock doesn't hit an
+    // expired/revoked JWT.
+    await refreshStoredBiometricToken(token, user);
     setState({ isLoaded: true, isSignedIn: true, user, token });
     void registerForPushNotificationsAsync(apiBaseUrl);
   }, [callApi, apiBaseUrl]);
@@ -120,6 +143,7 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
     const { token, user } = await callApi("/api/auth/register", { name, email, password, defaultCurrency });
     await storeItem(TOKEN_KEY, token);
     await storeItem(USER_KEY, JSON.stringify(user));
+    await refreshStoredBiometricToken(token, user);
     setState({ isLoaded: true, isSignedIn: true, user, token });
     void registerForPushNotificationsAsync(apiBaseUrl);
   }, [callApi, apiBaseUrl]);
@@ -129,8 +153,36 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
     await unregisterPushNotificationsAsync(apiBaseUrl);
     await removeItem(TOKEN_KEY);
     await removeItem(USER_KEY);
+    // Tear down the biometric vault too — leaving a stale JWT around is a
+    // confusing trap (logging back in via Face ID would silently grant
+    // access to whatever account was last bound to this device).
+    await disableBiometric();
+    setBiometricEnabled(false);
     setState({ isLoaded: true, isSignedIn: false, user: null, token: null });
   }, [apiBaseUrl]);
+
+  const signInWithBiometrics = useCallback(async () => {
+    const session = await unlockBiometricSession("Sign in to Splitix");
+    if (!session) throw new Error("Biometric sign-in cancelled or unavailable");
+    const user = session.user as AuthUser;
+    await storeItem(TOKEN_KEY, session.token);
+    await storeItem(USER_KEY, JSON.stringify(user));
+    setState({ isLoaded: true, isSignedIn: true, user, token: session.token });
+    void registerForPushNotificationsAsync(apiBaseUrl);
+  }, [apiBaseUrl]);
+
+  const enableBiometricLogin = useCallback(async () => {
+    if (!state.token || !state.user) {
+      throw new Error("You need to be signed in first.");
+    }
+    await enableBiometric(state.token, state.user);
+    setBiometricEnabled(true);
+  }, [state.token, state.user]);
+
+  const disableBiometricLogin = useCallback(async () => {
+    await disableBiometric();
+    setBiometricEnabled(false);
+  }, []);
 
   const updateUser = useCallback((patch: Partial<AuthUser>) => {
     setState((prev) => {
@@ -142,7 +194,19 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut, updateUser }}>
+    <AuthContext.Provider
+      value={{
+        ...state,
+        biometricEnabled,
+        signIn,
+        signUp,
+        signOut,
+        updateUser,
+        signInWithBiometrics,
+        enableBiometricLogin,
+        disableBiometricLogin,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -64,9 +64,16 @@ Body: `{ friendUserId? | friendUserIds?: string[], description, totalAmount, cur
 Returns `{ myNetBalance, count, expenses }` for every expense with `groupId IS NULL` involving the current user (as payer or in the splits). Surfaced as a virtual "Non-group expenses" card at the top of the Groups tab on both web (`/non-group-expenses` route in `pages/non-group-expenses.tsx`) and mobile (`app/non-group-expenses.tsx` route, linked from `app/(tabs)/groups/index.tsx`). The screens render a balance summary plus per-expense rows with "you lent" / "you owe" labels.
 
 ### Mobile (`artifacts/splitwise-mobile`)
-- `lib/auth.tsx` — `AuthProvider` + `useAuth()` hook. Stores JWT in `expo-secure-store` (native) or `localStorage` (web). Exports `getToken()` for the API client.
-- `app/sign-in.tsx` — native sign-in / sign-up screen.
-- `app/_layout.tsx` — wraps app in `AuthProvider` + `AuthGate` for redirect logic.
+- `lib/auth.tsx` — `AuthProvider` + `useAuth()` hook. Stores JWT in `expo-secure-store` (native) or `localStorage` (web). Exports `getToken()` for the API client. Also exposes biometric controls: `biometricEnabled`, `signInWithBiometrics()`, `enableBiometricLogin()`, `disableBiometricLogin()`. `signIn`/`signUp` refresh the biometric vault when bio is enabled; `signOut` always wipes the vault to avoid stale-JWT cross-account leaks.
+- `app/sign-in.tsx` — native sign-in / sign-up screen. Auto-prompts biometric unlock on cold start when enabled+enrolled (silent-fail), shows a "Sign in with Face ID/Touch ID/Fingerprint" button, and offers to enable biometrics after a fresh password sign-in.
+- `app/(tabs)/profile.tsx` — has a "Sign in with <Face ID/Touch ID/Fingerprint>" toggle in a Security card (hidden when no biometric hardware). Disable wipes the vault.
+- `app/_layout.tsx` — wraps app in `AuthProvider` + `AuthGate` for redirect logic. Existing 401 auto-logout path also tears down the biometric vault, so an expired biometric JWT just falls back to password sign-in.
+
+### Mobile biometric login (`lib/biometrics.ts`)
+- Built on `expo-local-authentication` (Face ID / Touch ID on iOS; Class 3 fingerprint/face on Android, enforced via `biometricsSecurityLevel: "strong"`).
+- Stores JWT + user JSON in SecureStore keys `sw_bio_token` / `sw_bio_user` with `requireAuthentication: true` and `keychainAccessible: WHEN_UNLOCKED_THIS_DEVICE_ONLY` — items are OS-bound to a successful biometric/passcode unlock, not just app-level. A non-sensitive `sw_bio_enabled` flag drives UI visibility.
+- `getBiometricCapability()` returns `{ available, enrolled, kinds, label }` with friendly platform labels (Face ID / Touch ID on iOS, Face Unlock / Fingerprint on Android).
+- `unlockBiometricSession(reason)` prompts then reads the vault; missing/corrupt entries auto-call `disableBiometric()` to self-heal.
 
 ### Database schema (`lib/db/src/schema/users.ts`)
 - `id` UUID PK

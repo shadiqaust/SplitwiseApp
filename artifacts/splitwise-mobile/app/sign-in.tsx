@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,13 +15,23 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/lib/auth";
+import {
+  getBiometricCapability,
+  type BiometricCapability,
+} from "@/lib/biometrics";
 import { useListCurrencies } from "@workspace/api-client-react";
 
 type Mode = "sign-in" | "sign-up";
 
 export default function SignInScreen() {
   const colors = useColors();
-  const { signIn, signUp } = useAuth();
+  const {
+    signIn,
+    signUp,
+    biometricEnabled,
+    signInWithBiometrics,
+    enableBiometricLogin,
+  } = useAuth();
 
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
@@ -30,6 +41,64 @@ export default function SignInScreen() {
   const [showCurrency, setShowCurrency] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bioCapability, setBioCapability] = useState<BiometricCapability | null>(null);
+  const [bioLoading, setBioLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getBiometricCapability().then((cap) => {
+      if (!cancelled) setBioCapability(cap);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Auto-prompt biometric unlock once on mount when the device supports it
+  // and the user previously opted in. Silent-fail so users can still type a
+  // password if they cancel the prompt.
+  useEffect(() => {
+    if (!biometricEnabled) return;
+    if (!bioCapability?.available || !bioCapability.enrolled) return;
+    void signInWithBiometrics().catch(() => {
+      // Cancelled / failed — leave the form visible.
+    });
+    // Only run once per cap discovery.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [biometricEnabled, bioCapability?.available, bioCapability?.enrolled]);
+
+  const bioIcon: React.ComponentProps<typeof Feather>["name"] =
+    bioCapability?.kinds.includes("face") ? "smile" : "unlock";
+
+  const offerBiometricSetup = async () => {
+    if (!bioCapability?.available) return;
+    if (!bioCapability.enrolled) return; // No biometrics enrolled on the device — nothing to offer.
+    if (biometricEnabled) return; // Already on.
+    await new Promise<void>((resolve) => {
+      Alert.alert(
+        `Use ${bioCapability.label} next time?`,
+        `Sign in faster with ${bioCapability.label} on this device. You can turn it off anytime in Profile.`,
+        [
+          { text: "Not now", style: "cancel", onPress: () => resolve() },
+          {
+            text: "Enable",
+            onPress: async () => {
+              try {
+                await enableBiometricLogin();
+              } catch (err) {
+                Alert.alert(
+                  "Couldn't enable",
+                  err instanceof Error ? err.message : "Try again from Profile.",
+                );
+              } finally {
+                resolve();
+              }
+            },
+          },
+        ],
+      );
+    });
+  };
 
   const { data: currenciesData } = useListCurrencies();
   const currencies = currenciesData ?? [];
@@ -42,6 +111,7 @@ export default function SignInScreen() {
     setLoading(true);
     try {
       await signIn(email, password);
+      await offerBiometricSetup();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to sign in");
     } finally {
@@ -62,10 +132,23 @@ export default function SignInScreen() {
     setLoading(true);
     try {
       await signUp(name.trim(), email, password, defaultCurrency);
+      await offerBiometricSetup();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to sign up");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBiometricSignIn = async () => {
+    setError(null);
+    setBioLoading(true);
+    try {
+      await signInWithBiometrics();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Biometric sign-in failed");
+    } finally {
+      setBioLoading(false);
     }
   };
 
@@ -207,6 +290,31 @@ export default function SignInScreen() {
             loading={loading}
             fullWidth
           />
+
+          {mode === "sign-in" && biometricEnabled && bioCapability?.available && bioCapability.enrolled && (
+            <Pressable
+              onPress={handleBiometricSignIn}
+              disabled={bioLoading || loading}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                paddingVertical: 12,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.card,
+                opacity: bioLoading || loading ? 0.5 : 1,
+              }}
+              accessibilityLabel={`Sign in with ${bioCapability.label}`}
+            >
+              <Feather name={bioIcon} size={18} color={colors.foreground} />
+              <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>
+                {bioLoading ? "Authenticating…" : `Sign in with ${bioCapability.label}`}
+              </Text>
+            </Pressable>
+          )}
 
           <Button
             title={
