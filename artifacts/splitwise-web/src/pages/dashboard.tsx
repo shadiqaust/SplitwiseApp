@@ -115,27 +115,18 @@ export function DashboardPage() {
             <CardContent>
               {loadingSummary ? (
                 <Skeleton className="h-8 w-24" />
-              ) : (summary?.totalsByCurrency ?? []).length === 0 ? (
-                <div className="text-2xl font-bold">
-                  {formatCurrency(0, myCurrency)}
-                </div>
               ) : (
-                <div className="space-y-1">
-                  {(summary?.totalsByCurrency ?? []).map((t) => (
-                    <div
-                      key={t.currency}
-                      className={cn(
-                        "text-2xl font-bold leading-tight",
-                        t.net > 0
-                          ? "text-primary"
-                          : t.net < 0
-                            ? "text-destructive"
-                            : "",
-                      )}
-                    >
-                      {formatCurrency(t.net, t.currency)}
-                    </div>
-                  ))}
+                <div
+                  className={cn(
+                    "text-2xl font-bold leading-tight",
+                    (summary?.netBalance ?? 0) > 0
+                      ? "text-primary"
+                      : (summary?.netBalance ?? 0) < 0
+                        ? "text-destructive"
+                        : "",
+                  )}
+                >
+                  {formatCurrency(summary?.netBalance ?? 0)}
                 </div>
               )}
             </CardContent>
@@ -148,22 +139,9 @@ export function DashboardPage() {
             <CardContent>
               {loadingSummary ? (
                 <Skeleton className="h-8 w-24" />
-              ) : (summary?.totalsByCurrency ?? []).filter((t) => t.iOwe > 0).length === 0 ? (
-                <div className="text-2xl font-bold text-destructive">
-                  {formatCurrency(0, myCurrency)}
-                </div>
               ) : (
-                <div className="space-y-1">
-                  {(summary?.totalsByCurrency ?? [])
-                    .filter((t) => t.iOwe > 0)
-                    .map((t) => (
-                      <div
-                        key={t.currency}
-                        className="text-2xl font-bold text-destructive leading-tight"
-                      >
-                        {formatCurrency(t.iOwe, t.currency)}
-                      </div>
-                    ))}
+                <div className="text-2xl font-bold text-destructive leading-tight">
+                  {formatCurrency(summary?.totalIOwe ?? 0)}
                 </div>
               )}
             </CardContent>
@@ -176,22 +154,9 @@ export function DashboardPage() {
             <CardContent>
               {loadingSummary ? (
                 <Skeleton className="h-8 w-24" />
-              ) : (summary?.totalsByCurrency ?? []).filter((t) => t.owed > 0).length === 0 ? (
-                <div className="text-2xl font-bold text-primary">
-                  {formatCurrency(0, myCurrency)}
-                </div>
               ) : (
-                <div className="space-y-1">
-                  {(summary?.totalsByCurrency ?? [])
-                    .filter((t) => t.owed > 0)
-                    .map((t) => (
-                      <div
-                        key={t.currency}
-                        className="text-2xl font-bold text-primary leading-tight"
-                      >
-                        {formatCurrency(t.owed, t.currency)}
-                      </div>
-                    ))}
+                <div className="text-2xl font-bold text-primary leading-tight">
+                  {formatCurrency(summary?.totalOwed ?? 0)}
                 </div>
               )}
             </CardContent>
