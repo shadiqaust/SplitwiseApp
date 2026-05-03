@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, integer, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { currenciesTable } from "./currencies";
@@ -30,6 +30,10 @@ export const usersTable = pgTable("users", {
   // members, etc.) are blocked while this is null; read-only browsing
   // remains allowed (hybrid enforcement mode).
   emailVerifiedAt: timestamp("email_verified_at"),
+  // Bumped by admin "force logout" to invalidate every existing JWT for this
+  // user. Tokens carry the version they were issued at; requireAuth rejects
+  // any token whose version is below the current row value.
+  tokenVersion: integer("token_version").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -131,6 +131,11 @@ export const adminApi = {
       `/admin/users/${id}/verify-email`,
       { method: "POST" },
     ),
+  forceLogoutUser: (id: string) =>
+    adminFetch<{ id: string; tokenVersion: number }>(
+      `/admin/users/${id}/force-logout`,
+      { method: "POST" },
+    ),
   listCurrencies: () =>
     adminFetch<{ currencies: AdminCurrency[] }>("/admin/currencies"),
   createCurrency: (input: AdminCurrency) =>

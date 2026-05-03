@@ -41,6 +41,15 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return;
   }
 
+  // Reject tokens whose version is older than the user's current
+  // tokenVersion — this is how "force logout" works: the admin bumps the
+  // user's row, invalidating every JWT in circulation.
+  const tokenVer = payload.tokenVersion ?? 0;
+  if (tokenVer < (user.tokenVersion ?? 0)) {
+    res.status(401).json({ error: "Session revoked" });
+    return;
+  }
+
   req.dbUserId = user.id;
   next();
 }

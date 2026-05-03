@@ -166,7 +166,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     email: user.email,
   });
 
-  const token = signToken({ userId: user.id });
+  const token = signToken({ userId: user.id, tokenVersion: user.tokenVersion ?? 0 });
   res.status(201).json({
     token,
     user: {
@@ -224,7 +224,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     role = "superadmin";
   }
 
-  const token = signToken({ userId: user.id });
+  const token = signToken({ userId: user.id, tokenVersion: user.tokenVersion ?? 0 });
   res.json({
     token,
     user: {

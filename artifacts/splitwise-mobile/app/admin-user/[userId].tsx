@@ -20,6 +20,31 @@ export default function AdminUserDetailScreen() {
     enabled: !!userId && isAdmin,
   });
 
+  const forceLogout = useMutation({
+    mutationFn: () => adminApi.forceLogoutUser(String(userId)),
+    onSuccess: () => {
+      Alert.alert(
+        "Signed out",
+        `${data?.user.name ?? "User"} has been signed out of all devices.`,
+      );
+    },
+    onError: (err: Error) => {
+      Alert.alert("Couldn't force logout", err.message);
+    },
+  });
+
+  const onForceLogout = () => {
+    if (!data) return;
+    Alert.alert(
+      "Force logout?",
+      `${data.user.name} will be signed out of every device immediately and will need to sign in again.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Force logout", style: "destructive", onPress: () => forceLogout.mutate() },
+      ],
+    );
+  };
+
   const verifyEmail = useMutation({
     mutationFn: () => adminApi.verifyUserEmail(String(userId)),
     onSuccess: (res) => {
@@ -108,6 +133,29 @@ export default function AdminUserDetailScreen() {
               )}
               <Text style={{ color: colors.foreground, marginLeft: 6, fontFamily: "Inter_600SemiBold" }}>
                 Mark email verified
+              </Text>
+            </Pressable>
+          )}
+          {user.id !== me?.id && (
+            <Pressable
+              onPress={onForceLogout}
+              disabled={forceLogout.isPending}
+              style={[
+                styles.verifyBtn,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                  opacity: forceLogout.isPending ? 0.6 : 1,
+                },
+              ]}
+            >
+              {forceLogout.isPending ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Feather name="log-out" size={14} color={colors.foreground} />
+              )}
+              <Text style={{ color: colors.foreground, marginLeft: 6, fontFamily: "Inter_600SemiBold" }}>
+                Force logout
               </Text>
             </Pressable>
           )}

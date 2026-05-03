@@ -308,6 +308,39 @@ router.post(
   },
 );
 
+// Force-logout: invalidate every JWT currently in circulation for the
+// target user by bumping their tokenVersion. Subsequent requests with old
+// tokens get a 401 in requireAuth, and the client's auto-logout kicks in.
+// Allowed against any user role, including other superadmins; refused when
+// an admin targets themselves to avoid an accidental self-lockout.
+router.post(
+  "/admin/users/:userId/force-logout",
+  requireSuperadmin,
+  async (req, res): Promise<void> => {
+    const id = String(req.params.userId);
+    if (!UUID_RE.test(id)) {
+      res.status(400).json({ error: "Invalid user id" });
+      return;
+    }
+    if (id === req.dbUserId) {
+      res.status(400).json({ error: "You can't force-logout yourself." });
+      return;
+    }
+    // Atomic single-statement bump so concurrent force-logout calls can't
+    // race and lose increments — Postgres serializes the row update.
+    const [updated] = await db
+      .update(usersTable)
+      .set({ tokenVersion: sql`${usersTable.tokenVersion} + 1` })
+      .where(eq(usersTable.id, id))
+      .returning({ id: usersTable.id, tokenVersion: usersTable.tokenVersion });
+    if (!updated) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    res.json({ id: updated.id, tokenVersion: updated.tokenVersion });
+  },
+);
+
 // ─── Currencies ────────────────────────────────────────────────────────────
 
 router.get("/admin/currencies", requireSuperadmin, async (_req, res) => {

@@ -124,6 +124,12 @@ export const adminApi = {
       "POST",
       null,
     ),
+  forceLogoutUser: (id: string) =>
+    adminSend<{ id: string; tokenVersion: number }>(
+      `/admin/users/${id}/force-logout`,
+      "POST",
+      null,
+    ),
   listCurrencies: () => adminGet<{ currencies: AdminCurrency[] }>("/admin/currencies"),
   createCurrency: (input: AdminCurrency) =>
     adminSend<AdminCurrency>("/admin/currencies", "POST", input),

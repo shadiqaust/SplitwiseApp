@@ -4,7 +4,7 @@ import { Link, useParams } from "wouter";
 import { adminApi } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth";
 import { AdminLayout } from "./layout";
-import { ArrowLeft, Shield, ShieldOff, Loader2, MailCheck, MailWarning } from "lucide-react";
+import { ArrowLeft, Shield, ShieldOff, Loader2, MailCheck, MailWarning, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function AdminUserDetailPage() {
@@ -15,6 +15,8 @@ export function AdminUserDetailPage() {
   const [roleError, setRoleError] = useState<string | null>(null);
   const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [logoutMessage, setLogoutMessage] = useState<string | null>(null);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "user", userId],
@@ -49,6 +51,30 @@ export function AdminUserDetailPage() {
       setVerifyError(err.message);
     },
   });
+
+  const forceLogout = useMutation({
+    mutationFn: () => adminApi.forceLogoutUser(userId),
+    onSuccess: () => {
+      setLogoutError(null);
+      setLogoutMessage(
+        `${data?.user.name ?? "User"} has been signed out of all devices.`,
+      );
+    },
+    onError: (err: Error) => {
+      setLogoutMessage(null);
+      setLogoutError(err.message);
+    },
+  });
+
+  const onForceLogout = () => {
+    if (
+      !window.confirm(
+        `Force ${data?.user.name ?? "this user"} to sign out of every device? Their existing sessions will stop working immediately and they'll have to sign in again.`,
+      )
+    )
+      return;
+    forceLogout.mutate();
+  };
 
   const onVerifyEmail = () => {
     if (
@@ -170,6 +196,20 @@ export function AdminUserDetailPage() {
               Mark email verified
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onForceLogout}
+            disabled={forceLogout.isPending || isSelf}
+            title={isSelf ? "You can't force-logout yourself" : "Sign this user out of every device"}
+          >
+            {forceLogout.isPending ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <LogOut className="w-4 h-4 mr-1" />
+            )}
+            Force logout
+          </Button>
         </div>
       </div>
       {roleError && (
@@ -192,6 +232,23 @@ export function AdminUserDetailPage() {
           }}
         >
           {verifyMessage}
+        </div>
+      )}
+      {logoutError && (
+        <div className="mb-4 text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded p-2">
+          {logoutError}
+        </div>
+      )}
+      {logoutMessage && (
+        <div
+          className="mb-4 text-sm border rounded p-2"
+          style={{
+            backgroundColor: "#10b98122",
+            borderColor: "#10b98155",
+            color: "#059669",
+          }}
+        >
+          {logoutMessage}
         </div>
       )}
 
