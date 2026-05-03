@@ -28,6 +28,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
+import { formatCurrency } from "@/lib/format";
 
 export default function NewPaymentScreen() {
   const colors = useColors();
@@ -57,14 +58,15 @@ export default function NewPaymentScreen() {
     const owed = balances.data.find((b) => b.fromUserId === toUserId && b.toUserId === fromUserId);
     const fromName = fromUserId === myId ? "You" : members.find((m) => m.userId === fromUserId)?.user.name ?? "Payer";
     const toName = toUserId === myId ? "you" : members.find((m) => m.userId === toUserId)?.user.name ?? "Recipient";
-    if (owes) return { text: `${fromName} owe${fromUserId !== myId ? "s" : ""} ${toName} $${owes.amount.toFixed(2)}`, amount: owes.amount, positive: true };
+    const groupCurrency = group.data?.currency ?? "USD";
+    if (owes) return { text: `${fromName} owe${fromUserId !== myId ? "s" : ""} ${toName} ${formatCurrency(owes.amount, groupCurrency)}`, amount: owes.amount, positive: true };
     if (owed) {
       const oweeName = owed.fromUserId === myId ? "You" : members.find((m) => m.userId === owed.fromUserId)?.user.name ?? "";
       const owedToName = owed.toUserId === myId ? "you" : members.find((m) => m.userId === owed.toUserId)?.user.name ?? "";
-      return { text: `${oweeName} owe${owed.fromUserId !== myId ? "s" : ""} ${owedToName} $${owed.amount.toFixed(2)} — no payment needed`, amount: null, positive: false };
+      return { text: `${oweeName} owe${owed.fromUserId !== myId ? "s" : ""} ${owedToName} ${formatCurrency(owed.amount, groupCurrency)} — no payment needed`, amount: null, positive: false };
     }
     return { text: "All settled up between these two", amount: null, positive: false };
-  }, [fromUserId, toUserId, balances.data, me.data?.id, members]);
+  }, [fromUserId, toUserId, balances.data, me.data?.id, members, group.data?.currency]);
 
   useEffect(() => {
     if (fromUserId === null && me.data) setFromUserId(me.data.id);
@@ -210,7 +212,7 @@ export default function NewPaymentScreen() {
           )}
 
           <Input
-            label="Amount"
+            label={`Amount (${group.data?.currency ?? "USD"})`}
             placeholder="0.00"
             value={amount}
             onChangeText={setAmount}

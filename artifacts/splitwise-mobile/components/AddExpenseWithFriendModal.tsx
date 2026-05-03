@@ -134,7 +134,7 @@ export function AddExpenseWithFriendModal({
         0,
       );
       if (Math.abs(sum - total) > 0.01) {
-        Alert.alert(`Exact amounts must sum to ${formatCurrency(total)}`);
+        Alert.alert(`Exact amounts must sum to ${formatCurrency(total, defaultCurrency)}`);
         return;
       }
       splits = participants.map((p) => ({
@@ -282,7 +282,7 @@ export function AddExpenseWithFriendModal({
           </View>
 
           <View style={{ gap: 6 }}>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Amount</Text>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Amount ({defaultCurrency})</Text>
             <TextInput
               style={[
                 styles.fieldInput,
@@ -403,7 +403,7 @@ export function AddExpenseWithFriendModal({
               <Text style={[styles.helperText, { color: colors.mutedForeground }]}>
                 {lenderName} paid the full amount. {borrowerName}{" "}
                 {lenderIsMe ? "owes you" : "owe"}{" "}
-                {amount ? formatCurrency(parseFloat(amount) || 0) : "the entire amount"}.
+                {amount ? formatCurrency(parseFloat(amount) || 0, defaultCurrency) : "the entire amount"}.
               </Text>
             )}
           </View>

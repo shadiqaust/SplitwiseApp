@@ -15,6 +15,7 @@ import {
   getGetActivityQueryKey,
   getGetDashboardSummaryQueryKey,
   useCreateNonGroupPayment,
+  useGetMe,
 } from "@workspace/api-client-react";
 
 import { Button } from "@/components/ui/Button";
@@ -43,6 +44,8 @@ export function SettleUpWithFriendModal({
   const colors = useColors();
   const queryClient = useQueryClient();
   const createPayment = useCreateNonGroupPayment();
+  const { data: me } = useGetMe();
+  const currency = me?.defaultCurrency ?? "USD";
   const friendId = String(friend.id);
 
   const [direction, setDirection] = useState<"youPaid" | "friendPaid">(
@@ -64,8 +67,8 @@ export function SettleUpWithFriendModal({
   const hint =
     typeof netBalance === "number" && Math.abs(netBalance) > 0.005
       ? netBalance > 0
-        ? `${friend.name} owes you ${formatCurrency(netBalance)}`
-        : `You owe ${friend.name} ${formatCurrency(Math.abs(netBalance))}`
+        ? `${friend.name} owes you ${formatCurrency(netBalance, currency)}`
+        : `You owe ${friend.name} ${formatCurrency(Math.abs(netBalance), currency)}`
       : "All settled up";
 
   const onSubmit = () => {
@@ -196,7 +199,7 @@ export function SettleUpWithFriendModal({
             </View>
 
             <Input
-              label="Amount"
+              label={`Amount (${currency})`}
               placeholder="0.00"
               value={amount}
               onChangeText={setAmount}

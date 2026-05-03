@@ -154,7 +154,7 @@ export function AddExpenseWithFriendDialog({
       );
       if (Math.abs(sum - total) > 0.01) {
         toast({
-          title: `Exact amounts must sum to ${formatCurrency(total)}`,
+          title: `Exact amounts must sum to ${formatCurrency(total, defaultCurrency)}`,
           variant: "destructive",
         });
         return;
@@ -239,7 +239,7 @@ export function AddExpenseWithFriendDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Amount</Label>
+              <Label>Amount ({defaultCurrency})</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -317,7 +317,7 @@ export function AddExpenseWithFriendDialog({
             <p className="text-xs text-muted-foreground">
               {lenderName} paid the full amount. {borrowerName}{" "}
               {lenderIsMe ? "owes you" : "owe"} the entire{" "}
-              {amount ? formatCurrency(parseFloat(amount) || 0) : "amount"}.
+              {amount ? formatCurrency(parseFloat(amount) || 0, defaultCurrency) : "amount"}.
             </p>
           )}
 

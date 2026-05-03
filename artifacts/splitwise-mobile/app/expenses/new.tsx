@@ -223,7 +223,7 @@ export default function NewExpenseScreen() {
             }}
           />
           <Input
-            label="Amount"
+            label={`Amount (${group.data?.currency ?? "USD"})`}
             placeholder="0.00"
             value={amount}
             onChangeText={setAmount}

@@ -246,7 +246,7 @@ export function ExpenseEditPage() {
       const sum = splits.reduce((a, s) => a + s.amount, 0);
       if (Math.abs(sum - total) > 0.01) {
         toast({
-          title: `Exact amounts must sum to ${formatCurrency(total)}`,
+          title: `Exact amounts must sum to ${formatCurrency(total, expense?.currency ?? "USD")}`,
           variant: "destructive",
         });
         return;
@@ -375,7 +375,7 @@ export function ExpenseEditPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Amount</Label>
+                  <Label>Amount ({expense?.currency ?? "USD"})</Label>
                   <Input
                     type="number"
                     step="0.01"

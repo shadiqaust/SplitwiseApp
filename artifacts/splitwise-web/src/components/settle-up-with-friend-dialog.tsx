@@ -4,6 +4,7 @@ import {
   getGetActivityQueryKey,
   getGetDashboardSummaryQueryKey,
   useCreateNonGroupPayment,
+  useGetMe,
 } from "@workspace/api-client-react";
 import { ArrowLeftRight, HandCoins } from "lucide-react";
 
@@ -61,6 +62,8 @@ export function SettleUpWithFriendDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createPayment = useCreateNonGroupPayment();
+  const { data: me } = useGetMe();
+  const currency = me?.defaultCurrency ?? "USD";
 
   // direction: "youPaid" → I paid friend (clears me-owes-friend balance)
   //            "friendPaid" → friend paid me (clears friend-owes-me balance)
@@ -94,8 +97,8 @@ export function SettleUpWithFriendDialog({
   const hint =
     typeof netBalance === "number" && Math.abs(netBalance) > 0.005
       ? netBalance > 0
-        ? `${friend.name} owes you ${formatCurrency(netBalance)}`
-        : `You owe ${friend.name} ${formatCurrency(Math.abs(netBalance))}`
+        ? `${friend.name} owes you ${formatCurrency(netBalance, currency)}`
+        : `You owe ${friend.name} ${formatCurrency(Math.abs(netBalance), currency)}`
       : "All settled up";
 
   const onSubmit = (e: React.FormEvent) => {
@@ -203,7 +206,7 @@ export function SettleUpWithFriendDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Amount</Label>
+            <Label>Amount ({currency})</Label>
             <Input
               type="number"
               step="0.01"

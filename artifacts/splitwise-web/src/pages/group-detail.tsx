@@ -933,7 +933,7 @@ function AddExpenseDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Amount</Label>
+              <Label>Amount ({groupCurrency})</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -1243,7 +1243,7 @@ function SettleUpDialog({
           )}
 
           <div className="space-y-2">
-            <Label>Amount</Label>
+            <Label>Amount ({groupCurrency})</Label>
             <Input
               type="number"
               step="0.01"
@@ -1377,7 +1377,7 @@ function MemberProfileDialog({
                 : `Record payment from you to ${firstName}`}
             </p>
             <div className="space-y-1">
-              <Label>Amount</Label>
+              <Label>Amount ({groupCurrency})</Label>
               <Input
                 type="number"
                 min="0.01"
