@@ -106,10 +106,19 @@ export const adminApi = {
       months: MonthlyAnalyticsItem[];
     }>(`/admin/analytics/monthly${suffix}`);
   },
-  listUsers: (q?: string) =>
-    adminFetch<{ users: AdminUser[] }>(
-      `/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`,
-    ),
+  listUsers: (params?: { q?: string; page?: number; pageSize?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return adminFetch<{
+      users: AdminUser[];
+      total: number;
+      page: number;
+      pageSize: number;
+    }>(`/admin/users${suffix}`);
+  },
   getUser: (id: string) => adminFetch<AdminUserDetail>(`/admin/users/${id}`),
   setUserRole: (id: string, role: "user" | "superadmin") =>
     adminFetch<{ id: string; role: "user" | "superadmin" }>(

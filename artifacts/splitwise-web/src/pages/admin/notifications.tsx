@@ -23,7 +23,7 @@ export function AdminNotificationsPage() {
 
   const usersQ = useQuery({
     queryKey: ["admin", "users", "for-notif", userQuery],
-    queryFn: () => adminApi.listUsers(userQuery || undefined),
+    queryFn: () => adminApi.listUsers({ q: userQuery || undefined, pageSize: 30 }),
     enabled: mode === "user",
   });
 

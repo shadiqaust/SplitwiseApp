@@ -22,9 +22,28 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 router.get("/admin/users", requireSuperadmin, async (req, res) => {
   const q = String(req.query.q ?? "").trim();
+  // Pagination — clamp to sane bounds so a misbehaving caller can't
+  // request 1M rows in one shot.
+  const pageSize = Math.min(
+    Math.max(Number.parseInt(String(req.query.pageSize ?? "25"), 10) || 25, 1),
+    100,
+  );
+  const page = Math.max(
+    Number.parseInt(String(req.query.page ?? "1"), 10) || 1,
+    1,
+  );
+  const offset = (page - 1) * pageSize;
+
   const where = q
     ? or(ilike(usersTable.name, `%${q}%`), ilike(usersTable.email, `%${q}%`))
     : undefined;
+
+  // Total for pagination footer — keep separate from the page query so
+  // counts stay correct as users are added/removed.
+  const [{ total = 0 } = {}] = await db
+    .select({ total: count() })
+    .from(usersTable)
+    .where(where);
 
   const rows = await db
     .select({
@@ -38,11 +57,17 @@ router.get("/admin/users", requireSuperadmin, async (req, res) => {
     })
     .from(usersTable)
     .where(where)
-    .orderBy(desc(usersTable.createdAt))
-    .limit(500);
+    // Sort by name (case-insensitive) so the list is predictable for admins
+    // scanning alphabetically. Tie-break on email for stability.
+    .orderBy(sql`lower(${usersTable.name})`, asc(usersTable.email))
+    .limit(pageSize)
+    .offset(offset);
 
   res.json({
     users: rows.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() })),
+    total: Number(total),
+    page,
+    pageSize,
   });
 });
 
