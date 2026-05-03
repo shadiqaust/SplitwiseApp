@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   addGroupText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   heroCard: { gap: 4 },
   heroLabel: { fontFamily: "Inter_500Medium", fontSize: 13 },
-  heroAmount: { fontFamily: "Inter_700Bold", fontSize: 36 },
+  heroAmount: { fontFamily: "Inter_700Bold", fontSize: 28 },
   heroHint: { fontFamily: "Inter_400Regular", fontSize: 13 },
   heroRow: { flexDirection: "row", marginTop: 16 },
   heroStat: { flex: 1, gap: 4 },
