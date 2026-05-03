@@ -483,9 +483,11 @@ router.get(
       payments.map(async (p) => {
         const fromUser = await getUserById(p.fromUserId);
         const toUser = await getUserById(p.toUserId);
+        const currency = (p.groupId && paymentGroupCurrency.get(p.groupId)) || "USD";
         return {
           ...p,
           amount: parseFloat(p.amount),
+          currency,
           createdAt: p.createdAt.toISOString(),
           fromUser: { ...fromUser, createdAt: fromUser.createdAt.toISOString() },
           toUser: { ...toUser, createdAt: toUser.createdAt.toISOString() },

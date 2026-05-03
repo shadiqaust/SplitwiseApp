@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -24,7 +23,6 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SettleUpWithFriendModal } from "@/components/SettleUpWithFriendModal";
-import { PaymentDetailModal } from "@/components/PaymentDetailModal";
 import { useColors } from "@/hooks/useColors";
 import { authFetch } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
@@ -34,30 +32,32 @@ interface FriendActivityResponse {
   netBalance: number;
   balances: { currency: string; amount: number }[];
   expenses: ExpenseWithSplits[];
-  payments: Payment[];
+  payments: (Payment & { currency?: string })[];
 }
 
-type Item =
-  | { kind: "expense"; date: string; data: ExpenseWithSplits }
-  | { kind: "payment"; date: string; data: Payment };
-
-const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
+type GroupBalance = {
+  key: string;
+  groupId: string | null;
+  name: string;
+  perCurrency: { currency: string; amount: number }[];
+};
 
 export default function FriendDetailScreen() {
   const { friendId } = useLocalSearchParams<{ friendId: string }>();
   const colors = useColors();
+  const router = useRouter();
   const me = useGetMe();
-  const defaultCurrency = me.data?.defaultCurrency ?? "USD";
+  const myId = me.data?.id;
   const { data: groupsList } = useListGroups();
-  const groupNameById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const g of groupsList ?? []) m.set(g.id, g.name);
+  const groupInfoById = useMemo(() => {
+    const m = new Map<string, { name: string; currency: string }>();
+    for (const g of groupsList ?? []) {
+      m.set(g.id, { name: g.name, currency: g.currency || "USD" });
+    }
     return m;
   }, [groupsList]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [search, setSearch] = useState("");
   const [showSettle, setShowSettle] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   const query = useQuery<FriendActivityResponse>({
     queryKey: ["friend-activity", friendId],
@@ -75,61 +75,75 @@ export default function FriendDetailScreen() {
     setIsRefreshing(false);
   }, [query]);
 
-  const allItems = useMemo<Item[]>(() => {
+  const groupBalances = useMemo<GroupBalance[]>(() => {
     const data = query.data;
-    if (!data) return [];
-    const items: Item[] = [
-      ...data.expenses.map((e) => ({ kind: "expense" as const, date: e.date, data: e })),
-      ...data.payments.map((p) => ({ kind: "payment" as const, date: p.date, data: p })),
-    ];
-    items.sort((a, b) => {
-      const d = String(b.date).localeCompare(String(a.date));
-      if (d !== 0) return d;
-      const aCa = String((a.data as { createdAt?: string }).createdAt ?? "");
-      const bCa = String((b.data as { createdAt?: string }).createdAt ?? "");
-      return bCa.localeCompare(aCa);
-    });
-    return items;
-  }, [query.data]);
-
-  const filteredItems = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return allItems;
-    return allItems.filter((it) => {
-      const dateStr = it.date.toLowerCase();
-      const monthLabel = MONTH_FMT.format(new Date(it.date)).toLowerCase();
-      if (dateStr.includes(q) || monthLabel.includes(q)) return true;
-      if (it.kind === "expense") {
-        const e = it.data;
-        return (
-          e.description.toLowerCase().includes(q) ||
-          (e.paidByUser?.name ?? "").toLowerCase().includes(q)
-        );
+    if (!data || !myId) return [];
+    const buckets = new Map<string, Map<string, number>>();
+    const bump = (bucket: string, cur: string, delta: number) => {
+      if (!buckets.has(bucket)) buckets.set(bucket, new Map());
+      const m = buckets.get(bucket)!;
+      m.set(cur, (m.get(cur) ?? 0) + delta);
+    };
+    for (const e of data.expenses) {
+      const bucket = e.groupId ?? "__none__";
+      const cur = e.currency || "USD";
+      if (e.paidByUserId === myId) {
+        const fs = e.splits.find((s) => s.userId === friendId);
+        if (fs) bump(bucket, cur, parseFloat(String(fs.amount)));
+      } else if (e.paidByUserId === friendId) {
+        const ms = e.splits.find((s) => s.userId === myId);
+        if (ms) bump(bucket, cur, -parseFloat(String(ms.amount)));
       }
-      const p = it.data;
-      return (
-        (p.note ?? "").toLowerCase().includes(q) ||
-        (p.fromUser?.name ?? "").toLowerCase().includes(q) ||
-        (p.toUser?.name ?? "").toLowerCase().includes(q)
-      );
-    });
-  }, [allItems, search]);
-
-  const grouped = useMemo(() => {
-    const buckets = new Map<string, Item[]>();
-    const labels = new Map<string, string>();
-    for (const it of filteredItems) {
-      const d = new Date(it.date);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const label = MONTH_FMT.format(d);
-      if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key)!.push(it);
-      labels.set(key, label);
     }
-    return Array.from(buckets.entries())
-      .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([key, items]) => ({ key, label: labels.get(key) ?? key, items }));
-  }, [filteredItems]);
+    for (const p of data.payments) {
+      const bucket = p.groupId ?? "__none__";
+      const cur =
+        p.currency ||
+        (p.groupId && groupInfoById.get(p.groupId)?.currency) ||
+        "USD";
+      const amt = parseFloat(String(p.amount));
+      if (p.fromUserId === myId) bump(bucket, cur, amt);
+      else bump(bucket, cur, -amt);
+    }
+
+    const out: GroupBalance[] = [];
+    for (const [bucketKey, perCur] of buckets) {
+      const perCurrency: { currency: string; amount: number }[] = [];
+      for (const [cur, amt] of perCur) {
+        perCurrency.push({ currency: cur, amount: amt });
+      }
+      perCurrency.sort((a, b) => a.currency.localeCompare(b.currency));
+      if (bucketKey === "__none__") {
+        out.push({
+          key: "__none__",
+          groupId: null,
+          name: "Non-group expenses",
+          perCurrency,
+        });
+      } else {
+        const info = groupInfoById.get(bucketKey);
+        out.push({
+          key: bucketKey,
+          groupId: bucketKey,
+          name: info?.name ?? "Group",
+          perCurrency,
+        });
+      }
+    }
+    const isSettled = (gb: GroupBalance) =>
+      gb.perCurrency.every((c) => Math.abs(c.amount) < 0.01);
+    out.sort((a, b) => {
+      const aS = isSettled(a) ? 1 : 0;
+      const bS = isSettled(b) ? 1 : 0;
+      if (aS !== bS) return aS - bS;
+      if (aS === 1) {
+        if (a.groupId === null && b.groupId !== null) return 1;
+        if (b.groupId === null && a.groupId !== null) return -1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+    return out;
+  }, [query.data, myId, friendId, groupInfoById]);
 
   if (query.isLoading && !query.data) {
     return (
@@ -142,7 +156,14 @@ export default function FriendDetailScreen() {
 
   const friend = query.data?.friend;
   const net = query.data?.netBalance ?? 0;
-  const myId = me.data?.id;
+  const hasAny =
+    (query.data?.expenses.length ?? 0) > 0 ||
+    (query.data?.payments.length ?? 0) > 0;
+
+  const onPressGroup = (gb: GroupBalance) => {
+    if (gb.groupId) router.push(`/(tabs)/groups/${gb.groupId}`);
+    else router.push("/non-group-expenses");
+  };
 
   return (
     <>
@@ -210,35 +231,7 @@ export default function FriendDetailScreen() {
           </>
         )}
 
-        {allItems.length > 0 && (
-          <View
-            style={[
-              styles.searchRow,
-              { backgroundColor: colors.muted, borderColor: colors.border },
-            ]}
-          >
-            <Feather
-              name="search"
-              size={16}
-              color={colors.mutedForeground}
-              style={{ marginRight: 8 }}
-            />
-            <TextInput
-              style={[styles.searchInput, { color: colors.foreground }]}
-              placeholder="Search by title, note, or date…"
-              placeholderTextColor={colors.mutedForeground}
-              value={search}
-              onChangeText={setSearch}
-            />
-            {search.length > 0 && (
-              <Pressable onPress={() => setSearch("")} hitSlop={6}>
-                <Feather name="x" size={16} color={colors.mutedForeground} />
-              </Pressable>
-            )}
-          </View>
-        )}
-
-        {allItems.length === 0 ? (
+        {!hasAny ? (
           <Card>
             <EmptyState
               icon="activity"
@@ -246,37 +239,15 @@ export default function FriendDetailScreen() {
               message={`Add an expense or record a payment with ${friend?.name ?? "this friend"} to get started.`}
             />
           </Card>
-        ) : grouped.length === 0 ? (
-          <Text style={[styles.noMatch, { color: colors.mutedForeground }]}>
-            No activity matches "{search}".
-          </Text>
         ) : (
-          grouped.map((bucket) => (
-            <View key={bucket.key} style={{ gap: 8 }}>
-              <Text style={[styles.monthHeader, { color: colors.mutedForeground }]}>
-                {bucket.label}
-              </Text>
-              {bucket.items.map((item) =>
-                item.kind === "expense" ? (
-                  <ExpenseRow
-                    key={`e-${item.data.id}`}
-                    expense={item.data}
-                    myId={myId}
-                    friendId={String(friendId)}
-                    groupName={item.data.groupId ? groupNameById.get(item.data.groupId) ?? null : null}
-                  />
-                ) : (
-                  <PaymentRow
-                    key={`p-${item.data.id}`}
-                    payment={item.data}
-                    myId={myId}
-                    currency={defaultCurrency}
-                    onPress={() => setSelectedPayment(item.data)}
-                  />
-                ),
-              )}
-            </View>
-          ))
+          <View style={{ gap: 8 }}>
+            <Text style={[styles.sectionHeader, { color: colors.mutedForeground }]}>
+              By group
+            </Text>
+            {groupBalances.map((gb) => (
+              <GroupBalanceRow key={gb.key} balance={gb} onPress={() => onPressGroup(gb)} />
+            ))}
+          </View>
         )}
       </ScrollView>
       {showSettle && friend && myId && (
@@ -288,154 +259,70 @@ export default function FriendDetailScreen() {
           onClose={() => setShowSettle(false)}
         />
       )}
-      {selectedPayment && (
-        <PaymentDetailModal
-          payment={selectedPayment}
-          currentUserId={myId}
-          onClose={() => setSelectedPayment(null)}
-        />
-      )}
     </>
   );
 }
 
-function ExpenseRow({
-  expense,
-  myId,
-  friendId,
-  groupName,
-}: {
-  expense: ExpenseWithSplits;
-  myId: string | undefined;
-  friendId: string;
-  groupName: string | null;
-}) {
-  const colors = useColors();
-  const router = useRouter();
-  const total = Number(expense.totalAmount);
-  const iPaid = myId && expense.paidByUserId === myId;
-  const friendPaid = expense.paidByUserId === friendId;
-  const mySplit = myId ? expense.splits.find((s) => s.userId === myId) : undefined;
-  const friendSplit = expense.splits.find((s) => s.userId === friendId);
-
-  let impact = 0;
-  let label = "";
-  if (iPaid && friendSplit) {
-    impact = Number(friendSplit.amount);
-    label = `you lent`;
-  } else if (friendPaid && mySplit) {
-    impact = -Number(mySplit.amount);
-    label = `you owe`;
-  }
-
-  return (
-    <Pressable
-      onPress={() => router.push(`/expenses/${expense.id}`)}
-      android_ripple={{ color: colors.accent }}
-      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-    >
-    <Card style={[styles.row, { flexDirection: "row", alignItems: "center", gap: 12 }]}>
-      {expense.paidByUser && (
-        <Avatar
-          name={expense.paidByUser.name}
-          url={expense.paidByUser.avatarUrl}
-          size={40}
-        />
-      )}
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.itemTitle, { color: colors.foreground }]} numberOfLines={1}>
-          {expense.description}
-        </Text>
-        <Text style={[styles.itemMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
-          {iPaid ? `You paid ${formatCurrency(total, expense.currency)}` : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total, expense.currency)}`}
-        </Text>
-        {expense.groupId ? (
-          <Text style={[styles.itemMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
-            {groupName ?? "group"}
-          </Text>
-        ) : null}
-        <Text style={[styles.itemDate, { color: colors.mutedForeground }]}>{expense.date}</Text>
-      </View>
-      <View style={{ alignItems: "flex-end" }}>
-        {impact !== 0 ? (
-          <>
-            <Text
-              style={[
-                styles.itemAmount,
-                { color: impact > 0 ? colors.positive : colors.negative },
-              ]}
-            >
-              {impact > 0 ? "+" : "-"}
-              {formatCurrency(Math.abs(impact), expense.currency)}
-            </Text>
-            <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>{label}</Text>
-          </>
-        ) : (
-          <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>not split</Text>
-        )}
-      </View>
-    </Card>
-    </Pressable>
-  );
-}
-
-function PaymentRow({
-  payment,
-  myId,
+function GroupBalanceRow({
+  balance,
   onPress,
-  currency,
 }: {
-  payment: Payment;
-  myId: string | undefined;
-  onPress?: () => void;
-  currency: string;
+  balance: GroupBalance;
+  onPress: () => void;
 }) {
   const colors = useColors();
-  const amount = Number(payment.amount);
-  const iPaid = myId && payment.fromUserId === myId;
-  const impact = iPaid ? amount : -amount;
+  const nonZero = balance.perCurrency.filter((c) => Math.abs(c.amount) >= 0.01);
+  const settled = nonZero.length === 0;
   return (
     <Pressable
       onPress={onPress}
       android_ripple={{ color: colors.accent }}
-      style={({ pressed }) => [{ opacity: pressed && onPress ? 0.7 : 1 }]}
+      style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
     >
-    <Card style={[styles.row, { flexDirection: "row", alignItems: "center", gap: 12 }]}>
-      {(iPaid ? payment.toUser : payment.fromUser) && (
-        <Avatar
-          name={(iPaid ? payment.toUser?.name : payment.fromUser?.name) ?? ""}
-          url={iPaid ? payment.toUser?.avatarUrl : payment.fromUser?.avatarUrl}
-          size={40}
-        />
-      )}
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.itemTitle, { color: colors.foreground }]} numberOfLines={1}>
-          {iPaid
-            ? `You paid ${payment.toUser?.name ?? "friend"}`
-            : `${payment.fromUser?.name ?? "Friend"} paid you`}
-        </Text>
-        {payment.note && (
-          <Text style={[styles.itemMeta, { color: colors.mutedForeground }]} numberOfLines={1}>
-            {payment.note}
-          </Text>
-        )}
-        <Text style={[styles.itemDate, { color: colors.mutedForeground }]}>{payment.date}</Text>
-      </View>
-      <View style={{ alignItems: "flex-end" }}>
-        <Text
+      <Card style={[styles.row, { flexDirection: "row", alignItems: "center", gap: 12 }]}>
+        <View
           style={[
-            styles.itemAmount,
-            { color: impact > 0 ? colors.positive : colors.negative },
+            styles.iconBubble,
+            { backgroundColor: colors.muted },
           ]}
         >
-          {impact > 0 ? "+" : "-"}
-          {formatCurrency(Math.abs(impact), currency)}
-        </Text>
-        <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>
-          {iPaid ? "you settled" : "they settled"}
-        </Text>
-      </View>
-    </Card>
+          <Feather name="users" size={18} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={[styles.itemTitle, { color: colors.foreground }]}
+            numberOfLines={1}
+          >
+            {balance.name}
+          </Text>
+          <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>
+            {settled ? "all settled" : "open balance"}
+          </Text>
+        </View>
+        <View style={{ alignItems: "flex-end", gap: 4 }}>
+          {settled ? (
+            <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>
+              settled up
+            </Text>
+          ) : (
+            nonZero.map((b) => {
+              const owed = b.amount > 0;
+              const tone = owed ? colors.positive : colors.negative;
+              return (
+                <View key={b.currency} style={{ alignItems: "flex-end" }}>
+                  <Text style={[styles.itemAmount, { color: tone }]}>
+                    {formatCurrency(Math.abs(b.amount), b.currency)}
+                  </Text>
+                  <Text style={[styles.itemSub, { color: tone }]}>
+                    {owed ? "owes you" : "you owe"}
+                  </Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+        <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+      </Card>
     </Pressable>
   );
 }
@@ -448,7 +335,7 @@ const styles = StyleSheet.create({
   friendEmail: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
   balanceAmount: { fontFamily: "Inter_700Bold", fontSize: 18 },
   balanceSub: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
-  monthHeader: {
+  sectionHeader: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 12,
     textTransform: "uppercase",
@@ -457,20 +344,16 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
+  iconBubble: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   itemTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  itemMeta: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
-  itemDate: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
   itemAmount: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
   itemSub: { fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 2 },
-  searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  searchInput: { flex: 1, fontFamily: "Inter_400Regular", fontSize: 14 },
   settleBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -481,10 +364,4 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   settleBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
-  noMatch: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-    textAlign: "center",
-    paddingVertical: 24,
-  },
 });
