@@ -430,22 +430,51 @@ router.get(
       return b.createdAt.getTime() - a.createdAt.getTime();
     });
 
-    // Compute net balance: positive = friend owes me.
-    let net = 0;
+    // Compute per-currency net balances: positive = friend owes me.
+    // For payments, currency is inherited from the linked group (or "USD" if non-group).
+    const paymentGroupIds = Array.from(
+      new Set(payments.map((p) => p.groupId).filter((id): id is string => !!id)),
+    );
+    const paymentGroupCurrency = new Map<string, string>();
+    if (paymentGroupIds.length > 0) {
+      const rows = await db
+        .select({ id: groupsTable.id, currency: groupsTable.currency })
+        .from(groupsTable)
+        .where(inArray(groupsTable.id, paymentGroupIds));
+      for (const r of rows) paymentGroupCurrency.set(r.id, r.currency || "USD");
+    }
+
+    const perCurrency = new Map<string, number>();
+    const bumpCur = (cur: string, delta: number) => {
+      perCurrency.set(cur, (perCurrency.get(cur) ?? 0) + delta);
+    };
     for (const e of relevant) {
       const splits = splitsByExp.get(e.id) ?? [];
+      const cur = e.currency || "USD";
       if (e.paidByUserId === me) {
         const fs = splits.find((s) => s.userId === friendId);
-        if (fs) net += parseFloat(fs.amount);
+        if (fs) bumpCur(cur, parseFloat(fs.amount));
       } else if (e.paidByUserId === friendId) {
         const ms = splits.find((s) => s.userId === me);
-        if (ms) net -= parseFloat(ms.amount);
+        if (ms) bumpCur(cur, -parseFloat(ms.amount));
       }
     }
     for (const p of payments) {
-      if (p.fromUserId === me) net += parseFloat(p.amount);
-      else net -= parseFloat(p.amount);
+      const cur = (p.groupId && paymentGroupCurrency.get(p.groupId)) || "USD";
+      if (p.fromUserId === me) bumpCur(cur, parseFloat(p.amount));
+      else bumpCur(cur, -parseFloat(p.amount));
     }
+
+    const balances: { currency: string; amount: number }[] = [];
+    let net = 0;
+    for (const [cur, amt] of perCurrency) {
+      const rounded = Math.round(amt * 100) / 100;
+      if (Math.abs(rounded) >= 0.01) {
+        balances.push({ currency: cur, amount: rounded });
+        net += rounded;
+      }
+    }
+    balances.sort((a, b) => a.currency.localeCompare(b.currency));
 
     const expensesOut = await Promise.all(
       relevant.map((e) => buildExpenseWithSplits(e, splitsByExp.get(e.id) ?? [])),
@@ -467,6 +496,7 @@ router.get(
     res.json({
       friend: { ...friendUser, createdAt: friendUser.createdAt.toISOString() },
       netBalance: Math.round(net * 100) / 100,
+      balances,
       expenses: expensesOut,
       payments: paymentsOut,
     });

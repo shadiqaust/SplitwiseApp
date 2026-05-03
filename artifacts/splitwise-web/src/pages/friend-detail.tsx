@@ -23,6 +23,7 @@ import { resolveAvatarUrl } from "@/lib/avatar-presets";
 interface FriendActivityResponse {
   friend: User;
   netBalance: number;
+  balances: { currency: string; amount: number }[];
   expenses: ExpenseWithSplits[];
   payments: Payment[];
 }
@@ -195,23 +196,30 @@ export function FriendDetailPage() {
                 <p className="text-lg sm:text-xl font-bold truncate">{friend.name}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground truncate">{friend.email}</p>
               </div>
-              <div className="text-right shrink-0">
-                {Math.abs(net) < 0.01 ? (
+              <div className="text-right shrink-0 space-y-1">
+                {(data?.balances ?? []).filter((b) => Math.abs(b.amount) >= 0.01).length === 0 ? (
                   <p className="text-sm text-muted-foreground">settled up</p>
                 ) : (
-                  <>
-                    <p
-                      className={cn(
-                        "text-xl sm:text-2xl font-bold whitespace-nowrap",
-                        net > 0 ? "text-green-600" : "text-red-500",
-                      )}
-                    >
-                      {formatCurrency(Math.abs(net))}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {net > 0 ? "owes you" : "you owe"}
-                    </p>
-                  </>
+                  (data?.balances ?? [])
+                    .filter((b) => Math.abs(b.amount) >= 0.01)
+                    .map((b) => {
+                      const owed = b.amount > 0;
+                      return (
+                        <div key={b.currency}>
+                          <p
+                            className={cn(
+                              "text-base sm:text-lg font-bold whitespace-nowrap",
+                              owed ? "text-green-600" : "text-red-500",
+                            )}
+                          >
+                            {formatCurrency(Math.abs(b.amount), b.currency)}
+                          </p>
+                          <p className={cn("text-[10px] uppercase tracking-wide", owed ? "text-green-600" : "text-red-500")}>
+                            {owed ? "owes you" : "you owe"}
+                          </p>
+                        </div>
+                      );
+                    })
                 )}
               </div>
             </CardContent>

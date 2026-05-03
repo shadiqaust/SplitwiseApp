@@ -162,23 +162,26 @@ export default function FriendDetailScreen() {
                   {friend.email}
                 </Text>
               </View>
-              <View style={{ alignItems: "flex-end" }}>
-                {Math.abs(net) < 0.01 ? (
+              <View style={{ alignItems: "flex-end", gap: 6 }}>
+                {((query.data?.balances ?? []).filter((b) => Math.abs(b.amount) >= 0.01).length === 0) ? (
                   <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>settled</Text>
                 ) : (
-                  <>
-                    <Text
-                      style={[
-                        styles.balanceAmount,
-                        { color: net > 0 ? colors.positive : colors.negative },
-                      ]}
-                    >
-                      {formatCurrency(Math.abs(net), defaultCurrency)}
-                    </Text>
-                    <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
-                      {net > 0 ? "owes you" : "you owe"}
-                    </Text>
-                  </>
+                  (query.data?.balances ?? [])
+                    .filter((b) => Math.abs(b.amount) >= 0.01)
+                    .map((b) => {
+                      const owed = b.amount > 0;
+                      const tone = owed ? colors.positive : colors.negative;
+                      return (
+                        <View key={b.currency} style={{ alignItems: "flex-end" }}>
+                          <Text style={[styles.balanceAmount, { color: tone }]}>
+                            {formatCurrency(Math.abs(b.amount), b.currency)}
+                          </Text>
+                          <Text style={[styles.balanceSub, { color: tone }]}>
+                            {owed ? "owes you" : "you owe"}
+                          </Text>
+                        </View>
+                      );
+                    })
                 )}
               </View>
             </Card>
