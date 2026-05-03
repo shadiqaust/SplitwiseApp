@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { signToken } from "../lib/jwt";
 import { z } from "zod";
 import { isSupportedCurrency } from "../lib/currencies.js";
@@ -33,14 +33,20 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  const { name, email, password, defaultCurrency } = parsed.data;
+  const { name, password, defaultCurrency } = parsed.data;
+  // Normalize emails to lowercase so logins are case-insensitive and we can
+  // never end up with two accounts that differ only in casing.
+  const email = parsed.data.email.trim().toLowerCase();
 
   if (defaultCurrency !== undefined && !(await isSupportedCurrency(defaultCurrency))) {
     res.status(400).json({ error: "Unsupported currency code" });
     return;
   }
 
-  const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  const [existing] = await db
+    .select()
+    .from(usersTable)
+    .where(sql`lower(${usersTable.email}) = ${email}`);
   if (existing) {
     res.status(409).json({ error: "An account with this email already exists" });
     return;
@@ -80,9 +86,13 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  const { email, password } = parsed.data;
+  const { password } = parsed.data;
+  const email = parsed.data.email.trim().toLowerCase();
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(sql`lower(${usersTable.email}) = ${email}`);
   if (!user) {
     res.status(401).json({ error: "Invalid email or password" });
     return;
