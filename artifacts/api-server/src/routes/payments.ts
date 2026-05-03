@@ -5,6 +5,7 @@ import {
   paymentsTable,
   usersTable,
   groupMembersTable,
+  groupsTable,
   friendshipsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -13,6 +14,7 @@ import {
   requirePaymentAccess,
 } from "../middlewares/requireGroupAccess";
 import { CreatePaymentBody, CreateNonGroupPaymentBody } from "@workspace/api-zod";
+import { createNotifications, getActorName, getGroupName } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -98,6 +100,25 @@ router.post(
         date: dateStr,
       })
       .returning();
+
+    const me = req.dbUserId!;
+    const actorName = await getActorName(me);
+    const groupName = await getGroupName(groupId);
+    const [gc] = await db
+      .select({ currency: groupsTable.currency })
+      .from(groupsTable)
+      .where(eq(groupsTable.id, groupId));
+    const ccy = gc?.currency ?? "USD";
+    const recipients = [fromUserId, toUserId].filter((id) => id !== me);
+    await createNotifications(
+      recipients.map((uid) => ({
+        userId: uid,
+        type: "payment_added",
+        title: `${actorName} recorded a payment in ${groupName}`,
+        body: `${ccy} ${amount.toFixed(2)}${note ? ` · ${note}` : ""}`,
+        data: { paymentId: payment.id, groupId, actorUserId: me },
+      })),
+    );
 
     res.status(201).json(await buildPayment(payment));
   },
@@ -198,6 +219,22 @@ router.post(
         date: dateStr,
       })
       .returning();
+
+    const actorName = await getActorName(me);
+    const [actor] = await db
+      .select({ defaultCurrency: usersTable.defaultCurrency })
+      .from(usersTable)
+      .where(eq(usersTable.id, me));
+    const ccy = actor?.defaultCurrency ?? "USD";
+    await createNotifications([
+      {
+        userId: friendId,
+        type: "payment_added",
+        title: `${actorName} recorded a payment`,
+        body: `${ccy} ${amount.toFixed(2)}${note ? ` · ${note}` : ""}`,
+        data: { paymentId: payment.id, groupId: null, actorUserId: me },
+      },
+    ]);
 
     res.status(201).json(await buildPayment(payment));
   },

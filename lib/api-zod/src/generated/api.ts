@@ -1043,6 +1043,57 @@ export const GetPublicObjectParams = zod.object({
 });
 
 /**
+ * @summary List notifications for the current user (most recent first)
+ */
+export const listNotificationsQueryLimitDefault = 50;
+
+export const ListNotificationsQueryParams = zod.object({
+  limit: zod.coerce.number().default(listNotificationsQueryLimitDefault),
+});
+
+export const ListNotificationsResponse = zod.object({
+  notifications: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      userId: zod.string().uuid(),
+      type: zod
+        .string()
+        .describe(
+          "One of expense_added, expense_updated, payment_added, member_added, joined_group",
+        ),
+      title: zod.string(),
+      body: zod.string(),
+      data: zod.record(zod.string(), zod.unknown()).nullish(),
+      readAt: zod.coerce.date().nullable(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  unreadCount: zod.number(),
+});
+
+/**
+ * @summary Mark a single notification as read
+ */
+export const MarkNotificationReadParams = zod.object({
+  notificationId: zod.coerce.string().uuid(),
+});
+
+export const MarkNotificationReadResponse = zod.object({
+  id: zod.string().uuid(),
+  userId: zod.string().uuid(),
+  type: zod
+    .string()
+    .describe(
+      "One of expense_added, expense_updated, payment_added, member_added, joined_group",
+    ),
+  title: zod.string(),
+  body: zod.string(),
+  data: zod.record(zod.string(), zod.unknown()).nullish(),
+  readAt: zod.coerce.date().nullable(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Serve an object entity
  */
 export const GetStorageObjectParams = zod.object({

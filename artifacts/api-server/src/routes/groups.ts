@@ -24,6 +24,7 @@ import {
   JoinGroupBody,
 } from "@workspace/api-zod";
 import { isSupportedCurrency } from "../lib/currencies.js";
+import { createNotifications, getActorName } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -256,17 +257,39 @@ router.post("/groups/join", requireAuth, async (req, res): Promise<void> => {
       ),
     );
 
+  let didJoin = false;
   if (existing) {
     if (existing.deletedAt !== null) {
       await db
         .update(groupMembersTable)
         .set({ deletedAt: null, joinedAt: new Date() })
         .where(eq(groupMembersTable.id, existing.id));
+      didJoin = true;
     }
   } else {
     await db
       .insert(groupMembersTable)
       .values({ groupId: group.id, userId: req.dbUserId! });
+    didJoin = true;
+  }
+
+  if (didJoin) {
+    const me = req.dbUserId!;
+    const actorName = await getActorName(me);
+    const otherMembers = await db
+      .select({ userId: groupMembersTable.userId })
+      .from(groupMembersTable)
+      .where(and(eq(groupMembersTable.groupId, group.id), isNull(groupMembersTable.deletedAt)));
+    const recipients = otherMembers.map((r) => r.userId).filter((id) => id !== me);
+    await createNotifications(
+      recipients.map((uid) => ({
+        userId: uid,
+        type: "joined_group",
+        title: `${actorName} joined ${group.name}`,
+        body: `Welcome them to the group`,
+        data: { groupId: group.id, actorUserId: me },
+      })),
+    );
   }
 
   res.status(200).json({ ...group, createdAt: group.createdAt.toISOString() });
@@ -438,6 +461,23 @@ router.post(
       .insert(groupMembersTable)
       .values({ groupId, userId: targetUser.id })
       .returning();
+
+    {
+      const me = req.dbUserId!;
+      if (targetUser.id !== me) {
+        const actorName = await getActorName(me);
+        const [grp] = await db.select({ name: groupsTable.name }).from(groupsTable).where(eq(groupsTable.id, groupId));
+        await createNotifications([
+          {
+            userId: targetUser.id,
+            type: "member_added",
+            title: `${actorName} added you to ${grp?.name ?? "a group"}`,
+            body: `You're now part of ${grp?.name ?? "the group"}`,
+            data: { groupId, actorUserId: me },
+          },
+        ]);
+      }
+    }
 
     // Auto-create friendship if not already friends
     const currentUserId = req.dbUserId!;

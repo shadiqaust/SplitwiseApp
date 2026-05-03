@@ -4,6 +4,7 @@ import { LayoutDashboard, Users, User, LogOut, UserCheck } from "lucide-react";
 import { useGetMe } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { NotificationsBell } from "@/components/notifications-bell";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -63,34 +64,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile top header */}
       <header className="md:hidden sticky top-0 z-30 flex items-center justify-between px-4 h-14 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <Logo />
-        <Link
-          href="/profile"
-          className="flex items-center gap-2 min-w-0"
-          aria-label="Open profile"
-        >
-          {firstName && (
-            <span className="text-sm font-medium truncate max-w-[120px]">
-              {firstName}
-            </span>
-          )}
-          {user.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt="Avatar"
-              className="w-8 h-8 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-xs">
-              {initials}
-            </div>
-          )}
-        </Link>
+        <div className="flex items-center gap-1">
+          <NotificationsBell />
+          <Link
+            href="/profile"
+            className="flex items-center gap-2 min-w-0"
+            aria-label="Open profile"
+          >
+            {firstName && (
+              <span className="text-sm font-medium truncate max-w-[120px]">
+                {firstName}
+              </span>
+            )}
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt="Avatar"
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-xs">
+                {initials}
+              </div>
+            )}
+          </Link>
+        </div>
       </header>
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 border-r bg-card flex-col sticky top-0 h-screen shrink-0">
-        <div className="p-4 border-b">
+        <div className="p-4 border-b flex items-center justify-between">
           <Logo />
+          <NotificationsBell />
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">

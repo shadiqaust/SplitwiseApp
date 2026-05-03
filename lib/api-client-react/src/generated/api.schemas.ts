@@ -333,6 +333,25 @@ export interface ErrorEnvelope {
   error: string;
 }
 
+export type NotificationData = { [key: string]: unknown } | null;
+
+export interface Notification {
+  id: string;
+  userId: string;
+  /** One of expense_added, expense_updated, payment_added, member_added, joined_group */
+  type: string;
+  title: string;
+  body: string;
+  data?: NotificationData;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationsResponse {
+  notifications: Notification[];
+  unreadCount: number;
+}
+
 /**
  * Unauthorized
  */
@@ -369,5 +388,9 @@ export type ListExpensesParams = {
 };
 
 export type GetActivityParams = {
+  limit?: number;
+};
+
+export type ListNotificationsParams = {
   limit?: number;
 };

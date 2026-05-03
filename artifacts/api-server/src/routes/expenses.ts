@@ -23,6 +23,7 @@ import {
   UpdateExpenseBody,
   ListExpensesQueryParams,
 } from "@workspace/api-zod";
+import { createNotifications, getActorName, getGroupName } from "../lib/notifications";
 
 function toDateString(value: string): string {
   const d = new Date(value);
@@ -485,6 +486,18 @@ router.post(
       });
     }
 
+    const actorName = await getActorName(me);
+    const recipients = rawFriendIds.filter((id) => id !== me);
+    await createNotifications(
+      recipients.map((uid) => ({
+        userId: uid,
+        type: "expense_added",
+        title: `${actorName} added an expense`,
+        body: `${description} · ${(currency ?? "USD")} ${totalAmount.toFixed(2)}`,
+        data: { expenseId: expense.id, groupId: null, actorUserId: me },
+      })),
+    );
+
     res.status(201).json(await buildExpenseWithSplits(expense));
   },
 );
@@ -579,6 +592,20 @@ router.post(
         percentage: row.percentage,
       });
     }
+
+    const me = req.dbUserId!;
+    const actorName = await getActorName(me);
+    const groupName = await getGroupName(groupId);
+    const recipients = Array.from(memberIds).filter((id) => id !== me);
+    await createNotifications(
+      recipients.map((uid) => ({
+        userId: uid,
+        type: "expense_added",
+        title: `${actorName} added an expense in ${groupName}`,
+        body: `${description} · ${groupCurrency} ${totalAmount.toFixed(2)}`,
+        data: { expenseId: expense.id, groupId, actorUserId: me },
+      })),
+    );
 
     res.status(201).json(await buildExpenseWithSplits(expense));
   },
@@ -727,6 +754,20 @@ router.put(
       .set(updateData)
       .where(and(eq(expensesTable.id, expenseId), isNull(expensesTable.deletedAt)))
       .returning();
+
+    const me = req.dbUserId!;
+    const actorName = await getActorName(me);
+    const recipients = Array.from(memberIds).filter((id) => id !== me);
+    const groupName = current.groupId ? ` in ${await getGroupName(current.groupId)}` : "";
+    await createNotifications(
+      recipients.map((uid) => ({
+        userId: uid,
+        type: "expense_updated",
+        title: `${actorName} updated an expense${groupName}`,
+        body: `${expense.description} · ${expense.currency} ${parseFloat(expense.totalAmount).toFixed(2)}`,
+        data: { expenseId: expense.id, groupId: current.groupId, actorUserId: me },
+      })),
+    );
 
     res.json(await buildExpenseWithSplits(expense));
   },

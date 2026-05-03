@@ -4,6 +4,7 @@ import React from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { NotificationsBell } from "@/components/NotificationsBell";
 
 export default function TabLayout() {
   const colors = useColors();
@@ -15,6 +16,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         headerShown: true,
+        headerRight: () => <NotificationsBell />,
         headerStyle: { backgroundColor: colors.background },
         headerTitleStyle: {
           fontFamily: "Inter_700Bold",
