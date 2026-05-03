@@ -301,29 +301,7 @@ export default function FriendDetailScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: "",
-          headerBackTitle: "Friends",
-          headerShadowVisible: false,
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: colors.primaryForeground,
-          headerLeft: () => (
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Back to friends"
-              style={{ paddingHorizontal: 10, flexDirection: "row", alignItems: "center" }}
-            >
-              <Feather name="chevron-left" size={26} color={colors.primaryForeground} />
-              <Text style={{ color: colors.primaryForeground, fontSize: 16, marginLeft: 2 }}>
-                Friends
-              </Text>
-            </Pressable>
-          ),
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         style={{ backgroundColor: colors.background }}
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -340,6 +318,18 @@ export default function FriendDetailScreen() {
           <View style={[styles.bannerTri1, { backgroundColor: "rgba(255,255,255,0.10)" }]} />
           <View style={[styles.bannerTri2, { backgroundColor: "rgba(255,255,255,0.06)" }]} />
           <View style={[styles.bannerTri3, { backgroundColor: "rgba(255,255,255,0.08)" }]} />
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Back to friends"
+            style={[
+              styles.bannerBackBtn,
+              { backgroundColor: "rgba(255,255,255,0.92)" },
+            ]}
+          >
+            <Feather name="chevron-left" size={20} color={colors.foreground} />
+          </Pressable>
         </View>
 
         {/* Avatar overlapping the banner */}
@@ -583,17 +573,16 @@ const styles = StyleSheet.create({
     bottom: -60,
     right: 40,
   },
-  bannerNav: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  iconBtn: {
+  bannerBackBtn: {
+    position: "absolute",
+    top: 12,
+    left: 12,
     width: 36,
     height: 36,
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 5,
   },
   avatarWrap: {
     marginTop: -52,
