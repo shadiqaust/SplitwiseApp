@@ -423,7 +423,10 @@ router.post(
       [targetUser] = await db.select().from(usersTable).where(sql`lower(${usersTable.email}) = lower(${email})`);
     }
 
-    if (!targetUser) {
+    // Superadmins must not be addable to groups by ordinary users — return
+    // the same not-found message we use for missing accounts so callers
+    // can't probe for admin existence by email.
+    if (!targetUser || targetUser.role === "superadmin") {
       res.status(404).json({ error: "No account found. Ask them to sign up first." });
       return;
     }

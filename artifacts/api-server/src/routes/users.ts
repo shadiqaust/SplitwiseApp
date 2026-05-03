@@ -123,7 +123,12 @@ router.get("/users/search", requireAuth, async (req, res): Promise<void> => {
   const friends: { id: string; name: string; email: string; avatarUrl: string | null }[] = [];
 
   if (friendIds.length > 0) {
-    const conditions: any[] = [inArray(usersTable.id, friendIds)];
+    const conditions: any[] = [
+      inArray(usersTable.id, friendIds),
+      // Hide superadmins from peer-facing search results — they should only
+      // be visible inside the /admin section, never to normal users.
+      ne(usersTable.role, "superadmin"),
+    ];
     if (q) {
       const pattern = `%${q.replace(/[%_]/g, "\\$&")}%`;
       conditions.push(or(ilike(usersTable.name, pattern), ilike(usersTable.email, pattern))!);
@@ -147,6 +152,10 @@ router.get("/users/search", requireAuth, async (req, res): Promise<void> => {
     const nfConditions: any[] = [
       ne(usersTable.id, currentUserId),
       ilike(usersTable.email, pattern),
+      // Don't reveal superadmins via non-friend email lookups either —
+      // otherwise anyone who guesses the admin email can confirm the
+      // account exists.
+      ne(usersTable.role, "superadmin"),
     ];
     if (friendIds.length > 0) {
       nfConditions.push(notInArray(usersTable.id, friendIds));
