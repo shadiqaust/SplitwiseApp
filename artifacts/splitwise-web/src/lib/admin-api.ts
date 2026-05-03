@@ -137,11 +137,11 @@ export const adminApi = {
     }),
   recentNotifications: () =>
     adminFetch<{ items: SentNotification[] }>("/admin/notifications/sent"),
-  listReferrals: () =>
+  listReferrals: (q?: string) =>
     adminFetch<{
       referrals: ReferralRow[];
       topReferrers: TopReferrer[];
-    }>("/admin/referrals"),
+    }>(`/admin/referrals${q ? `?q=${encodeURIComponent(q)}` : ""}`),
 };
 
 export interface ReferralRow {

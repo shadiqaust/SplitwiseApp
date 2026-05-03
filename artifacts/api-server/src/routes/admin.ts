@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, sum } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import {
   db,
   usersTable,
@@ -373,10 +374,15 @@ router.get("/admin/notifications/sent", requireSuperadmin, async (_req, res) => 
 
 // ─── Referrals ─────────────────────────────────────────────────────────────
 
-router.get("/admin/referrals", requireSuperadmin, async (_req, res) => {
-  // Pull every user who was referred, then look up referrer profiles in a
-  // second IN-clause. Cheaper and clearer than a Drizzle self-join alias.
-  const rows = await db
+router.get("/admin/referrals", requireSuperadmin, async (req, res) => {
+  // Optional `?q=` matches against either the new user's OR the referrer's
+  // name/email. Implemented as a self-join so a single SQL statement handles
+  // both sides; the case without `q` keeps the original two-step query for
+  // efficiency on the leaderboard reuse path.
+  const q = String(req.query.q ?? "").trim();
+  const referrerAlias = alias(usersTable, "ref_user");
+
+  const baseRows = await db
     .select({
       newUserId: usersTable.id,
       newUserName: usersTable.name,
@@ -384,29 +390,58 @@ router.get("/admin/referrals", requireSuperadmin, async (_req, res) => {
       newUserAvatar: usersTable.avatarUrl,
       newUserCreatedAt: usersTable.createdAt,
       referrerId: usersTable.referrerId,
+      refId: referrerAlias.id,
+      refName: referrerAlias.name,
+      refEmail: referrerAlias.email,
+      refAvatar: referrerAlias.avatarUrl,
     })
     .from(usersTable)
-    .where(isNotNull(usersTable.referrerId))
+    .innerJoin(referrerAlias, eq(referrerAlias.id, usersTable.referrerId))
+    .where(
+      q
+        ? and(
+            isNotNull(usersTable.referrerId),
+            or(
+              ilike(usersTable.name, `%${q}%`),
+              ilike(usersTable.email, `%${q}%`),
+              ilike(referrerAlias.name, `%${q}%`),
+              ilike(referrerAlias.email, `%${q}%`),
+            ),
+          )
+        : isNotNull(usersTable.referrerId),
+    )
     .orderBy(desc(usersTable.createdAt))
     .limit(500);
 
-  // Second query for referrer details — small enough that one IN-clause
-  // beats a self-join via Drizzle alias.
-  const referrerIds = Array.from(
-    new Set(rows.map((r) => r.referrerId).filter((x): x is string => !!x)),
-  );
-  const referrerRows = referrerIds.length
-    ? await db
-        .select({
-          id: usersTable.id,
-          name: usersTable.name,
-          email: usersTable.email,
-          avatarUrl: usersTable.avatarUrl,
-        })
-        .from(usersTable)
-        .where(inArray(usersTable.id, referrerIds))
-    : [];
-  const refById = new Map(referrerRows.map((r) => [r.id, r]));
+  // Re-shape into the same row + lookup-map structure the rest of the
+  // handler expects, so the leaderboard merge below stays unchanged.
+  const rows = baseRows.map((r) => ({
+    newUserId: r.newUserId,
+    newUserName: r.newUserName,
+    newUserEmail: r.newUserEmail,
+    newUserAvatar: r.newUserAvatar,
+    newUserCreatedAt: r.newUserCreatedAt,
+    referrerId: r.referrerId,
+  }));
+
+  // Build the referrer lookup map directly from the joined rows — saves the
+  // extra round-trip the previous IN-query needed.
+  const refById = new Map<string, {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl: string | null;
+  }>();
+  for (const r of baseRows) {
+    if (r.refId && !refById.has(r.refId)) {
+      refById.set(r.refId, {
+        id: r.refId,
+        name: r.refName ?? "",
+        email: r.refEmail ?? "",
+        avatarUrl: r.refAvatar,
+      });
+    }
+  }
 
   const referrals = rows
     .map((r) => {

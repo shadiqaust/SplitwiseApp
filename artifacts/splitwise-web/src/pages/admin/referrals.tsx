@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Gift } from "lucide-react";
+import { Gift, Search } from "lucide-react";
 import { adminApi } from "@/lib/admin-api";
+import { Input } from "@/components/ui/input";
 import { AdminLayout } from "./layout";
 
 function Avatar({ name, url }: { name: string; url: string | null }) {
@@ -16,9 +18,18 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
 }
 
 export function AdminReferralsPage() {
+  const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+  // Debounce the search input by 250ms so we don't slam the server on every
+  // keystroke. Trim before sending so trailing spaces don't refire queries.
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "referrals"],
-    queryFn: () => adminApi.listReferrals(),
+    queryKey: ["admin", "referrals", debounced],
+    queryFn: () => adminApi.listReferrals(debounced || undefined),
   });
 
   const referrals = data?.referrals ?? [];
@@ -30,12 +41,23 @@ export function AdminReferralsPage() {
         <Gift className="w-5 h-5 text-primary" />
         <h1 className="text-2xl font-bold">Referrals</h1>
       </div>
-      <p className="text-muted-foreground mb-6">
+      <p className="text-muted-foreground mb-4">
         Users who signed up via someone else's invite link
         (<code className="text-xs bg-muted px-1 py-0.5 rounded">?ref=&lt;userId&gt;</code>).
       </p>
 
-      {/* Top referrers leaderboard */}
+      <div className="relative mb-6 max-w-md">
+        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by user or referrer name/email…"
+          className="pl-9"
+        />
+      </div>
+
+      {/* Top referrers leaderboard — reflects the current search filter so
+          admins can see who has invited the matching users. */}
       {top.length > 0 && (
         <div className="mb-6">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
@@ -83,7 +105,9 @@ export function AdminReferralsPage() {
             {!isLoading && referrals.length === 0 && (
               <tr>
                 <td colSpan={4} className="p-4 text-center text-muted-foreground">
-                  No referral signups yet. Share your invite link to get started.
+                  {debounced
+                    ? `No referrals match "${debounced}".`
+                    : "No referral signups yet. Share your invite link to get started."}
                 </td>
               </tr>
             )}
