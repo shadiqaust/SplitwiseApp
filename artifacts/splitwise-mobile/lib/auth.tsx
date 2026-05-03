@@ -153,11 +153,13 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
     await unregisterPushNotificationsAsync(apiBaseUrl);
     await removeItem(TOKEN_KEY);
     await removeItem(USER_KEY);
-    // Tear down the biometric vault too — leaving a stale JWT around is a
-    // confusing trap (logging back in via Face ID would silently grant
-    // access to whatever account was last bound to this device).
-    await disableBiometric();
-    setBiometricEnabled(false);
+    // NOTE: We deliberately do NOT wipe the biometric vault here. If we did,
+    // the user would lose the "Sign in with Face ID" button the moment they
+    // logged out, which defeats the whole point of enabling biometrics. The
+    // vault stays bound to the device owner via the OS biometric prompt; it
+    // is cleared only when the user explicitly disables biometrics in
+    // Profile (disableBiometricLogin). The vault token is refreshed on every
+    // successful password sign-in.
     setState({ isLoaded: true, isSignedIn: false, user: null, token: null });
   }, [apiBaseUrl]);
 
