@@ -65,7 +65,6 @@ router.put("/users/me", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
   if (parsed.data.avatarUrl !== undefined) updateData.avatarUrl = parsed.data.avatarUrl;
   if (parsed.data.country !== undefined) updateData.country = parsed.data.country ?? null;
-  if (parsed.data.location !== undefined) updateData.location = parsed.data.location ?? null;
   if (parsed.data.defaultCurrency !== undefined) {
     if (!(await isSupportedCurrency(parsed.data.defaultCurrency))) {
       res.status(400).json({ error: "Unsupported currency code" });

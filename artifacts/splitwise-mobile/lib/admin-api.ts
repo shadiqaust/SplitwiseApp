@@ -55,7 +55,7 @@ export interface SentNotification {
 }
 
 export interface AdminUserDetail {
-  user: AdminUser & { country: string | null; location: string | null };
+  user: AdminUser & { country: string | null };
   stats: {
     groupCount: number;
     paidCount: number;

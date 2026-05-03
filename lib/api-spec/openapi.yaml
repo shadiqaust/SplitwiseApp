@@ -994,9 +994,6 @@ components:
         country:
           type: string
           nullable: true
-        location:
-          type: string
-          nullable: true
         defaultCurrency:
           type: string
         role:
@@ -1027,9 +1024,6 @@ components:
           type: string
           nullable: true
         country:
-          type: string
-          nullable: true
-        location:
           type: string
           nullable: true
         defaultCurrency:

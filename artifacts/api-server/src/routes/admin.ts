@@ -90,7 +90,6 @@ router.get("/admin/users/:userId", requireSuperadmin, async (req, res): Promise<
       email: usersTable.email,
       avatarUrl: usersTable.avatarUrl,
       country: usersTable.country,
-      location: usersTable.location,
       defaultCurrency: usersTable.defaultCurrency,
       role: usersTable.role,
       emailVerifiedAt: usersTable.emailVerifiedAt,

@@ -10,7 +10,6 @@ export const usersTable = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   avatarUrl: text("avatar_url"),
   country: text("country"),
-  location: text("location"),
   defaultCurrency: text("default_currency")
     .notNull()
     .default("USD")

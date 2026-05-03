@@ -66,7 +66,6 @@ export default function ProfileScreen() {
   // Profile form state
   const [name, setName] = useState("");
   const [country, setCountry] = useState("");
-  const [location, setLocation] = useState("");
   const [defaultCurrency, setDefaultCurrency] = useState("USD");
   const [showCurrency, setShowCurrency] = useState(false);
   const [formSaving, setFormSaving] = useState(false);
@@ -79,7 +78,6 @@ export default function ProfileScreen() {
     if (me && !initialized.current) {
       setName(me.name);
       setCountry(me.country ?? "");
-      setLocation(me.location ?? "");
       setDefaultCurrency(me.defaultCurrency ?? "USD");
       initialized.current = true;
     }
@@ -95,7 +93,6 @@ export default function ProfileScreen() {
       if (me && !formSaving) {
         setName(me.name);
         setCountry(me.country ?? "");
-        setLocation(me.location ?? "");
         setDefaultCurrency(me.defaultCurrency ?? "USD");
       }
     }, [me, formSaving]),
@@ -173,7 +170,6 @@ export default function ProfileScreen() {
         data: {
           name: name.trim(),
           country: country.trim() || null,
-          location: location.trim() || null,
           defaultCurrency,
         },
       },
@@ -298,22 +294,14 @@ export default function ProfileScreen() {
             </Pressable>
             <Text style={[styles.displayName, { color: colors.foreground }]}>{me.name}</Text>
             <Text style={[styles.email, { color: colors.mutedForeground }]}>{me.email}</Text>
-            {(me.location || me.country) && (
+            {me.country ? (
               <View style={styles.metaRow}>
-                {me.location ? (
-                  <View style={styles.metaChip}>
-                    <Feather name="map-pin" size={11} color={colors.mutedForeground} />
-                    <Text style={[styles.metaText, { color: colors.mutedForeground }]}>{me.location}</Text>
-                  </View>
-                ) : null}
-                {me.country ? (
-                  <View style={styles.metaChip}>
-                    <Feather name="globe" size={11} color={colors.mutedForeground} />
-                    <Text style={[styles.metaText, { color: colors.mutedForeground }]}>{me.country}</Text>
-                  </View>
-                ) : null}
+                <View style={styles.metaChip}>
+                  <Feather name="globe" size={11} color={colors.mutedForeground} />
+                  <Text style={[styles.metaText, { color: colors.mutedForeground }]}>{me.country}</Text>
+                </View>
               </View>
-            )}
+            ) : null}
             <Pressable onPress={() => setSheetOpen(true)}>
               <Text style={[styles.changeAvatarLink, { color: colors.primary }]}>Change avatar</Text>
             </Pressable>
@@ -352,25 +340,6 @@ export default function ProfileScreen() {
                   placeholder="e.g. France"
                   placeholderTextColor={colors.mutedForeground}
                   returnKeyType="next"
-                />
-              </View>
-            </View>
-
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.foreground }]}>
-                Location{" "}
-                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular" }}>(optional)</Text>
-              </Text>
-              <View style={[styles.inputWrap, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-                <Feather name="map-pin" size={16} color={colors.mutedForeground} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: colors.foreground }]}
-                  value={location}
-                  onChangeText={setLocation}
-                  placeholder="e.g. Paris, Île-de-France"
-                  placeholderTextColor={colors.mutedForeground}
-                  returnKeyType="done"
-                  onSubmitEditing={handleSaveProfile}
                 />
               </View>
             </View>

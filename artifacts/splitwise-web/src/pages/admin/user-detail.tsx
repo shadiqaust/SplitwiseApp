@@ -129,7 +129,7 @@ export function AdminUserDetailPage() {
           </h1>
           <p className="text-muted-foreground">{user.email}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {[user.country, user.location].filter(Boolean).join(" · ") || "—"} ·
+            {user.country || "—"} ·
             joined {new Date(user.createdAt).toLocaleDateString()} · default {user.defaultCurrency}
           </p>
         </div>

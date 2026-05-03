@@ -10,6 +10,5 @@ export interface UpdateUserBody {
   name?: string;
   avatarUrl?: string | null;
   country?: string | null;
-  location?: string | null;
   defaultCurrency?: string;
 }

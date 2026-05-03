@@ -26,7 +26,6 @@ export interface User {
   email: string;
   avatarUrl?: string | null;
   country?: string | null;
-  location?: string | null;
   defaultCurrency: string;
   role?: UserRole;
   createdAt: string;
@@ -42,7 +41,6 @@ export interface UpdateUserBody {
   name?: string;
   avatarUrl?: string | null;
   country?: string | null;
-  location?: string | null;
   defaultCurrency?: string;
 }
 

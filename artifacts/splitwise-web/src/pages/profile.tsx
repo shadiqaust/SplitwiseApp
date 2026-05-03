@@ -14,7 +14,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { useLocation, Link } from "wouter";
-import { Camera, Upload, Check, MapPin, Globe, Gift, Copy, Share2 } from "lucide-react";
+import { Camera, Upload, Check, Globe, Gift, Copy, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useListCurrencies } from "@workspace/api-client-react";
@@ -64,7 +64,6 @@ function compressImage(file: File): Promise<string> {
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   country: z.string().optional(),
-  location: z.string().optional(),
   defaultCurrency: z.string().min(1, "Currency is required"),
 });
 
@@ -111,7 +110,7 @@ export function ProfilePage() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", country: "", location: "", defaultCurrency: "USD" },
+    defaultValues: { name: "", country: "", defaultCurrency: "USD" },
   });
 
   const initialized = useRef(false);
@@ -120,7 +119,6 @@ export function ProfilePage() {
       form.reset({
         name: userProfile.name,
         country: userProfile.country ?? "",
-        location: userProfile.location ?? "",
         defaultCurrency: userProfile.defaultCurrency ?? "USD",
       });
       initialized.current = true;
@@ -131,7 +129,6 @@ export function ProfilePage() {
     const payload = {
       name: values.name,
       country: values.country || null,
-      location: values.location || null,
       defaultCurrency: values.defaultCurrency,
     };
     updateMe.mutate(
@@ -139,7 +136,7 @@ export function ProfilePage() {
       {
         onSuccess: (updated) => {
           // Patch the cached me() so anything reading useGetMe() (sidebar,
-          // mobile top header, etc.) reflects the new name/location instantly.
+          // mobile top header, etc.) reflects the new name/country instantly.
           queryClient.setQueryData(
             getGetMeQueryKey(),
             (prev: typeof updated | undefined) =>
@@ -289,20 +286,12 @@ export function ProfilePage() {
           <div>
             <div className="font-semibold text-lg">{userProfile?.name}</div>
             <div className="text-sm text-muted-foreground">{userProfile?.email}</div>
-            {(userProfile?.country || userProfile?.location) && (
+            {userProfile?.country && (
               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                {userProfile.location && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    {userProfile.location}
-                  </span>
-                )}
-                {userProfile.country && (
-                  <span className="flex items-center gap-1">
-                    <Globe className="w-3 h-3" />
-                    {userProfile.country}
-                  </span>
-                )}
+                <span className="flex items-center gap-1">
+                  <Globe className="w-3 h-3" />
+                  {userProfile.country}
+                </span>
               </div>
             )}
             <button
@@ -344,26 +333,6 @@ export function ProfilePage() {
                     <div className="relative">
                       <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input {...field} className="pl-9" placeholder="e.g. France" />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Location{" "}
-                    <span className="text-muted-foreground font-normal text-xs">(optional)</span>
-                  </FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input {...field} className="pl-9" placeholder="e.g. Paris, Île-de-France" />
                     </div>
                   </FormControl>
                   <FormMessage />
