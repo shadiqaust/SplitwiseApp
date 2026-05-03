@@ -1572,7 +1572,7 @@ export function GroupDetailPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
             <GroupAvatarDialog
               groupId={groupId}
@@ -1619,7 +1619,7 @@ export function GroupDetailPage() {
               })()}
             </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 w-full sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-initial [&_button]:w-full sm:[&_button]:w-auto">
             {me.data ? (
               <>
                 <SettleUpDialog
