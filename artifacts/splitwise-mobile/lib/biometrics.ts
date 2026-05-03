@@ -211,11 +211,51 @@ export async function unlockBiometricSession(reason: string): Promise<BiometricS
 }
 
 /** Refresh just the cached JWT (e.g. when a fresh login happens with bio
- *  already enabled, so the next biometric unlock uses the newest token). */
+ *  already enabled, so the next biometric unlock uses the newest token).
+ *
+ *  IMPORTANT: If the freshly-signed-in user differs from the user the vault
+ *  was bound to, we tear the vault down rather than rebinding it. Otherwise
+ *  signing in as user B would either (a) leak user A's token if we did
+ *  nothing, or (b) silently transfer the device's biometric login to user B
+ *  without their consent. Wiping forces user B to opt in explicitly via the
+ *  post-login prompt. */
 export async function refreshStoredBiometricToken(token: string, user: unknown): Promise<void> {
   if (Platform.OS === "web") return;
   if (!(await isBiometricEnabled())) return;
+  // Compare against the previously-bound user. We don't need biometric auth
+  // to read the user record for this check on the plain-options branch; on
+  // the secured branch we can't read it without a prompt, so we conservatively
+  // wipe whenever the IDs don't match (or we can't verify the match).
+  const newUserId = (user as { id?: string } | null)?.id ?? null;
+  let storedUserId: string | null = null;
+  try {
+    const secured = await readSecuredFlag();
+    if (!secured) {
+      const stored = await SecureStore.getItemAsync(BIO_USER_KEY, PLAIN_OPTIONS);
+      if (stored) {
+        try {
+          storedUserId = (JSON.parse(stored) as { id?: string } | null)?.id ?? null;
+        } catch {
+          storedUserId = null;
+        }
+      }
+    }
+  } catch {
+    storedUserId = null;
+  }
+  if (storedUserId && newUserId && storedUserId !== newUserId) {
+    // Different user — clear the vault entirely; the new user must opt in.
+    await disableBiometric();
+    return;
+  }
   const secured = await readSecuredFlag();
+  if (secured && !storedUserId) {
+    // OS-secured vault: we can't peek the bound user without prompting. To
+    // avoid silently rebinding to a different account, wipe and require the
+    // signed-in user to opt in fresh from the post-login prompt or Profile.
+    await disableBiometric();
+    return;
+  }
   const opts = secured ? SECURE_OPTIONS : PLAIN_OPTIONS;
   try {
     await SecureStore.setItemAsync(BIO_TOKEN_KEY, token, opts);
@@ -224,5 +264,24 @@ export async function refreshStoredBiometricToken(token: string, user: unknown):
     // Best-effort: if a refresh fails (e.g. user removed biometrics),
     // tear the vault down so the next sign-in re-establishes it cleanly.
     await disableBiometric();
+  }
+}
+
+/** Returns the user-id the biometric vault is currently bound to, or null
+ *  if there is no vault, the vault is OS-secured (can't peek without a
+ *  prompt), or it is unreadable. Used by the auth layer to decide whether
+ *  the saved biometric session belongs to a different user than the one
+ *  signing in now. */
+export async function getBoundBiometricUserId(): Promise<string | null> {
+  if (Platform.OS === "web") return null;
+  if (!(await isBiometricEnabled())) return null;
+  try {
+    const secured = await readSecuredFlag();
+    if (secured) return null; // Can't peek without an OS auth prompt.
+    const stored = await SecureStore.getItemAsync(BIO_USER_KEY, PLAIN_OPTIONS);
+    if (!stored) return null;
+    return (JSON.parse(stored) as { id?: string } | null)?.id ?? null;
+  } catch {
+    return null;
   }
 }
