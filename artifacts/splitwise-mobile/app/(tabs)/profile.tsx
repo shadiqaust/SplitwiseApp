@@ -27,7 +27,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/lib/auth";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 
 // ─── Predefined avatar presets ────────────────────────────────────────────────
 const PRESETS = [
@@ -69,8 +70,11 @@ export default function ProfileScreen() {
   const [defaultCurrency, setDefaultCurrency] = useState("USD");
   const [showCurrency, setShowCurrency] = useState(false);
   const [formSaving, setFormSaving] = useState(false);
-  const initialized = useRef(false);
 
+  // Initial population once user data loads. Subsequent re-syncs happen on
+  // focus (see useFocusEffect below) so unsaved edits don't survive a
+  // tab-switch round trip.
+  const initialized = useRef(false);
   useEffect(() => {
     if (me && !initialized.current) {
       setName(me.name);
@@ -80,6 +84,22 @@ export default function ProfileScreen() {
       initialized.current = true;
     }
   }, [me]);
+
+  // Whenever the Profile tab regains focus, snap the form back to whatever
+  // is currently on the server. This means navigating away with unsaved
+  // changes effectively discards them — matching what the user expects when
+  // they didn't tap Save. Skipped while a save is in-flight so we don't
+  // clobber the optimistic in-progress value.
+  useFocusEffect(
+    useCallback(() => {
+      if (me && !formSaving) {
+        setName(me.name);
+        setCountry(me.country ?? "");
+        setLocation(me.location ?? "");
+        setDefaultCurrency(me.defaultCurrency ?? "USD");
+      }
+    }, [me, formSaving]),
+  );
 
   const { data: currenciesData } = useListCurrencies();
   const currencies = currenciesData ?? [];
