@@ -54,6 +54,8 @@ type ActivityRow = {
   subtitle: string;
   kind: "expense" | "payment";
   delta: number;
+  /** Where tapping the row navigates. null = not tappable. */
+  href: string | null;
 };
 
 const monthShort = new Intl.DateTimeFormat("en-US", { month: "short" });
@@ -162,7 +164,7 @@ export default function FriendDetailScreen() {
 
     for (const e of data.expenses) {
       let delta = 0;
-      let subtitle = "Shared group";
+      let subtitle = "";
       if (e.paidByUserId === myId) {
         const fs = e.splits.find((s) => s.userId === friendId);
         delta = fs ? parseFloat(String(fs.amount)) : 0;
@@ -171,6 +173,14 @@ export default function FriendDetailScreen() {
         const ms = e.splits.find((s) => s.userId === myId);
         delta = ms ? -parseFloat(String(ms.amount)) : 0;
         subtitle = `${friendShort} paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+      }
+      // Group expenses always show the group name so users know which group
+      // the row belongs to and that tapping opens that group.
+      if (e.groupId) {
+        const gname = groupNameById.get(e.groupId) ?? "group";
+        subtitle = subtitle
+          ? `${subtitle} · Shared group · ${gname}`
+          : `Shared group · ${gname}`;
       }
       const d = expenseDate(e);
       rows.push({
@@ -186,6 +196,7 @@ export default function FriendDetailScreen() {
         subtitle,
         kind: "expense",
         delta,
+        href: e.groupId ? `/(tabs)/groups/${e.groupId}` : `/expenses/${e.id}`,
       });
     }
 
@@ -211,9 +222,12 @@ export default function FriendDetailScreen() {
         icon: "credit-card",
         iconTint: colors.primary,
         title,
-        subtitle: "Recorded payment",
+        subtitle: p.groupId
+          ? `Recorded payment · ${groupNameById.get(p.groupId) ?? "group"}`
+          : "Recorded payment",
         kind: "payment",
         delta,
+        href: p.groupId ? `/(tabs)/groups/${p.groupId}` : null,
       });
     }
     rows.sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -370,7 +384,7 @@ export default function FriendDetailScreen() {
               message={`Add an expense or record a payment with ${friend?.name ?? "this friend"} to get started.`}
             />
           ) : (
-            renderTimeline(activity, colors)
+            renderTimeline(activity, colors, router)
           )}
         </View>
       </ScrollView>
@@ -388,7 +402,11 @@ export default function FriendDetailScreen() {
   );
 }
 
-function renderTimeline(rows: ActivityRow[], colors: ReturnType<typeof useColors>) {
+function renderTimeline(
+  rows: ActivityRow[],
+  colors: ReturnType<typeof useColors>,
+  router: ReturnType<typeof useRouter>,
+) {
   const out: React.ReactNode[] = [];
   let lastMonth: string | null = null;
   for (const row of rows) {
@@ -403,7 +421,9 @@ function renderTimeline(rows: ActivityRow[], colors: ReturnType<typeof useColors
       );
       lastMonth = row.monthKey;
     }
-    out.push(<ActivityRowView key={row.key} row={row} colors={colors} />);
+    out.push(
+      <ActivityRowView key={row.key} row={row} colors={colors} router={router} />,
+    );
   }
   return out;
 }
@@ -411,9 +431,11 @@ function renderTimeline(rows: ActivityRow[], colors: ReturnType<typeof useColors
 function ActivityRowView({
   row,
   colors,
+  router,
 }: {
   row: ActivityRow;
   colors: ReturnType<typeof useColors>;
+  router: ReturnType<typeof useRouter>;
 }) {
   const settled = Math.abs(row.delta) < 0.01;
   const positive = row.delta > 0;
@@ -432,8 +454,20 @@ function ActivityRowView({
       : positive
         ? "you lent"
         : "you borrowed";
+  const onPress = row.href
+    ? () => router.push(row.href as never)
+    : undefined;
   return (
-    <View style={styles.activityRow}>
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      android_ripple={onPress ? { color: colors.accent } : undefined}
+      accessibilityRole={onPress ? "button" : undefined}
+      style={({ pressed }) => [
+        styles.activityRow,
+        pressed && onPress ? { opacity: 0.7 } : null,
+      ]}
+    >
       <View style={styles.dateCol}>
         <Text style={[styles.dateMonth, { color: colors.mutedForeground }]}>{row.dayMonth}</Text>
         <Text style={[styles.dateDay, { color: colors.foreground }]}>{row.dayNum}</Text>
@@ -462,7 +496,7 @@ function ActivityRowView({
           </Text>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 

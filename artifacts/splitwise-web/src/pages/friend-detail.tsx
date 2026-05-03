@@ -47,6 +47,8 @@ type ActivityRow = {
   subtitle: string;
   kind: "expense" | "payment";
   delta: number;
+  /** Where clicking the row navigates. null = not clickable. */
+  href: string | null;
 };
 
 const monthShort = new Intl.DateTimeFormat("en-US", { month: "short" });
@@ -181,7 +183,7 @@ export function FriendDetailPage() {
     const rows: ActivityRow[] = [];
     for (const e of data.expenses) {
       let delta = 0;
-      let subtitle = "Shared group";
+      let subtitle = "";
       if (e.paidByUserId === myId) {
         const fs = e.splits.find((s) => s.userId === friendId);
         delta = fs ? parseFloat(String(fs.amount)) : 0;
@@ -190,6 +192,14 @@ export function FriendDetailPage() {
         const ms = e.splits.find((s) => s.userId === myId);
         delta = ms ? -parseFloat(String(ms.amount)) : 0;
         subtitle = `${friendShort} paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+      }
+      // Group expenses always show the group name so users know which group
+      // the row belongs to and that clicking opens that group.
+      if (e.groupId) {
+        const gname = groupNameById.get(e.groupId) ?? "group";
+        subtitle = subtitle
+          ? `${subtitle} · Shared group · ${gname}`
+          : `Shared group · ${gname}`;
       }
       const d = expenseDate(e);
       rows.push({
@@ -204,6 +214,7 @@ export function FriendDetailPage() {
         subtitle,
         kind: "expense",
         delta,
+        href: e.groupId ? `/groups/${e.groupId}` : `/expenses/${e.id}`,
       });
     }
     for (const p of data.payments) {
@@ -227,9 +238,12 @@ export function FriendDetailPage() {
         dayNum: String(d.getDate()),
         icon: "credit-card",
         title,
-        subtitle: "Recorded payment",
+        subtitle: p.groupId
+          ? `Recorded payment · ${groupNameById.get(p.groupId) ?? "group"}`
+          : "Recorded payment",
         kind: "payment",
         delta,
+        href: p.groupId ? `/groups/${p.groupId}` : null,
       });
     }
     rows.sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -428,8 +442,8 @@ function TimelineRow({ row }: { row: ActivityRow }) {
         : "you borrowed";
   const Icon = row.icon === "users" ? Users : row.icon === "credit-card" ? CreditCard : FileText;
   const iconTint = row.icon === "users" ? "text-primary" : "text-muted-foreground";
-  return (
-    <div className="flex items-center gap-3 py-2.5">
+  const inner = (
+    <>
       <div className="w-9 flex flex-col items-center shrink-0">
         <span className="text-[10px] font-medium uppercase text-muted-foreground leading-tight">
           {row.dayMonth}
@@ -451,6 +465,17 @@ function TimelineRow({ row }: { row: ActivityRow }) {
           </p>
         )}
       </div>
-    </div>
+    </>
   );
+  if (row.href) {
+    return (
+      <Link
+        href={row.href}
+        className="flex items-center gap-3 py-2.5 -mx-2 px-2 rounded-md hover:bg-accent/40 transition-colors cursor-pointer"
+      >
+        {inner}
+      </Link>
+    );
+  }
+  return <div className="flex items-center gap-3 py-2.5">{inner}</div>;
 }
