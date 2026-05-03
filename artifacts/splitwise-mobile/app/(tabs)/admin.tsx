@@ -424,7 +424,13 @@ function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
         <Pressable
           key={u.id}
           onPress={() => onOpen(u.id)}
-          style={[styles.row, { borderBottomColor: colors.border }]}
+          style={[
+            styles.row,
+            {
+              borderBottomColor: colors.border,
+              backgroundColor: u.emailVerifiedAt ? "#10b9810f" : "#f59e0b14",
+            },
+          ]}
         >
           <View style={[styles.avatar, { backgroundColor: colors.primary + "20" }]}>
             <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>

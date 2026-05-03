@@ -76,7 +76,13 @@ export function AdminUsersPage() {
               </tr>
             )}
             {data?.users.map((u) => (
-              <tr key={u.id} className="border-t hover:bg-muted/30">
+              <tr
+                key={u.id}
+                className="border-t hover:bg-muted/30"
+                style={{
+                  backgroundColor: u.emailVerifiedAt ? "#10b9810f" : "#f59e0b14",
+                }}
+              >
                 <td className="p-3">
                   <Link
                     href={`/admin/users/${u.id}`}
