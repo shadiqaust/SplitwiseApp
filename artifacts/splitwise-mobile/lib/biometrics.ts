@@ -61,8 +61,12 @@ export async function promptBiometricAuth(reason: string): Promise<boolean> {
   const res = await LocalAuthentication.authenticateAsync({
     promptMessage: reason,
     cancelLabel: "Cancel",
-    disableDeviceFallback: false,
-    fallbackLabel: "Use device passcode",
+    // Force biometrics-only. With device fallback enabled iOS happily routes
+    // straight to a passcode prompt (e.g. after a single failed face match,
+    // or whenever it thinks the biometric pipeline is busy), which the user
+    // experiences as "it's asking for my passcode instead of Face ID". The
+    // user can still use their passcode by signing in with email + password.
+    disableDeviceFallback: true,
     // Reject weak Android biometrics (face unlock on devices without Class 3
     // hardware) for credential unlock — only Class 3 / Strong sensors are
     // acceptable for releasing a session token.
