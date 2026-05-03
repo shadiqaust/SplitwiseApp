@@ -19,7 +19,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { configureApi, configureUnauthorizedHandler } from "@/lib/api";
 import { AuthProvider, useAuth, getToken } from "@/lib/auth";
 import { useColors } from "@/hooks/useColors";
-import { setDisplayCurrency } from "@/lib/format";
+import { setDisplayCurrency, useDisplayCurrency } from "@/lib/format";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -47,13 +47,19 @@ const API_BASE_URL = domain ? `https://${domain}` : "";
 // own symbol regardless of what's stored on the expense/group/payment.
 function DisplayCurrencyBridge() {
   const me = useGetMe();
+  const next = me.data?.defaultCurrency;
+  // Push the latest defaultCurrency into the format module after commit so
+  // notifying subscribers doesn't trigger an update during render.
   useEffect(() => {
-    if (me.data?.defaultCurrency) setDisplayCurrency(me.data.defaultCurrency);
-  }, [me.data?.defaultCurrency]);
+    if (next) setDisplayCurrency(next);
+  }, [next]);
   return null;
 }
 
 function AuthGate() {
+  // Subscribe so the entire navigation tree re-renders when the viewer's
+  // preferred currency changes (formatCurrency reads it from a module store).
+  useDisplayCurrency();
   const { isLoaded, isSignedIn, signOut } = useAuth();
   const segments = useSegments();
   const router = useRouter();

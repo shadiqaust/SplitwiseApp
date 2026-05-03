@@ -4,7 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { useGetMe } from "@workspace/api-client-react";
 import { queryClient } from "./lib/queryClient";
 import { AuthProvider, useAuth } from "./lib/auth";
-import { setDisplayCurrency } from "./lib/format";
+import { setDisplayCurrency, useDisplayCurrency } from "./lib/format";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -82,9 +82,12 @@ function ScrollToTop() {
 // own symbol regardless of what's stored on the expense/group/payment.
 function DisplayCurrencyBridge() {
   const me = useGetMe();
+  const next = me.data?.defaultCurrency;
+  // Push the latest defaultCurrency into the format module after commit so
+  // notifying subscribers doesn't trigger an update during render.
   useEffect(() => {
-    if (me.data?.defaultCurrency) setDisplayCurrency(me.data.defaultCurrency);
-  }, [me.data?.defaultCurrency]);
+    if (next) setDisplayCurrency(next);
+  }, [next]);
   return null;
 }
 
@@ -107,6 +110,9 @@ function NotFound() {
 }
 
 function Routes() {
+  // Subscribe so the entire route tree re-renders when the viewer's
+  // preferred currency changes (formatCurrency reads it from a module store).
+  useDisplayCurrency();
   return (
     <Switch>
       <Route path="/" component={HomeRedirect} />

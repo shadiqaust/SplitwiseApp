@@ -1,11 +1,29 @@
+import { useSyncExternalStore } from "react";
+
 let displayCurrency = "USD";
+const listeners = new Set<() => void>();
+
+function subscribe(cb: () => void) {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
 
 export function setDisplayCurrency(c: string | null | undefined) {
-  if (c && typeof c === "string") displayCurrency = c;
+  if (c && typeof c === "string" && c !== displayCurrency) {
+    displayCurrency = c;
+    listeners.forEach((cb) => cb());
+  }
 }
 
 export function getDisplayCurrency(): string {
   return displayCurrency;
+}
+
+// Subscribe at the root so the whole tree re-renders when the viewer's
+// preferred currency changes. The returned value is the current symbol code,
+// but its real purpose is to register a React subscription.
+export function useDisplayCurrency(): string {
+  return useSyncExternalStore(subscribe, getDisplayCurrency, getDisplayCurrency);
 }
 
 export function formatCurrency(amount: number, _currency?: string) {
