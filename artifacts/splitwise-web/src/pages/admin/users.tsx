@@ -5,7 +5,7 @@ import { adminApi } from "@/lib/admin-api";
 import { AdminLayout } from "./layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Shield, ChevronLeft, ChevronRight, Mail } from "lucide-react";
+import { Search, Shield, ChevronLeft, ChevronRight, Mail, MailCheck, MailWarning } from "lucide-react";
 
 const PAGE_SIZE = 25;
 
@@ -56,20 +56,21 @@ export function AdminUsersPage() {
               <th className="p-3 font-medium hidden md:table-cell">Email</th>
               <th className="p-3 font-medium">Currency</th>
               <th className="p-3 font-medium">Role</th>
+              <th className="p-3 font-medium">Email status</th>
               <th className="p-3 font-medium hidden lg:table-cell">Joined</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                <td colSpan={6} className="p-4 text-center text-muted-foreground">
                   Loading…
                 </td>
               </tr>
             )}
             {!isLoading && (data?.users.length ?? 0) === 0 && (
               <tr>
-                <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                <td colSpan={6} className="p-4 text-center text-muted-foreground">
                   No users found.
                 </td>
               </tr>
@@ -115,6 +116,23 @@ export function AdminUsersPage() {
                     </span>
                   ) : (
                     <span className="text-xs text-muted-foreground">user</span>
+                  )}
+                </td>
+                <td className="p-3">
+                  {u.emailVerifiedAt ? (
+                    <span
+                      className="inline-flex items-center gap-1 text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded"
+                      title={`Verified ${new Date(u.emailVerifiedAt).toLocaleString()}`}
+                    >
+                      <MailCheck className="w-3 h-3" /> verified
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1 text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded"
+                      title="Email not verified"
+                    >
+                      <MailWarning className="w-3 h-3" /> unverified
+                    </span>
                   )}
                 </td>
                 <td className="p-3 text-muted-foreground hidden lg:table-cell whitespace-nowrap">

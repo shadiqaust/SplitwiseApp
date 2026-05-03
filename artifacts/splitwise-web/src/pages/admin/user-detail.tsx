@@ -4,7 +4,7 @@ import { Link, useParams } from "wouter";
 import { adminApi } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth";
 import { AdminLayout } from "./layout";
-import { ArrowLeft, Shield, ShieldOff, Loader2 } from "lucide-react";
+import { ArrowLeft, Shield, ShieldOff, Loader2, MailCheck, MailWarning } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function AdminUserDetailPage() {
@@ -13,6 +13,8 @@ export function AdminUserDetailPage() {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
   const [roleError, setRoleError] = useState<string | null>(null);
+  const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "user", userId],
@@ -29,6 +31,34 @@ export function AdminUserDetailPage() {
     },
     onError: (err: Error) => setRoleError(err.message),
   });
+
+  const verifyEmail = useMutation({
+    mutationFn: () => adminApi.verifyUserEmail(userId),
+    onSuccess: (res) => {
+      setVerifyError(null);
+      setVerifyMessage(
+        res.alreadyVerified
+          ? "Email was already verified."
+          : "Email marked as verified.",
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin", "user", userId] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
+    onError: (err: Error) => {
+      setVerifyMessage(null);
+      setVerifyError(err.message);
+    },
+  });
+
+  const onVerifyEmail = () => {
+    if (
+      !window.confirm(
+        `Mark ${data?.user.name ?? "this user"}'s email as verified? They will be able to use all app features without clicking the verification link.`,
+      )
+    )
+      return;
+    verifyEmail.mutate();
+  };
 
   if (isLoading || !data) {
     return (
@@ -73,11 +103,23 @@ export function AdminUserDetailPage() {
           </div>
         )}
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2 flex-wrap">
             {user.name}
             {user.role === "superadmin" && (
               <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
                 <Shield className="w-3 h-3" /> superadmin
+              </span>
+            )}
+            {user.emailVerifiedAt ? (
+              <span
+                className="inline-flex items-center gap-1 text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded"
+                title={`Verified ${new Date(user.emailVerifiedAt).toLocaleString()}`}
+              >
+                <MailCheck className="w-3 h-3" /> verified
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded">
+                <MailWarning className="w-3 h-3" /> unverified
               </span>
             )}
           </h1>
@@ -87,7 +129,7 @@ export function AdminUserDetailPage() {
             joined {new Date(user.createdAt).toLocaleDateString()} · default {user.defaultCurrency}
           </p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-col items-end gap-2">
           <Button
             variant={isAdmin ? "outline" : "default"}
             size="sm"
@@ -105,15 +147,40 @@ export function AdminUserDetailPage() {
             {verb}
           </Button>
           {isSelf && (
-            <p className="text-[10px] text-muted-foreground mt-1 text-right">
+            <p className="text-[10px] text-muted-foreground text-right">
               Can't change your own role
             </p>
+          )}
+          {!user.emailVerifiedAt && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onVerifyEmail}
+              disabled={verifyEmail.isPending}
+            >
+              {verifyEmail.isPending ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <MailCheck className="w-4 h-4 mr-1" />
+              )}
+              Mark email verified
+            </Button>
           )}
         </div>
       </div>
       {roleError && (
         <div className="mb-4 text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded p-2">
           {roleError}
+        </div>
+      )}
+      {verifyError && (
+        <div className="mb-4 text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded p-2">
+          {verifyError}
+        </div>
+      )}
+      {verifyMessage && (
+        <div className="mb-4 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded p-2">
+          {verifyMessage}
         </div>
       )}
 

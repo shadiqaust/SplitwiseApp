@@ -53,6 +53,7 @@ router.get("/admin/users", requireSuperadmin, async (req, res) => {
       avatarUrl: usersTable.avatarUrl,
       defaultCurrency: usersTable.defaultCurrency,
       role: usersTable.role,
+      emailVerifiedAt: usersTable.emailVerifiedAt,
       createdAt: usersTable.createdAt,
     })
     .from(usersTable)
@@ -64,7 +65,11 @@ router.get("/admin/users", requireSuperadmin, async (req, res) => {
     .offset(offset);
 
   res.json({
-    users: rows.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() })),
+    users: rows.map((u) => ({
+      ...u,
+      createdAt: u.createdAt.toISOString(),
+      emailVerifiedAt: u.emailVerifiedAt ? u.emailVerifiedAt.toISOString() : null,
+    })),
     total: Number(total),
     page,
     pageSize,
@@ -88,6 +93,7 @@ router.get("/admin/users/:userId", requireSuperadmin, async (req, res): Promise<
       location: usersTable.location,
       defaultCurrency: usersTable.defaultCurrency,
       role: usersTable.role,
+      emailVerifiedAt: usersTable.emailVerifiedAt,
       createdAt: usersTable.createdAt,
     })
     .from(usersTable)
@@ -176,7 +182,11 @@ router.get("/admin/users/:userId", requireSuperadmin, async (req, res): Promise<
     .limit(20);
 
   res.json({
-    user: { ...user, createdAt: user.createdAt.toISOString() },
+    user: {
+      ...user,
+      createdAt: user.createdAt.toISOString(),
+      emailVerifiedAt: user.emailVerifiedAt ? user.emailVerifiedAt.toISOString() : null,
+    },
     stats: {
       groupCount: Number(groupCount),
       paidCount: Number(paidCount),
@@ -254,6 +264,48 @@ router.patch(
       .where(eq(usersTable.id, id))
       .returning({ id: usersTable.id, role: usersTable.role });
     res.json(updated);
+  },
+);
+
+// Manually mark a user's email as verified (for support / when SMTP isn't
+// reachable). Idempotent — re-verifying just returns the existing timestamp.
+router.post(
+  "/admin/users/:userId/verify-email",
+  requireSuperadmin,
+  async (req, res): Promise<void> => {
+    const id = String(req.params.userId);
+    if (!UUID_RE.test(id)) {
+      res.status(400).json({ error: "Invalid user id" });
+      return;
+    }
+    const [target] = await db
+      .select({ id: usersTable.id, emailVerifiedAt: usersTable.emailVerifiedAt })
+      .from(usersTable)
+      .where(eq(usersTable.id, id));
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if (target.emailVerifiedAt) {
+      res.json({
+        id: target.id,
+        emailVerifiedAt: target.emailVerifiedAt.toISOString(),
+        alreadyVerified: true,
+      });
+      return;
+    }
+    const [updated] = await db
+      .update(usersTable)
+      .set({ emailVerifiedAt: new Date() })
+      .where(eq(usersTable.id, id))
+      .returning({ id: usersTable.id, emailVerifiedAt: usersTable.emailVerifiedAt });
+    res.json({
+      id: updated.id,
+      emailVerifiedAt: updated.emailVerifiedAt
+        ? updated.emailVerifiedAt.toISOString()
+        : null,
+      alreadyVerified: false,
+    });
   },
 );
 

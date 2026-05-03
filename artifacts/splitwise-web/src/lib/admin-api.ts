@@ -30,6 +30,7 @@ export interface AdminUser {
   avatarUrl: string | null;
   defaultCurrency: string;
   role: "user" | "superadmin";
+  emailVerifiedAt: string | null;
   createdAt: string;
 }
 
@@ -124,6 +125,11 @@ export const adminApi = {
     adminFetch<{ id: string; role: "user" | "superadmin" }>(
       `/admin/users/${id}/role`,
       { method: "PATCH", body: JSON.stringify({ role }) },
+    ),
+  verifyUserEmail: (id: string) =>
+    adminFetch<{ id: string; emailVerifiedAt: string | null; alreadyVerified: boolean }>(
+      `/admin/users/${id}/verify-email`,
+      { method: "POST" },
     ),
   listCurrencies: () =>
     adminFetch<{ currencies: AdminCurrency[] }>("/admin/currencies"),
