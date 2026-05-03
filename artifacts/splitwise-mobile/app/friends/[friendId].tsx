@@ -162,6 +162,13 @@ export default function FriendDetailScreen() {
     const friendShort = shortName(friend.name);
     const rows: ActivityRow[] = [];
 
+    // Aggregate expenses by group: all expenses in the same group collapse
+    // to a single row showing the friend's net balance impact across them.
+    const groupAgg = new Map<
+      string,
+      { count: number; delta: number; latest: Date }
+    >();
+
     for (const e of data.expenses) {
       let delta = 0;
       let subtitle = "";
@@ -174,15 +181,18 @@ export default function FriendDetailScreen() {
         delta = ms ? -parseFloat(String(ms.amount)) : 0;
         subtitle = `${friendShort} paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
       }
-      // Group expenses always show the group name so users know which group
-      // the row belongs to and that tapping opens that group.
-      if (e.groupId) {
-        const gname = groupNameById.get(e.groupId) ?? "group";
-        subtitle = subtitle
-          ? `${subtitle} · Shared group · ${gname}`
-          : `Shared group · ${gname}`;
-      }
       const d = expenseDate(e);
+      if (e.groupId) {
+        const cur = groupAgg.get(e.groupId);
+        if (cur) {
+          cur.count += 1;
+          cur.delta += delta;
+          if (d.getTime() > cur.latest.getTime()) cur.latest = d;
+        } else {
+          groupAgg.set(e.groupId, { count: 1, delta, latest: d });
+        }
+        continue;
+      }
       rows.push({
         key: `e:${e.id}`,
         date: d,
@@ -190,13 +200,33 @@ export default function FriendDetailScreen() {
         monthLabel: monthLong.format(d),
         dayMonth: monthShort.format(d),
         dayNum: String(d.getDate()),
-        icon: e.groupId ? "users" : "file-text",
-        iconTint: e.groupId ? colors.primary : colors.mutedForeground,
+        icon: "file-text",
+        iconTint: colors.mutedForeground,
         title: e.description,
         subtitle,
         kind: "expense",
         delta,
-        href: e.groupId ? `/(tabs)/groups/${e.groupId}` : `/expenses/${e.id}`,
+        href: `/expenses/${e.id}`,
+      });
+    }
+
+    for (const [gid, agg] of groupAgg.entries()) {
+      const gname = groupNameById.get(gid) ?? "Group";
+      const d = agg.latest;
+      rows.push({
+        key: `g:${gid}`,
+        date: d,
+        monthKey: `${d.getFullYear()}-${d.getMonth()}`,
+        monthLabel: monthLong.format(d),
+        dayMonth: monthShort.format(d),
+        dayNum: String(d.getDate()),
+        icon: "users",
+        iconTint: colors.primary,
+        title: gname,
+        subtitle: `${agg.count} shared ${agg.count === 1 ? "expense" : "expenses"} · Shared group`,
+        kind: "expense",
+        delta: agg.delta,
+        href: `/(tabs)/groups/${gid}`,
       });
     }
 
