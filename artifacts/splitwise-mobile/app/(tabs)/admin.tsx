@@ -17,9 +17,27 @@ import { useRouter } from "expo-router";
 
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/lib/auth";
-import { adminApi, type AdminCurrency } from "@/lib/admin-api";
+import { adminApi, type AdminCurrency, type SmtpSettingsInput } from "@/lib/admin-api";
 
-type Tab = "analytics" | "users" | "currencies" | "notifications";
+type Tab = "analytics" | "users" | "currencies" | "notifications" | "referrals" | "email";
+
+const SMTP_PRESETS: Record<
+  string,
+  { label: string; host: string; port: number; secure: boolean; hint?: string }
+> = {
+  gmail: { label: "Gmail / Google Workspace", host: "smtp.gmail.com", port: 587, secure: false, hint: "Use a 16-char App Password (Google Account → Security → 2-Step → App passwords)." },
+  outlook: { label: "Outlook / Microsoft 365", host: "smtp.office365.com", port: 587, secure: false, hint: "SMTP AUTH must be enabled on the mailbox." },
+  yahoo: { label: "Yahoo Mail", host: "smtp.mail.yahoo.com", port: 465, secure: true, hint: "Generate an App Password in Yahoo Account Security." },
+  icloud: { label: "iCloud Mail", host: "smtp.mail.me.com", port: 587, secure: false, hint: "Use an app-specific password from appleid.apple.com." },
+  zoho: { label: "Zoho Mail", host: "smtp.zoho.com", port: 465, secure: true, hint: "For zoho.eu use smtp.zoho.eu." },
+  sendgrid: { label: "SendGrid", host: "smtp.sendgrid.net", port: 587, secure: false, hint: "Username = `apikey`, password = your API key." },
+  mailgun: { label: "Mailgun", host: "smtp.mailgun.org", port: 587, secure: false, hint: "Use the SMTP credentials from your Mailgun domain." },
+  ses: { label: "Amazon SES (us-east-1)", host: "email-smtp.us-east-1.amazonaws.com", port: 587, secure: false, hint: "Replace the region in the host. Use SMTP credentials, not AWS keys." },
+  postmark: { label: "Postmark", host: "smtp.postmarkapp.com", port: 587, secure: false, hint: "Username = password = Server API token." },
+  resend: { label: "Resend", host: "smtp.resend.com", port: 465, secure: true, hint: "Username = `resend`, password = your API key." },
+  brevo: { label: "Brevo (Sendinblue)", host: "smtp-relay.brevo.com", port: 587, secure: false, hint: "Use the SMTP key from Brevo → SMTP & API." },
+  mailtrap: { label: "Mailtrap (sandbox)", host: "sandbox.smtp.mailtrap.io", port: 2525, secure: false, hint: "Catches every email — perfect for testing." },
+};
 
 export default function AdminScreen() {
   const colors = useColors();
@@ -37,8 +55,13 @@ export default function AdminScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={[styles.tabs, { borderBottomColor: colors.border }]}>
-        {(["analytics", "users", "currencies", "notifications"] as Tab[]).map((t) => (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={[styles.tabsScroll, { borderBottomColor: colors.border }]}
+        contentContainerStyle={styles.tabs}
+      >
+        {(["analytics", "users", "currencies", "notifications", "referrals", "email"] as Tab[]).map((t) => (
           <Pressable
             key={t}
             onPress={() => setTab(t)}
@@ -58,12 +81,14 @@ export default function AdminScreen() {
             </Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
 
       {tab === "analytics" && <AnalyticsTab />}
       {tab === "users" && <UsersTab onOpen={(id) => router.push(`/admin-user/${id}` as never)} />}
       {tab === "currencies" && <CurrenciesTab />}
       {tab === "notifications" && <NotificationsTab />}
+      {tab === "referrals" && <ReferralsTab onOpen={(id) => router.push(`/admin-user/${id}` as never)} />}
+      {tab === "email" && <EmailSettingsTab />}
     </View>
   );
 }
@@ -760,10 +785,506 @@ function Field({
   );
 }
 
+function ReferralsTab({ onOpen }: { onOpen: (id: string) => void }) {
+  const colors = useColors();
+  const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "referrals", debounced],
+    queryFn: () => adminApi.listReferrals(debounced || undefined),
+  });
+
+  const referrals = data?.referrals ?? [];
+  const top = data?.topReferrers ?? [];
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <Feather name="gift" size={18} color={colors.primary} />
+        <Text style={{ color: colors.foreground, fontSize: 18, fontFamily: "Inter_700Bold" }}>
+          Referrals
+        </Text>
+      </View>
+      <Text style={{ color: colors.mutedForeground, fontSize: 12, marginBottom: 12 }}>
+        Users who signed up via someone else's invite link (?ref=&lt;userId&gt;).
+      </Text>
+
+      <TextInput
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Search by user or referrer name/email…"
+        placeholderTextColor={colors.mutedForeground}
+        style={[
+          styles.input,
+          { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card },
+        ]}
+      />
+
+      {top.length > 0 && (
+        <View style={{ marginTop: 16 }}>
+          <Text
+            style={{
+              color: colors.mutedForeground,
+              fontSize: 11,
+              fontFamily: "Inter_600SemiBold",
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              marginBottom: 6,
+            }}
+          >
+            Top referrers
+          </Text>
+          {top.map((r) => (
+            <Pressable
+              key={r.id}
+              onPress={() => onOpen(r.id)}
+              style={[
+                styles.row,
+                { borderBottomColor: colors.border, paddingHorizontal: 4 },
+              ]}
+            >
+              <View style={[styles.avatar, { backgroundColor: colors.primary + "20" }]}>
+                <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>
+                  {r.name?.[0]?.toUpperCase() ?? "?"}
+                </Text>
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+                  {r.name}
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontSize: 12 }} numberOfLines={1}>
+                  {r.email}
+                </Text>
+              </View>
+              <View style={[styles.badge, { backgroundColor: colors.primary + "20" }]}>
+                <Text style={{ color: colors.primary, fontSize: 11 }}>
+                  {r.count} {r.count === 1 ? "invite" : "invites"}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      <Text
+        style={{
+          color: colors.mutedForeground,
+          fontSize: 11,
+          fontFamily: "Inter_600SemiBold",
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+          marginTop: 16,
+          marginBottom: 6,
+        }}
+      >
+        Signups
+      </Text>
+
+      {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />}
+      {!isLoading && referrals.length === 0 && (
+        <Text style={{ color: colors.mutedForeground, textAlign: "center", marginTop: 16 }}>
+          {debounced
+            ? `No referrals match "${debounced}".`
+            : "No referral signups yet."}
+        </Text>
+      )}
+      {referrals.map((r) => (
+        <Pressable
+          key={r.user.id}
+          onPress={() => onOpen(r.user.id)}
+          style={[styles.row, { borderBottomColor: colors.border, paddingHorizontal: 4 }]}
+        >
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }} numberOfLines={1}>
+              {r.user.name}
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 12 }} numberOfLines={1}>
+              {r.user.email}
+            </Text>
+          </View>
+          <View style={{ alignItems: "flex-end", maxWidth: "45%" }}>
+            <Text style={{ color: colors.mutedForeground, fontSize: 10 }}>referred by</Text>
+            <Text style={{ color: colors.foreground, fontSize: 12 }} numberOfLines={1}>
+              {r.referrer.name}
+            </Text>
+          </View>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+
+const EMPTY_SMTP: SmtpSettingsInput = {
+  enabled: false,
+  host: "",
+  port: 587,
+  secure: false,
+  username: "",
+  password: "",
+  fromAddress: "",
+  fromName: "Splitix",
+  appPublicUrl: "",
+};
+
+function EmailSettingsTab() {
+  const colors = useColors();
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "smtp"],
+    queryFn: () => adminApi.getSmtp(),
+  });
+
+  const [form, setForm] = useState<SmtpSettingsInput>(EMPTY_SMTP);
+  const [presetKey, setPresetKey] = useState<string>("custom");
+  const [showPresets, setShowPresets] = useState(false);
+  const [testTo, setTestTo] = useState("");
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    if (data) {
+      setForm({
+        enabled: data.enabled,
+        host: data.host,
+        port: data.port,
+        secure: data.secure,
+        username: data.username,
+        password: "",
+        fromAddress: data.fromAddress,
+        fromName: data.fromName,
+        appPublicUrl: data.appPublicUrl,
+      });
+    }
+  }, [data]);
+
+  function set<K extends keyof SmtpSettingsInput>(key: K, value: SmtpSettingsInput[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function applyPreset(key: string) {
+    setPresetKey(key);
+    setShowPresets(false);
+    const p = SMTP_PRESETS[key];
+    if (!p) return;
+    setForm((f) => ({ ...f, host: p.host, port: p.port, secure: p.secure }));
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: (input: SmtpSettingsInput) => adminApi.putSmtp(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "smtp"] });
+      setForm((f) => ({ ...f, password: "" }));
+      Alert.alert("Saved", "SMTP settings updated.");
+    },
+    onError: (err: Error) => Alert.alert("Save failed", err.message),
+  });
+
+  const testMutation = useMutation({
+    mutationFn: (to: string) => adminApi.testSmtp(to),
+    onSuccess: (res) => {
+      setTestResult(
+        res.ok
+          ? { ok: true, message: `Sent (id: ${res.messageId ?? "?"})` }
+          : { ok: false, message: res.error ?? "Unknown error" },
+      );
+    },
+    onError: (err: Error) => setTestResult({ ok: false, message: err.message }),
+  });
+
+  if (isLoading) {
+    return (
+      <View style={[styles.center, { padding: 24 }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+      <View>
+        <Text style={{ color: colors.foreground, fontSize: 18, fontFamily: "Inter_700Bold" }}>
+          Email (SMTP)
+        </Text>
+        <Text style={{ color: colors.mutedForeground, fontSize: 12, marginTop: 4 }}>
+          Configure the server used to send verification emails. Password is stored in
+          the database in plain text — use a dedicated app password.
+        </Text>
+      </View>
+
+      {/* Enable toggle */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: 12,
+          borderWidth: 1,
+          borderRadius: 8,
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+        }}
+      >
+        <View style={{ flex: 1, paddingRight: 12 }}>
+          <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>
+            SMTP enabled
+          </Text>
+          <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 2 }}>
+            When off, registrations succeed but no email is sent.
+          </Text>
+        </View>
+        <Pressable
+          onPress={() => set("enabled", !form.enabled)}
+          style={{
+            width: 48,
+            height: 28,
+            borderRadius: 999,
+            backgroundColor: form.enabled ? colors.primary : colors.border,
+            justifyContent: "center",
+            paddingHorizontal: 3,
+          }}
+        >
+          <View
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 11,
+              backgroundColor: "#fff",
+              alignSelf: form.enabled ? "flex-end" : "flex-start",
+            }}
+          />
+        </Pressable>
+      </View>
+
+      {/* Preset picker */}
+      <View>
+        <Text style={{ color: colors.mutedForeground, fontSize: 12, marginBottom: 4 }}>
+          Preset
+        </Text>
+        <Pressable
+          onPress={() => setShowPresets((s) => !s)}
+          style={[
+            styles.input,
+            {
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            },
+          ]}
+        >
+          <Text style={{ color: colors.foreground }}>
+            {presetKey === "custom" ? "Custom (fill manually)" : SMTP_PRESETS[presetKey]?.label}
+          </Text>
+          <Feather name={showPresets ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+        </Pressable>
+        {showPresets && (
+          <View
+            style={{
+              marginTop: 4,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 8,
+              backgroundColor: colors.card,
+              maxHeight: 280,
+            }}
+          >
+            <ScrollView nestedScrollEnabled>
+              <Pressable
+                onPress={() => applyPreset("custom")}
+                style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}
+              >
+                <Text style={{ color: colors.foreground }}>Custom (fill manually)</Text>
+              </Pressable>
+              {Object.entries(SMTP_PRESETS).map(([key, p]) => (
+                <Pressable
+                  key={key}
+                  onPress={() => applyPreset(key)}
+                  style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                >
+                  <Text style={{ color: colors.foreground }}>{p.label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+        {presetKey !== "custom" && SMTP_PRESETS[presetKey]?.hint && (
+          <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: 6 }}>
+            {SMTP_PRESETS[presetKey].hint}
+          </Text>
+        )}
+      </View>
+
+      <Field label="Host" value={form.host} onChange={(v) => set("host", v)} />
+      <Field
+        label="Port"
+        value={String(form.port)}
+        onChange={(v) => set("port", Number(v) || 0)}
+        keyboardType="numeric"
+      />
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: 12,
+          borderWidth: 1,
+          borderRadius: 8,
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+        }}
+      >
+        <Text style={{ color: colors.foreground, flex: 1, paddingRight: 12 }}>
+          Use TLS on connect (port 465). Off = STARTTLS (587).
+        </Text>
+        <Pressable
+          onPress={() => set("secure", !form.secure)}
+          style={{
+            width: 48,
+            height: 28,
+            borderRadius: 999,
+            backgroundColor: form.secure ? colors.primary : colors.border,
+            justifyContent: "center",
+            paddingHorizontal: 3,
+          }}
+        >
+          <View
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 11,
+              backgroundColor: "#fff",
+              alignSelf: form.secure ? "flex-end" : "flex-start",
+            }}
+          />
+        </Pressable>
+      </View>
+
+      <Field label="Username" value={form.username} onChange={(v) => set("username", v)} />
+      <View>
+        <Text style={{ color: colors.mutedForeground, fontSize: 12, marginBottom: 4 }}>
+          Password{data?.hasPassword ? "  (leave blank to keep current)" : ""}
+        </Text>
+        <TextInput
+          value={form.password}
+          onChangeText={(v) => set("password", v)}
+          secureTextEntry
+          placeholder={data?.hasPassword ? "••••••••" : ""}
+          placeholderTextColor={colors.mutedForeground}
+          style={[
+            styles.input,
+            { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card },
+          ]}
+        />
+      </View>
+
+      <Field label="From address" value={form.fromAddress} onChange={(v) => set("fromAddress", v)} />
+      <Field label="From name" value={form.fromName} onChange={(v) => set("fromName", v)} />
+      <Field label="App public URL" value={form.appPublicUrl} onChange={(v) => set("appPublicUrl", v)} />
+      <Text style={{ color: colors.mutedForeground, fontSize: 11, marginTop: -8 }}>
+        Used to build verification links. Should be the HTTPS origin where the web app
+        is reachable (no trailing slash).
+      </Text>
+
+      <Pressable
+        onPress={() => saveMutation.mutate(form)}
+        disabled={saveMutation.isPending}
+        style={[
+          styles.btn,
+          { backgroundColor: colors.primary, opacity: saveMutation.isPending ? 0.6 : 1 },
+        ]}
+      >
+        {saveMutation.isPending ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Feather name="save" size={16} color="#fff" />
+        )}
+        <Text style={{ color: "#fff", marginLeft: 8, fontFamily: "Inter_600SemiBold" }}>
+          Save settings
+        </Text>
+      </Pressable>
+
+      {/* Test sender */}
+      <View
+        style={{
+          padding: 12,
+          borderWidth: 1,
+          borderRadius: 8,
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+          gap: 8,
+          marginTop: 8,
+        }}
+      >
+        <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>
+          Send a test email
+        </Text>
+        <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>
+          Uses the saved settings above to deliver a one-off test message.
+        </Text>
+        <TextInput
+          value={testTo}
+          onChangeText={setTestTo}
+          placeholder="recipient@example.com"
+          placeholderTextColor={colors.mutedForeground}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          style={[
+            styles.input,
+            { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background },
+          ]}
+        />
+        <Pressable
+          onPress={() => {
+            setTestResult(null);
+            testMutation.mutate(testTo);
+          }}
+          disabled={!testTo || testMutation.isPending}
+          style={[
+            styles.btn,
+            {
+              backgroundColor: colors.primary,
+              opacity: !testTo || testMutation.isPending ? 0.5 : 1,
+            },
+          ]}
+        >
+          {testMutation.isPending ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Feather name="send" size={16} color="#fff" />
+          )}
+          <Text style={{ color: "#fff", marginLeft: 8, fontFamily: "Inter_600SemiBold" }}>
+            Send test
+          </Text>
+        </Pressable>
+        {testResult && (
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
+            <Feather
+              name={testResult.ok ? "check-circle" : "x-circle"}
+              size={14}
+              color={testResult.ok ? "#059669" : "#dc2626"}
+              style={{ marginTop: 2 }}
+            />
+            <Text style={{ color: testResult.ok ? "#059669" : "#dc2626", flex: 1 }}>
+              {testResult.message}
+            </Text>
+          </View>
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  tabs: { flexDirection: "row", borderBottomWidth: 1 },
-  tabBtn: { flex: 1, paddingVertical: 12, alignItems: "center", borderBottomWidth: 2, borderBottomColor: "transparent" },
+  tabsScroll: { flexGrow: 0, borderBottomWidth: 1 },
+  tabs: { flexDirection: "row" },
+  tabBtn: { paddingVertical: 12, paddingHorizontal: 16, alignItems: "center", borderBottomWidth: 2, borderBottomColor: "transparent" },
   input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontFamily: "Inter_400Regular" },
   row: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, gap: 12 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },

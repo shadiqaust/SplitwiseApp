@@ -135,4 +135,67 @@ export const adminApi = {
     adminSend<{ sent: number }>("/admin/notifications", "POST", input),
   recentNotifications: () =>
     adminGet<{ items: SentNotification[] }>("/admin/notifications/sent"),
+  listReferrals: (q?: string) =>
+    adminGet<{ referrals: ReferralRow[]; topReferrers: TopReferrer[] }>(
+      `/admin/referrals${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+    ),
+  getSmtp: () => adminGet<SmtpSettings>("/admin/settings/smtp"),
+  putSmtp: (input: SmtpSettingsInput) =>
+    adminSend<SmtpSettings>("/admin/settings/smtp", "PUT", input),
+  testSmtp: (to: string) =>
+    adminSend<{ ok: boolean; messageId?: string; error?: string }>(
+      "/admin/settings/smtp/test",
+      "POST",
+      { to },
+    ),
 };
+
+export interface ReferralRow {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl: string | null;
+    createdAt: string;
+  };
+  referrer: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl: string | null;
+  };
+}
+
+export interface TopReferrer {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  count: number;
+}
+
+export interface SmtpSettings {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  hasPassword: boolean;
+  fromAddress: string;
+  fromName: string;
+  appPublicUrl: string;
+  updatedAt: string | null;
+}
+
+export interface SmtpSettingsInput {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  /** Empty string means "leave password unchanged". */
+  password: string;
+  fromAddress: string;
+  fromName: string;
+  appPublicUrl: string;
+}
