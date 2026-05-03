@@ -1669,6 +1669,25 @@ export function GroupDetailPage() {
           </CardContent>
         </Card>
 
+        {balances.data &&
+          balances.data.length === 0 &&
+          (expenses.data?.length ?? 0) > 0 && (
+            <div
+              role="status"
+              className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30 p-4 flex items-center gap-3"
+            >
+              <span className="text-2xl leading-none" aria-hidden="true">🎉</span>
+              <div className="flex-1">
+                <p className="font-semibold text-sm text-green-900 dark:text-green-200">
+                  All settled up!
+                </p>
+                <p className="text-xs text-green-800/80 dark:text-green-300/80">
+                  Everyone in this group is even. Great teamwork!
+                </p>
+              </div>
+            </div>
+          )}
+
         <Tabs defaultValue="activity">
           <TabsList>
             <TabsTrigger value="activity">Activity</TabsTrigger>

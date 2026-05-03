@@ -622,6 +622,20 @@ export default function GroupDetailScreen() {
           </View>
         </Card>
 
+        {balances.data &&
+          balances.data.length === 0 &&
+          (expenses.data?.length ?? 0) > 0 && (
+            <View style={styles.settledBanner} accessibilityRole="text">
+              <Text style={styles.settledEmoji}>🎉</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settledTitle}>All settled up!</Text>
+                <Text style={styles.settledSub}>
+                  Everyone in this group is even. Great teamwork!
+                </Text>
+              </View>
+            </View>
+          )}
+
         <View style={[styles.tabs, { borderColor: colors.border }]}>
           {(["expenses", "balances"] as Tab[]).map((t) => (
             <Pressable
@@ -1248,6 +1262,28 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   activityAmount: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  settledBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(34,197,94,0.35)",
+    backgroundColor: "rgba(34,197,94,0.10)",
+  },
+  settledEmoji: { fontSize: 26, lineHeight: 30 },
+  settledTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: "#166534",
+  },
+  settledSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: "#15803d",
+    marginTop: 2,
+  },
   balanceRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   balanceText: { fontFamily: "Inter_400Regular", fontSize: 14, flex: 1 },
   balanceAmount: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
