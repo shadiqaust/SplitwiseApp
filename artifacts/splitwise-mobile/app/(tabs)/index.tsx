@@ -31,11 +31,13 @@ export default function DashboardScreen() {
   // Polling cadence + background-polling are configured globally on the
   // QueryClient (5s, runs in background).
   const summary = useGetDashboardSummary();
-  const activity = useGetActivity({ limit: 20 });
+  const activity = useGetActivity({ limit: 50 });
   const { user } = useAuth();
   const myCurrency = user?.defaultCurrency ?? "USD";
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [visibleGroups, setVisibleGroups] = useState(5);
+  const [visibleActivity, setVisibleActivity] = useState(10);
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -223,58 +225,74 @@ export default function DashboardScreen() {
           </Pressable>
 
           {data?.groupSummaries && data.groupSummaries.length > 0 ? (
-            data.groupSummaries.map((g) => (
-              // Use Pressable instead of onTouchEnd so a pull-to-refresh swipe
-              // that starts on this row does NOT navigate. Pressable cancels
-              // the press when the touch moves beyond a threshold (e.g. when
-              // the user is actually scrolling/refreshing).
-              <Pressable
-                key={g.groupId}
-                onPress={() => router.push(`/groups/${g.groupId}`)}
-                android_ripple={{ color: colors.accent }}
-                style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-              >
-                <Card style={styles.groupRow}>
-                  {g.avatarUrl ? (
-                    <Image source={{ uri: g.avatarUrl }} style={styles.groupAvatar} />
-                  ) : (
-                    <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
-                      <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>
-                        {g.groupName.charAt(0).toUpperCase()}
+            <>
+              {data.groupSummaries.slice(0, visibleGroups).map((g) => (
+                // Use Pressable instead of onTouchEnd so a pull-to-refresh swipe
+                // that starts on this row does NOT navigate. Pressable cancels
+                // the press when the touch moves beyond a threshold (e.g. when
+                // the user is actually scrolling/refreshing).
+                <Pressable
+                  key={g.groupId}
+                  onPress={() => router.push(`/groups/${g.groupId}`)}
+                  android_ripple={{ color: colors.accent }}
+                  style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                >
+                  <Card style={styles.groupRow}>
+                    {g.avatarUrl ? (
+                      <Image source={{ uri: g.avatarUrl }} style={styles.groupAvatar} />
+                    ) : (
+                      <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
+                        <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>
+                          {g.groupName.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[styles.groupName, { color: colors.foreground }]}
+                        numberOfLines={1}
+                      >
+                        {g.groupName}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.groupBalance,
+                          {
+                            color:
+                              g.myNetBalance > 0
+                                ? colors.positive
+                                : g.myNetBalance < 0
+                                  ? colors.negative
+                                  : colors.mutedForeground,
+                          },
+                        ]}
+                      >
+                        {g.myNetBalance > 0
+                          ? `you are owed ${formatCurrency(g.myNetBalance, g.currency)}`
+                          : g.myNetBalance < 0
+                            ? `you owe ${formatCurrency(Math.abs(g.myNetBalance), g.currency)}`
+                            : "settled up"}
                       </Text>
                     </View>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[styles.groupName, { color: colors.foreground }]}
-                      numberOfLines={1}
-                    >
-                      {g.groupName}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.groupBalance,
-                        {
-                          color:
-                            g.myNetBalance > 0
-                              ? colors.positive
-                              : g.myNetBalance < 0
-                                ? colors.negative
-                                : colors.mutedForeground,
-                        },
-                      ]}
-                    >
-                      {g.myNetBalance > 0
-                        ? `you are owed ${formatCurrency(g.myNetBalance, g.currency)}`
-                        : g.myNetBalance < 0
-                          ? `you owe ${formatCurrency(Math.abs(g.myNetBalance), g.currency)}`
-                          : "settled up"}
-                    </Text>
-                  </View>
-                  <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
-                </Card>
-              </Pressable>
-            ))
+                    <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
+                  </Card>
+                </Pressable>
+              ))}
+              {data.groupSummaries.length > visibleGroups ? (
+                <Pressable
+                  onPress={() => setVisibleGroups((c) => c + 5)}
+                  android_ripple={{ color: colors.accent }}
+                  style={({ pressed }) => [
+                    styles.showMore,
+                    { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                  ]}
+                >
+                  <Text style={[styles.showMoreText, { color: colors.primary }]}>
+                    Show more ({data.groupSummaries.length - visibleGroups} more)
+                  </Text>
+                </Pressable>
+              ) : null}
+            </>
           ) : null}
         </View>
       </View>
@@ -285,7 +303,7 @@ export default function DashboardScreen() {
         </Text>
         {activity.data && activity.data.length > 0 ? (
           <View style={{ gap: 8 }}>
-            {activity.data.map((item) => (
+            {activity.data.slice(0, visibleActivity).map((item) => (
               <Card key={item.id} style={styles.activityRow}>
                 <Avatar
                   name={item.involvedUser.name}
@@ -316,6 +334,20 @@ export default function DashboardScreen() {
                 </Text>
               </Card>
             ))}
+            {activity.data.length > visibleActivity ? (
+              <Pressable
+                onPress={() => setVisibleActivity((c) => c + 10)}
+                android_ripple={{ color: colors.accent }}
+                style={({ pressed }) => [
+                  styles.showMore,
+                  { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Text style={[styles.showMoreText, { color: colors.primary }]}>
+                  Show more ({activity.data.length - visibleActivity} more)
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : (
           <Card>
@@ -371,4 +403,13 @@ const styles = StyleSheet.create({
   activityTitle: { fontFamily: "Inter_500Medium", fontSize: 14 },
   activitySub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
   activityAmount: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
+  showMore: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: "dashed",
+  },
+  showMoreText: { fontFamily: "Inter_600SemiBold", fontSize: 14 },
 });
