@@ -287,9 +287,9 @@ export function FriendDetailPage() {
 
   return (
     <Layout>
-      <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 pb-16">
+      <div className="-mx-4 md:-mx-8 -mt-4 md:-mt-8 pb-16">
         {/* Decorative banner */}
-        <div className="relative h-36 bg-primary overflow-hidden">
+        <div className="relative h-36 bg-primary overflow-hidden isolate">
           <div className="absolute -top-24 -right-12 w-56 h-56 rotate-45 bg-white/10" />
           <div className="absolute -bottom-16 -left-10 w-44 h-44 rotate-12 bg-white/5" />
           <div className="absolute -bottom-12 right-12 w-32 h-32 rotate-6 bg-white/10" />
@@ -318,7 +318,7 @@ export function FriendDetailPage() {
         </div>
 
         {/* Avatar overlapping the banner */}
-        <div className="px-5 -mt-12">
+        <div className="relative z-10 px-5 -mt-12">
           {isLoading && !data ? (
             <Skeleton className="w-24 h-24 rounded-full" />
           ) : friend ? (
