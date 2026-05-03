@@ -14,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   SplitType,
   useCreateFriendExpense,
+  useGetMe,
   getGetDashboardSummaryQueryKey,
   getGetActivityQueryKey,
 } from "@workspace/api-client-react";
@@ -58,6 +59,8 @@ export function AddExpenseWithFriendModal({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const createExpense = useCreateFriendExpense();
+  const { data: me } = useGetMe();
+  const defaultCurrency = me?.defaultCurrency ?? "USD";
 
   const friendId = String(friend.id);
 
@@ -147,7 +150,7 @@ export function AddExpenseWithFriendModal({
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
-          currency: "USD",
+          currency: defaultCurrency,
           splitType: splitTypeForApi,
           paidByUserId: paidByForApi,
           date: new Date().toISOString().slice(0, 10),

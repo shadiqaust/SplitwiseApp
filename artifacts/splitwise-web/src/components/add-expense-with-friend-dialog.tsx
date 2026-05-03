@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   SplitType,
   useCreateFriendExpense,
+  useGetMe,
   getGetDashboardSummaryQueryKey,
   getGetActivityQueryKey,
 } from "@workspace/api-client-react";
@@ -75,6 +76,8 @@ export function AddExpenseWithFriendDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createExpense = useCreateFriendExpense();
+  const { data: me } = useGetMe();
+  const defaultCurrency = me?.defaultCurrency ?? "USD";
 
   // UI-only split mode. "loan" = lent the full amount to the friend.
   type Mode = "equal" | "exact" | "loan";
@@ -176,7 +179,7 @@ export function AddExpenseWithFriendDialog({
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
-          currency: "USD",
+          currency: defaultCurrency,
           splitType: splitTypeForApi,
           paidByUserId: paidByForApi,
           date: new Date().toISOString().slice(0, 10),
