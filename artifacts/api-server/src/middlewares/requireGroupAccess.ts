@@ -77,6 +77,7 @@ export function requireExpenseAccess(paramName = "expenseId") {
         id: expensesTable.id,
         groupId: expensesTable.groupId,
         paidByUserId: expensesTable.paidByUserId,
+        createdByUserId: expensesTable.createdByUserId,
       })
       .from(expensesTable)
       .where(and(eq(expensesTable.id, expenseId), isNull(expensesTable.deletedAt)));
@@ -93,8 +94,11 @@ export function requireExpenseAccess(paramName = "expenseId") {
       }
       req.authorizedGroupId = expense.groupId;
     } else {
-      // Non-group (friend) expense: must be the payer or appear in the splits.
-      if (expense.paidByUserId !== userId) {
+      // Non-group (friend) expense: must be a participant — payer, creator,
+      // or appear in the splits.
+      const isPayer = expense.paidByUserId === userId;
+      const isCreator = expense.createdByUserId === userId;
+      if (!isPayer && !isCreator) {
         const [mySplit] = await db
           .select({ id: expenseSplitsTable.id })
           .from(expenseSplitsTable)

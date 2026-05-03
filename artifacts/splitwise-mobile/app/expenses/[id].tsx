@@ -192,7 +192,13 @@ export default function ExpenseDetailScreen() {
       : expense.paidByUser?.name ?? "Someone";
   const creatorId = expense.createdByUserId ?? expense.paidByUserId;
   const isNonGroup = expense.groupId === null;
-  const canMutate = !isNonGroup || creatorId === myId;
+  // Any participant of a non-group expense can edit/delete it.
+  const isParticipant =
+    !!myId &&
+    (expense.splits?.some((s) => s.userId === myId) ||
+      expense.paidByUserId === myId ||
+      expense.createdByUserId === myId);
+  const canMutate = !isNonGroup || isParticipant;
   const creatorName =
     creatorId === myId
       ? "you"

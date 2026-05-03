@@ -677,13 +677,21 @@ router.put(
       return;
     }
 
-    // Non-group expenses can only be edited by their creator (or, for legacy
-    // rows without a creator recorded, by the original payer as a fallback).
+    // Non-group expenses can be edited by any participant (anyone in the
+    // splits, the payer, or the creator).
     if (current.groupId === null) {
       const me = req.dbUserId!;
-      const owner = current.createdByUserId ?? current.paidByUserId;
-      if (owner !== me) {
-        res.status(403).json({ error: "Only the creator can edit this expense" });
+      const existingSplitUserIds = await db
+        .select({ userId: expenseSplitsTable.userId })
+        .from(expenseSplitsTable)
+        .where(eq(expenseSplitsTable.expenseId, expenseId));
+      const participantIds = new Set<string>(
+        existingSplitUserIds.map((s) => s.userId),
+      );
+      if (current.paidByUserId) participantIds.add(current.paidByUserId);
+      if (current.createdByUserId) participantIds.add(current.createdByUserId);
+      if (!participantIds.has(me)) {
+        res.status(403).json({ error: "Only a participant can edit this expense" });
         return;
       }
     }
@@ -826,9 +834,17 @@ router.delete(
     }
     if (current.groupId === null) {
       const me = req.dbUserId!;
-      const owner = current.createdByUserId ?? current.paidByUserId;
-      if (owner !== me) {
-        res.status(403).json({ error: "Only the creator can delete this expense" });
+      const existingSplitUserIds = await db
+        .select({ userId: expenseSplitsTable.userId })
+        .from(expenseSplitsTable)
+        .where(eq(expenseSplitsTable.expenseId, expenseId));
+      const participantIds = new Set<string>(
+        existingSplitUserIds.map((s) => s.userId),
+      );
+      if (current.paidByUserId) participantIds.add(current.paidByUserId);
+      if (current.createdByUserId) participantIds.add(current.createdByUserId);
+      if (!participantIds.has(me)) {
+        res.status(403).json({ error: "Only a participant can delete this expense" });
         return;
       }
     }
