@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error";
-import { formatCurrency, getCurrencySymbol } from "@/lib/format";
+import { cn, formatCurrency, getCurrencySymbol } from "@/lib/format";
 
 export interface SettleFriend {
   id: string | number;
@@ -195,11 +195,20 @@ export function SettleUpWithFriendDialog({
                     const owed = b.amount > 0;
                     return (
                       <li key={b.currency} className="text-xs">
-                        <span className="font-medium">
+                        <span
+                          className={cn(
+                            "font-semibold",
+                            owed ? "text-green-600" : "text-red-500",
+                          )}
+                        >
                           {formatCurrency(Math.abs(b.amount), b.currency)}
                         </span>
-                        <span className="text-amber-800/80 dark:text-amber-300/80">
-                          {" "}
+                        <span
+                          className={cn(
+                            "ml-1",
+                            owed ? "text-green-600" : "text-red-500",
+                          )}
+                        >
                           — {owed ? `${friend.name} owes you` : `you owe ${friend.name}`}
                         </span>
                       </li>

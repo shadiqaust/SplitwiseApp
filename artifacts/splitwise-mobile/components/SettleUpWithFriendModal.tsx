@@ -172,9 +172,10 @@ export function SettleUpWithFriendModal({
                     <View style={{ gap: 2 }}>
                       {nonZeroBalances.map((b) => {
                         const owed = b.amount > 0;
+                        const tone = owed ? colors.positive : colors.negative;
                         return (
-                          <Text key={b.currency} style={{ color: "#92400e", fontFamily: "Inter_400Regular", fontSize: 12 }}>
-                            <Text style={{ fontFamily: "Inter_600SemiBold" }}>
+                          <Text key={b.currency} style={{ color: tone, fontFamily: "Inter_400Regular", fontSize: 12 }}>
+                            <Text style={{ fontFamily: "Inter_600SemiBold", color: tone }}>
                               {formatCurrency(Math.abs(b.amount), b.currency)}
                             </Text>
                             {" — "}
