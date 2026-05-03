@@ -58,7 +58,7 @@ function UserAvatar({ name, url, size = 80 }: { name?: string; url?: string | nu
   if (url) {
     return (
       <img
-        src={url}
+        src={resolveAvatarUrl(url) ?? url}
         alt={name}
         className="rounded-full object-cover"
         style={{ width: size, height: size }}
