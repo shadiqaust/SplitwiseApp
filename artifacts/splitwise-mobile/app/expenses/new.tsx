@@ -150,7 +150,6 @@ export default function NewExpenseScreen() {
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
-          currency: group.data?.currency ?? "USD",
           splitType,
           paidByUserId,
           date: new Date().toISOString().slice(0, 10),

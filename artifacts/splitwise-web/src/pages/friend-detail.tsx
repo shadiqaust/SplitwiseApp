@@ -31,7 +31,9 @@ type GroupBalance = {
   groupId: string | null;
   name: string;
   href: string;
-  perCurrency: { currency: string; amount: number }[];
+  // Single net amount (positive = friend owes you). Currency is rendered with
+  // the viewer's display symbol, so we no longer carry a per-currency list.
+  amount: number;
 };
 
 function authHeaders(): HeadersInit {
@@ -85,49 +87,38 @@ export function FriendDetailPage() {
 
   const groupBalances = useMemo<GroupBalance[]>(() => {
     if (!data || !myId) return [];
-    // bucketKey -> currency -> amount (positive = friend owes me)
-    const buckets = new Map<string, Map<string, number>>();
-    const bump = (bucket: string, cur: string, delta: number) => {
-      if (!buckets.has(bucket)) buckets.set(bucket, new Map());
-      const m = buckets.get(bucket)!;
-      m.set(cur, (m.get(cur) ?? 0) + delta);
+    // bucketKey -> signed sum (positive = friend owes me). Stored currencies
+    // are ignored; the viewer's display symbol is applied at render.
+    const buckets = new Map<string, number>();
+    const bump = (bucket: string, delta: number) => {
+      buckets.set(bucket, (buckets.get(bucket) ?? 0) + delta);
     };
     for (const e of data.expenses) {
       const bucket = e.groupId ?? "__none__";
-      const cur = e.currency || "USD";
       if (e.paidByUserId === myId) {
         const fs = e.splits.find((s) => s.userId === friendId);
-        if (fs) bump(bucket, cur, parseFloat(String(fs.amount)));
+        if (fs) bump(bucket, parseFloat(String(fs.amount)));
       } else if (e.paidByUserId === friendId) {
         const ms = e.splits.find((s) => s.userId === myId);
-        if (ms) bump(bucket, cur, -parseFloat(String(ms.amount)));
+        if (ms) bump(bucket, -parseFloat(String(ms.amount)));
       }
     }
     for (const p of data.payments) {
       const bucket = p.groupId ?? "__none__";
-      const cur =
-        p.currency ||
-        (p.groupId && groupInfoById.get(p.groupId)?.currency) ||
-        "USD";
       const amt = parseFloat(String(p.amount));
-      if (p.fromUserId === myId) bump(bucket, cur, amt);
-      else bump(bucket, cur, -amt);
+      if (p.fromUserId === myId) bump(bucket, amt);
+      else bump(bucket, -amt);
     }
 
     const out: GroupBalance[] = [];
-    for (const [bucketKey, perCur] of buckets) {
-      const perCurrency: { currency: string; amount: number }[] = [];
-      for (const [cur, amt] of perCur) {
-        perCurrency.push({ currency: cur, amount: amt });
-      }
-      perCurrency.sort((a, b) => a.currency.localeCompare(b.currency));
+    for (const [bucketKey, amount] of buckets) {
       if (bucketKey === "__none__") {
         out.push({
           key: "__none__",
           groupId: null,
           name: "Non-group expenses",
           href: "/non-group-expenses",
-          perCurrency,
+          amount,
         });
       } else {
         const info = groupInfoById.get(bucketKey);
@@ -136,13 +127,12 @@ export function FriendDetailPage() {
           groupId: bucketKey,
           name: info?.name ?? "Group",
           href: `/groups/${bucketKey}`,
-          perCurrency,
+          amount,
         });
       }
     }
     // Sort: non-settled first, then settled. Within settled, non-group bucket last.
-    const isSettled = (gb: GroupBalance) =>
-      gb.perCurrency.every((c) => Math.abs(c.amount) < 0.01);
+    const isSettled = (gb: GroupBalance) => Math.abs(gb.amount) < 0.01;
     out.sort((a, b) => {
       const aS = isSettled(a) ? 1 : 0;
       const bS = isSettled(b) ? 1 : 0;
@@ -213,29 +203,27 @@ export function FriendDetailPage() {
                 <p className="text-xs sm:text-sm text-muted-foreground truncate">{friend.email}</p>
               </div>
               <div className="text-right shrink-0 space-y-1">
-                {(data?.balances ?? []).filter((b) => Math.abs(b.amount) >= 0.01).length === 0 ? (
+                {Math.abs(net) < 0.01 ? (
                   <p className="text-sm text-muted-foreground">settled up</p>
                 ) : (
-                  (data?.balances ?? [])
-                    .filter((b) => Math.abs(b.amount) >= 0.01)
-                    .map((b) => {
-                      const owed = b.amount > 0;
-                      return (
-                        <div key={b.currency}>
-                          <p
-                            className={cn(
-                              "text-base sm:text-lg font-bold whitespace-nowrap",
-                              owed ? "text-green-600" : "text-red-500",
-                            )}
-                          >
-                            {formatCurrency(Math.abs(b.amount), b.currency)}
-                          </p>
-                          <p className={cn("text-[10px] uppercase tracking-wide", owed ? "text-green-600" : "text-red-500")}>
-                            {owed ? "owes you" : "you owe"}
-                          </p>
-                        </div>
-                      );
-                    })
+                  (() => {
+                    const owed = net > 0;
+                    return (
+                      <div>
+                        <p
+                          className={cn(
+                            "text-base sm:text-lg font-bold whitespace-nowrap",
+                            owed ? "text-green-600" : "text-red-500",
+                          )}
+                        >
+                          {formatCurrency(Math.abs(net))}
+                        </p>
+                        <p className={cn("text-[10px] uppercase tracking-wide", owed ? "text-green-600" : "text-red-500")}>
+                          {owed ? "owes you" : "you owe"}
+                        </p>
+                      </div>
+                    );
+                  })()
                 )}
               </div>
             </CardContent>
@@ -267,8 +255,8 @@ export function FriendDetailPage() {
 
 function GroupBalanceRow({ balance }: { balance: GroupBalance }) {
   const [, navigate] = useLocation();
-  const nonZero = balance.perCurrency.filter((c) => Math.abs(c.amount) >= 0.01);
-  const settled = nonZero.length === 0;
+  const settled = Math.abs(balance.amount) < 0.01;
+  const owed = balance.amount > 0;
   return (
     <Card
       onClick={() => navigate(balance.href)}
@@ -288,29 +276,24 @@ function GroupBalanceRow({ balance }: { balance: GroupBalance }) {
           {settled ? (
             <p className="text-sm text-muted-foreground">settled up</p>
           ) : (
-            nonZero.map((b) => {
-              const owed = b.amount > 0;
-              return (
-                <div key={b.currency}>
-                  <p
-                    className={cn(
-                      "font-semibold whitespace-nowrap",
-                      owed ? "text-green-600" : "text-red-500",
-                    )}
-                  >
-                    {formatCurrency(Math.abs(b.amount), b.currency)}
-                  </p>
-                  <p
-                    className={cn(
-                      "text-[10px] uppercase tracking-wide",
-                      owed ? "text-green-600" : "text-red-500",
-                    )}
-                  >
-                    {owed ? "owes you" : "you owe"}
-                  </p>
-                </div>
-              );
-            })
+            <div>
+              <p
+                className={cn(
+                  "font-semibold whitespace-nowrap",
+                  owed ? "text-green-600" : "text-red-500",
+                )}
+              >
+                {formatCurrency(Math.abs(balance.amount))}
+              </p>
+              <p
+                className={cn(
+                  "text-[10px] uppercase tracking-wide",
+                  owed ? "text-green-600" : "text-red-500",
+                )}
+              >
+                {owed ? "owes you" : "you owe"}
+              </p>
+            </div>
           )}
         </div>
         <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />

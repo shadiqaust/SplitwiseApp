@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect } from "react";
 import { Switch, Route, Redirect, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { useGetMe } from "@workspace/api-client-react";
 import { queryClient } from "./lib/queryClient";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { setDisplayCurrency } from "./lib/format";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -72,6 +74,17 @@ function ScrollToTop() {
         (el as HTMLElement).scrollTop = 0;
       });
   }, [location]);
+  return null;
+}
+
+// Sync the viewer's default currency into the format module so every
+// formatCurrency / getCurrencySymbol call renders amounts with the user's
+// own symbol regardless of what's stored on the expense/group/payment.
+function DisplayCurrencyBridge() {
+  const me = useGetMe();
+  useEffect(() => {
+    if (me.data?.defaultCurrency) setDisplayCurrency(me.data.defaultCurrency);
+  }, [me.data?.defaultCurrency]);
   return null;
 }
 
@@ -172,6 +185,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <WouterRouter base={basePath}>
+            <DisplayCurrencyBridge />
             <ReferralCapture />
             <ScrollToTop />
             <Routes />

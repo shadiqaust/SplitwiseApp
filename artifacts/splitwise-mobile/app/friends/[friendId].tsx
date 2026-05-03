@@ -39,7 +39,9 @@ type GroupBalance = {
   key: string;
   groupId: string | null;
   name: string;
-  perCurrency: { currency: string; amount: number }[];
+  // Single net amount (positive = friend owes you). Currency rendered with
+  // the viewer's display symbol via formatCurrency.
+  amount: number;
 };
 
 export default function FriendDetailScreen() {
@@ -78,47 +80,35 @@ export default function FriendDetailScreen() {
   const groupBalances = useMemo<GroupBalance[]>(() => {
     const data = query.data;
     if (!data || !myId) return [];
-    const buckets = new Map<string, Map<string, number>>();
-    const bump = (bucket: string, cur: string, delta: number) => {
-      if (!buckets.has(bucket)) buckets.set(bucket, new Map());
-      const m = buckets.get(bucket)!;
-      m.set(cur, (m.get(cur) ?? 0) + delta);
+    const buckets = new Map<string, number>();
+    const bump = (bucket: string, delta: number) => {
+      buckets.set(bucket, (buckets.get(bucket) ?? 0) + delta);
     };
     for (const e of data.expenses) {
       const bucket = e.groupId ?? "__none__";
-      const cur = e.currency || "USD";
       if (e.paidByUserId === myId) {
         const fs = e.splits.find((s) => s.userId === friendId);
-        if (fs) bump(bucket, cur, parseFloat(String(fs.amount)));
+        if (fs) bump(bucket, parseFloat(String(fs.amount)));
       } else if (e.paidByUserId === friendId) {
         const ms = e.splits.find((s) => s.userId === myId);
-        if (ms) bump(bucket, cur, -parseFloat(String(ms.amount)));
+        if (ms) bump(bucket, -parseFloat(String(ms.amount)));
       }
     }
     for (const p of data.payments) {
       const bucket = p.groupId ?? "__none__";
-      const cur =
-        p.currency ||
-        (p.groupId && groupInfoById.get(p.groupId)?.currency) ||
-        "USD";
       const amt = parseFloat(String(p.amount));
-      if (p.fromUserId === myId) bump(bucket, cur, amt);
-      else bump(bucket, cur, -amt);
+      if (p.fromUserId === myId) bump(bucket, amt);
+      else bump(bucket, -amt);
     }
 
     const out: GroupBalance[] = [];
-    for (const [bucketKey, perCur] of buckets) {
-      const perCurrency: { currency: string; amount: number }[] = [];
-      for (const [cur, amt] of perCur) {
-        perCurrency.push({ currency: cur, amount: amt });
-      }
-      perCurrency.sort((a, b) => a.currency.localeCompare(b.currency));
+    for (const [bucketKey, amount] of buckets) {
       if (bucketKey === "__none__") {
         out.push({
           key: "__none__",
           groupId: null,
           name: "Non-group expenses",
-          perCurrency,
+          amount,
         });
       } else {
         const info = groupInfoById.get(bucketKey);
@@ -126,12 +116,11 @@ export default function FriendDetailScreen() {
           key: bucketKey,
           groupId: bucketKey,
           name: info?.name ?? "Group",
-          perCurrency,
+          amount,
         });
       }
     }
-    const isSettled = (gb: GroupBalance) =>
-      gb.perCurrency.every((c) => Math.abs(c.amount) < 0.01);
+    const isSettled = (gb: GroupBalance) => Math.abs(gb.amount) < 0.01;
     out.sort((a, b) => {
       const aS = isSettled(a) ? 1 : 0;
       const bS = isSettled(b) ? 1 : 0;
@@ -192,25 +181,23 @@ export default function FriendDetailScreen() {
                 </Text>
               </View>
               <View style={{ alignItems: "flex-end", gap: 6 }}>
-                {((query.data?.balances ?? []).filter((b) => Math.abs(b.amount) >= 0.01).length === 0) ? (
+                {Math.abs(net) < 0.01 ? (
                   <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>settled</Text>
                 ) : (
-                  (query.data?.balances ?? [])
-                    .filter((b) => Math.abs(b.amount) >= 0.01)
-                    .map((b) => {
-                      const owed = b.amount > 0;
-                      const tone = owed ? colors.positive : colors.negative;
-                      return (
-                        <View key={b.currency} style={{ alignItems: "flex-end" }}>
-                          <Text style={[styles.balanceAmount, { color: tone }]}>
-                            {formatCurrency(Math.abs(b.amount), b.currency)}
-                          </Text>
-                          <Text style={[styles.balanceSub, { color: tone }]}>
-                            {owed ? "owes you" : "you owe"}
-                          </Text>
-                        </View>
-                      );
-                    })
+                  (() => {
+                    const owed = net > 0;
+                    const tone = owed ? colors.positive : colors.negative;
+                    return (
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Text style={[styles.balanceAmount, { color: tone }]}>
+                          {formatCurrency(Math.abs(net))}
+                        </Text>
+                        <Text style={[styles.balanceSub, { color: tone }]}>
+                          {owed ? "owes you" : "you owe"}
+                        </Text>
+                      </View>
+                    );
+                  })()
                 )}
               </View>
             </Card>
@@ -271,8 +258,8 @@ function GroupBalanceRow({
   onPress: () => void;
 }) {
   const colors = useColors();
-  const nonZero = balance.perCurrency.filter((c) => Math.abs(c.amount) >= 0.01);
-  const settled = nonZero.length === 0;
+  const settled = Math.abs(balance.amount) < 0.01;
+  const owed = balance.amount > 0;
   return (
     <Pressable
       onPress={onPress}
@@ -304,22 +291,19 @@ function GroupBalanceRow({
             <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>
               settled up
             </Text>
-          ) : (
-            nonZero.map((b) => {
-              const owed = b.amount > 0;
-              const tone = owed ? colors.positive : colors.negative;
-              return (
-                <View key={b.currency} style={{ alignItems: "flex-end" }}>
-                  <Text style={[styles.itemAmount, { color: tone }]}>
-                    {formatCurrency(Math.abs(b.amount), b.currency)}
-                  </Text>
-                  <Text style={[styles.itemSub, { color: tone }]}>
-                    {owed ? "owes you" : "you owe"}
-                  </Text>
-                </View>
-              );
-            })
-          )}
+          ) : (() => {
+            const tone = owed ? colors.positive : colors.negative;
+            return (
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={[styles.itemAmount, { color: tone }]}>
+                  {formatCurrency(Math.abs(balance.amount))}
+                </Text>
+                <Text style={[styles.itemSub, { color: tone }]}>
+                  {owed ? "owes you" : "you owe"}
+                </Text>
+              </View>
+            );
+          })()}
         </View>
         <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
       </Card>

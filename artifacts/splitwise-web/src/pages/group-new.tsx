@@ -1,14 +1,12 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useCreateGroup, getListGroupsQueryKey, useGetMe, useListCurrencies } from "@workspace/api-client-react";
-import { useEffect } from "react";
+import { useCreateGroup, getListGroupsQueryKey } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -16,33 +14,20 @@ import { useToast } from "@/hooks/use-toast";
 const formSchema = z.object({
   name: z.string().min(1, "Group name is required").max(100),
   description: z.string().max(255).optional(),
-  currency: z.string().min(1, "Currency is required"),
 });
 
 export function NewGroupPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createGroup = useCreateGroup();
-  const me = useGetMe();
-  const { data: currencies } = useListCurrencies();
-  const userDefaultCurrency = me.data?.defaultCurrency ?? "USD";
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       description: "",
-      currency: userDefaultCurrency,
     },
   });
-
-  // Once /me resolves, set the form's currency to the user's default if the
-  // user hasn't manually changed it yet.
-  useEffect(() => {
-    if (me.data?.defaultCurrency && !form.formState.dirtyFields.currency) {
-      form.setValue("currency", me.data.defaultCurrency);
-    }
-  }, [me.data?.defaultCurrency, form]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     createGroup.mutate({ data: values }, {
@@ -86,34 +71,6 @@ export function NewGroupPage() {
                   <FormControl>
                     <Textarea placeholder="What is this group for?" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="currency"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Currency</FormLabel>
-                  <Select
-                    key={currencies?.length ?? 0}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a currency" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {(currencies ?? []).map((c) => (
-                        <SelectItem key={c.code} value={c.code}>
-                          {c.symbol} {c.code} — {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

@@ -1,4 +1,15 @@
-export function formatCurrency(amount: number, currency = "USD"): string {
+let displayCurrency = "USD";
+
+export function setDisplayCurrency(c: string | null | undefined) {
+  if (c && typeof c === "string") displayCurrency = c;
+}
+
+export function getDisplayCurrency(): string {
+  return displayCurrency;
+}
+
+export function formatCurrency(amount: number, _currency?: string): string {
+  const currency = displayCurrency;
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -12,7 +23,8 @@ export function formatCurrency(amount: number, currency = "USD"): string {
   }
 }
 
-export function getCurrencySymbol(currency = "USD"): string {
+export function getCurrencySymbol(_currency?: string): string {
+  const currency = displayCurrency;
   try {
     const parts = new Intl.NumberFormat("en-US", {
       style: "currency",

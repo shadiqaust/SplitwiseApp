@@ -464,6 +464,15 @@ router.post(
       return;
     }
 
+    // Currency is a per-viewer display preference. Always store the
+    // creator's defaultCurrency, ignoring any client-supplied value.
+    const [creatorRow] = await db
+      .select({ defaultCurrency: usersTable.defaultCurrency })
+      .from(usersTable)
+      .where(eq(usersTable.id, me));
+    const storedCurrency = creatorRow?.defaultCurrency ?? "USD";
+    void currency;
+
     const [expense] = await db
       .insert(expensesTable)
       .values({
@@ -471,7 +480,7 @@ router.post(
         description,
         category: category ?? null,
         totalAmount: totalAmount.toFixed(2),
-        currency: currency ?? "USD",
+        currency: storedCurrency,
         splitType,
         paidByUserId,
         date: toDateString(String(date)),
@@ -494,7 +503,7 @@ router.post(
         userId: uid,
         type: "expense_added",
         title: `${actorName} added an expense`,
-        body: `${description} · ${(currency ?? "USD")} ${totalAmount.toFixed(2)}`,
+        body: `${description} · ${storedCurrency} ${totalAmount.toFixed(2)}`,
         data: { expenseId: expense.id, groupId: null, actorUserId: me },
       })),
     );
@@ -564,12 +573,15 @@ router.post(
       return;
     }
 
-    // Group expenses always use the group's currency, ignoring any client-provided value.
-    const [groupRow] = await db
-      .select({ currency: groupsTable.currency })
-      .from(groupsTable)
-      .where(eq(groupsTable.id, groupId));
-    const groupCurrency = groupRow?.currency ?? currency ?? "USD";
+    // Currency is a per-viewer display preference. Always store the creator's
+    // defaultCurrency for new group expenses, ignoring any client-supplied value.
+    const me = req.dbUserId!;
+    const [creatorRow] = await db
+      .select({ defaultCurrency: usersTable.defaultCurrency })
+      .from(usersTable)
+      .where(eq(usersTable.id, me));
+    const groupCurrency = creatorRow?.defaultCurrency ?? "USD";
+    void currency;
 
     const [expense] = await db
       .insert(expensesTable)
@@ -594,7 +606,6 @@ router.post(
       });
     }
 
-    const me = req.dbUserId!;
     const actorName = await getActorName(me);
     const groupName = await getGroupName(groupId);
     const recipients = Array.from(memberIds).filter((id) => id !== me);
@@ -705,7 +716,7 @@ router.put(
     if (parsed.data.category !== undefined) updateData.category = parsed.data.category;
     if (parsed.data.totalAmount !== undefined)
       updateData.totalAmount = parsed.data.totalAmount.toFixed(2);
-    if (parsed.data.currency !== undefined) updateData.currency = parsed.data.currency;
+    // Currency is a per-viewer display preference — ignore client value on update.
     if (parsed.data.splitType !== undefined) updateData.splitType = parsed.data.splitType;
     if (parsed.data.paidByUserId !== undefined) updateData.paidByUserId = parsed.data.paidByUserId;
     if (parsed.data.date !== undefined) updateData.date = toDateString(String(parsed.data.date));

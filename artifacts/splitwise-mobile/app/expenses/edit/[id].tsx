@@ -352,7 +352,7 @@ export default function EditExpenseScreen() {
             />
 
             <Text style={[styles.label, { color: colors.foreground }]}>
-              Amount ({getCurrencySymbol(expense?.currency ?? "USD")})
+              Amount ({getCurrencySymbol()})
             </Text>
             <Input
               value={amount}

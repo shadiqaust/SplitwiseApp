@@ -93,7 +93,6 @@ import { queryClient } from "@/lib/queryClient";
 import { cn, formatCurrency, formatDate, getCurrencySymbol } from "@/lib/format";
 import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/error";
-import { useListCurrencies } from "@workspace/api-client-react";
 
 function getInitials(name: string): string {
   return name
@@ -156,33 +155,28 @@ function EditGroupDialog({
   groupId,
   currentName,
   currentDescription,
-  currentCurrency,
   isCreator,
 }: {
   groupId: string;
   currentName: string;
   currentDescription: string;
-  currentCurrency: string;
   isCreator?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(currentName);
   const [description, setDescription] = useState(currentDescription);
-  const [currency, setCurrency] = useState(currentCurrency);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { toast } = useToast();
   const updateGroup = useUpdateGroup();
   const deleteGroup = useDeleteGroup();
   const [, navigate] = useLocation();
-  const { data: currencies } = useListCurrencies();
 
   useEffect(() => {
     if (open) {
       setName(currentName);
       setDescription(currentDescription);
-      setCurrency(currentCurrency);
     }
-  }, [open, currentName, currentDescription, currentCurrency]);
+  }, [open, currentName, currentDescription]);
 
   const onSave = () => {
     const trimmed = name.trim();
@@ -196,7 +190,6 @@ function EditGroupDialog({
         data: {
           name: trimmed,
           description: description.trim() ? description.trim() : null,
-          currency,
         },
       },
       {
@@ -257,25 +250,6 @@ function EditGroupDialog({
               rows={3}
               placeholder="Optional"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-group-currency">Currency</Label>
-            <Select
-              key={currencies?.length ?? 0}
-              value={currency}
-              onValueChange={setCurrency}
-            >
-              <SelectTrigger id="edit-group-currency">
-                <SelectValue placeholder="Select a currency" />
-              </SelectTrigger>
-              <SelectContent>
-                {(currencies ?? []).map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.symbol} {c.code} — {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </div>
         <DialogFooter className="gap-2 sm:gap-0 sm:justify-between">
@@ -1584,18 +1558,10 @@ export function GroupDetailPage() {
                 <h1 className="text-xl sm:text-3xl font-bold tracking-tight truncate">
                   {group.data.name}
                 </h1>
-                <span
-                  className="shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground"
-                  title="Group currency"
-                  data-testid="badge-group-currency"
-                >
-                  {groupCurrency}
-                </span>
                 <EditGroupDialog
                   groupId={groupId}
                   currentName={group.data.name}
                   currentDescription={group.data.description ?? ""}
-                  currentCurrency={group.data.currency ?? "USD"}
                   isCreator={group.data.createdByUserId === myUserId}
                 />
               </div>

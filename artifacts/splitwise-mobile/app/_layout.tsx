@@ -13,10 +13,13 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { useGetMe } from "@workspace/api-client-react";
+
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { configureApi, configureUnauthorizedHandler } from "@/lib/api";
 import { AuthProvider, useAuth, getToken } from "@/lib/auth";
 import { useColors } from "@/hooks/useColors";
+import { setDisplayCurrency } from "@/lib/format";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -38,6 +41,17 @@ const queryClient = new QueryClient({
 
 const domain = process.env.EXPO_PUBLIC_DOMAIN;
 const API_BASE_URL = domain ? `https://${domain}` : "";
+
+// Sync the viewer's default currency into the format module so every
+// formatCurrency / getCurrencySymbol call renders amounts with the user's
+// own symbol regardless of what's stored on the expense/group/payment.
+function DisplayCurrencyBridge() {
+  const me = useGetMe();
+  useEffect(() => {
+    if (me.data?.defaultCurrency) setDisplayCurrency(me.data.defaultCurrency);
+  }, [me.data?.defaultCurrency]);
+  return null;
+}
 
 function AuthGate() {
   const { isLoaded, isSignedIn, signOut } = useAuth();
@@ -113,6 +127,7 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>
+                <DisplayCurrencyBridge />
                 <AuthGate />
               </KeyboardProvider>
             </GestureHandlerRootView>

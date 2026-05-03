@@ -7,7 +7,7 @@ import {
   useCreateNonGroupPayment,
   useGetMe,
 } from "@workspace/api-client-react";
-import { AlertTriangle, ArrowLeftRight, HandCoins, Receipt, Users } from "lucide-react";
+import { ArrowLeftRight, HandCoins } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error";
-import { cn, formatCurrency, getCurrencySymbol } from "@/lib/format";
+import { formatCurrency, getCurrencySymbol } from "@/lib/format";
 
 export interface SettleFriend {
   id: string | number;
@@ -67,26 +67,14 @@ export function SettleUpWithFriendDialog({
   const queryClient = useQueryClient();
   const createPayment = useCreateNonGroupPayment();
   const { data: me } = useGetMe();
-  const [, navigate] = useLocation();
-
-  const defaultCurrency = me?.defaultCurrency ?? "USD";
-  const nonZeroBalances = (balances ?? []).filter(
-    (b) => Math.abs(b.amount) >= 0.01,
-  );
-  // Direct friend settle-up is recorded in the user's default currency.
-  // Show the warning whenever any non-zero balance is in a different currency,
-  // OR balances span multiple currencies — both cases can't be settled directly.
-  const settleableBalance =
-    nonZeroBalances.length === 1 &&
-    nonZeroBalances[0].currency === defaultCurrency
-      ? nonZeroBalances[0]
-      : null;
-  const needsCurrencyWarning =
-    nonZeroBalances.length > 0 && settleableBalance === null;
-  const currency = defaultCurrency;
-  const effectiveNet = settleableBalance
-    ? settleableBalance.amount
+  // Currency is a per-viewer display symbol — collapse all stored balances
+  // to a single signed amount so the user can settle in one shot.
+  const collapsedNet = (balances ?? []).reduce((acc, b) => acc + b.amount, 0);
+  const currency = me?.defaultCurrency ?? "USD";
+  const effectiveNet = Math.abs(collapsedNet) > 0.005
+    ? collapsedNet
     : (netBalance ?? 0);
+  void useLocation;
 
   // direction: "youPaid" → I paid friend (clears me-owes-friend balance)
   //            "friendPaid" → friend paid me (clears friend-owes-me balance)
@@ -175,83 +163,6 @@ export function SettleUpWithFriendDialog({
         <DialogHeader>
           <DialogTitle>Settle up with {friend.name}</DialogTitle>
         </DialogHeader>
-        {needsCurrencyWarning ? (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800/60 p-3 flex gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div className="space-y-2 text-sm">
-                <p className="font-medium text-amber-900 dark:text-amber-200">
-                  Can't settle this directly
-                </p>
-                <p className="text-amber-800 dark:text-amber-300/90">
-                  {nonZeroBalances.length > 1
-                    ? `Balances span multiple currencies. Direct friend settle-up only records ${defaultCurrency}.`
-                    : `This balance is in ${nonZeroBalances[0]?.currency}, but direct friend settle-up only records ${defaultCurrency}.`}{" "}
-                  Settle within the relevant group, or add a non-group expense
-                  in that currency.
-                </p>
-                <ul className="space-y-0.5 pl-1">
-                  {nonZeroBalances.map((b) => {
-                    const owed = b.amount > 0;
-                    return (
-                      <li key={b.currency} className="text-xs">
-                        <span
-                          className={cn(
-                            "font-semibold",
-                            owed ? "text-green-600" : "text-red-500",
-                          )}
-                        >
-                          {formatCurrency(Math.abs(b.amount), b.currency)}
-                        </span>
-                        <span
-                          className={cn(
-                            "ml-1",
-                            owed ? "text-green-600" : "text-red-500",
-                          )}
-                        >
-                          — {owed ? `${friend.name} owes you` : `you owe ${friend.name}`}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setOpen(false);
-                  navigate("/groups");
-                }}
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Settle in a group
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setOpen(false);
-                  navigate("/non-group-expenses");
-                }}
-              >
-                <Receipt className="w-4 h-4 mr-2" />
-                Add non-group expense
-              </Button>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setOpen(false)}
-              >
-                Close
-              </Button>
-            </DialogFooter>
-          </div>
-        ) : (
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
             {hint}
@@ -337,7 +248,6 @@ export function SettleUpWithFriendDialog({
             </Button>
           </DialogFooter>
         </form>
-        )}
       </DialogContent>
     </Dialog>
   );

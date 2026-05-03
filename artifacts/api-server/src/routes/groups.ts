@@ -164,11 +164,14 @@ router.post("/groups", requireVerifiedEmail, async (req, res): Promise<void> => 
     return;
   }
 
-  const currency = parsed.data.currency ?? "USD";
-  if (!(await isSupportedCurrency(currency))) {
-    res.status(400).json({ error: "Unsupported currency code" });
-    return;
-  }
+  // Currency is now a per-viewer display preference (set in Profile).
+  // Groups are stored with the creator's defaultCurrency for legacy/back-compat,
+  // but no client-supplied currency is honored.
+  const [creator] = await db
+    .select({ defaultCurrency: usersTable.defaultCurrency })
+    .from(usersTable)
+    .where(eq(usersTable.id, req.dbUserId!));
+  const currency = creator?.defaultCurrency ?? "USD";
 
   const [group] = await db
     .insert(groupsTable)
@@ -342,13 +345,8 @@ router.put(
     if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
     if (parsed.data.category !== undefined) updateData.category = parsed.data.category;
     if (parsed.data.avatarUrl !== undefined) updateData.avatarUrl = parsed.data.avatarUrl ?? null;
-    if (parsed.data.currency !== undefined && parsed.data.currency) {
-      if (!(await isSupportedCurrency(parsed.data.currency))) {
-        res.status(400).json({ error: "Unsupported currency code" });
-        return;
-      }
-      updateData.currency = parsed.data.currency;
-    }
+    // Group currency is no longer client-editable — it's a per-viewer
+    // display preference now. Silently ignore parsed.data.currency.
 
     const [group] = await db
       .update(groupsTable)

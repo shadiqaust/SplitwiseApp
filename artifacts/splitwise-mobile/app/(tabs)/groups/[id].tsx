@@ -33,7 +33,6 @@ import {
   useGetGroupBalances,
   useGetMe,
   useIncludeMemberInPastExpenses,
-  useListCurrencies,
   useListExpenses,
   useListPayments,
   useUpdateGroup,
@@ -85,10 +84,6 @@ export default function GroupDetailScreen() {
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [editCurrency, setEditCurrency] = useState("USD");
-  const { data: currenciesData } = useListCurrencies();
-  const currencies = currenciesData ?? [];
-  const [showEditCurrency, setShowEditCurrency] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
@@ -233,8 +228,6 @@ export default function GroupDetailScreen() {
     if (!group.data) return;
     setEditName(group.data.name);
     setEditDescription(group.data.description ?? "");
-    setEditCurrency(group.data.currency ?? "USD");
-    setShowEditCurrency(false);
     setShowEditSheet(true);
   };
 
@@ -251,7 +244,6 @@ export default function GroupDetailScreen() {
         data: {
           name: trimmedName,
           description: editDescription.trim() ? editDescription.trim() : null,
-          currency: editCurrency,
         },
       },
       {
@@ -535,19 +527,6 @@ export default function GroupDetailScreen() {
                 >
                   {group.data.name}
                 </Text>
-                <View
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                >
-                  <Text style={{ fontFamily: "Inter_500Medium", fontSize: 11, color: colors.mutedForeground }}>
-                    {groupCurrency}
-                  </Text>
-                </View>
               </View>
               {group.data.description ? (
                 <Text style={[styles.desc, { color: colors.mutedForeground, marginBottom: 0, marginTop: 2 }]} numberOfLines={2}>
@@ -986,70 +965,6 @@ export default function GroupDetailScreen() {
                     },
                   ]}
                 />
-              </View>
-              <View style={{ gap: 6 }}>
-                <Text style={[{ fontFamily: "Inter_500Medium", fontSize: 13 }, { color: colors.foreground }]}>Currency</Text>
-                <Pressable
-                  onPress={() => setShowEditCurrency((v) => !v)}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: 8,
-                    paddingHorizontal: 12,
-                    height: 44,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    backgroundColor: colors.muted,
-                  }}
-                >
-                  {(() => {
-                    const sel = currencies.find((c) => c.code === editCurrency) ?? { code: editCurrency, symbol: editCurrency, name: editCurrency };
-                    return (
-                      <Text style={{ fontFamily: "Inter_400Regular", color: colors.foreground }}>
-                        {sel.symbol} {sel.code} — {sel.name}
-                      </Text>
-                    );
-                  })()}
-                  <Feather name={showEditCurrency ? "chevron-up" : "chevron-down"} size={18} color={colors.mutedForeground} />
-                </Pressable>
-                {showEditCurrency ? (
-                  <View
-                    style={{
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      borderRadius: 8,
-                      backgroundColor: colors.muted,
-                      overflow: "hidden",
-                    }}
-                  >
-                    {currencies.map((c) => {
-                      const active = c.code === editCurrency;
-                      return (
-                        <Pressable
-                          key={c.code}
-                          onPress={() => {
-                            setEditCurrency(c.code);
-                            setShowEditCurrency(false);
-                          }}
-                          style={{
-                            paddingHorizontal: 12,
-                            paddingVertical: 10,
-                            backgroundColor: active ? colors.accent : "transparent",
-                            flexDirection: "row",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <Text style={{ fontFamily: "Inter_400Regular", color: colors.foreground }}>
-                            {c.symbol} {c.code} — {c.name}
-                          </Text>
-                          {active ? <Feather name="check" size={16} color={colors.primary} /> : null}
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : null}
               </View>
             </ScrollView>
             {group.data?.createdByUserId === myUserId ? (

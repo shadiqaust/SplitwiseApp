@@ -10,7 +10,6 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetActivityQueryKey,
@@ -46,27 +45,17 @@ export function SettleUpWithFriendModal({
   onClose: () => void;
 }) {
   const colors = useColors();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const createPayment = useCreateNonGroupPayment();
   const { data: me } = useGetMe();
   const friendId = String(friend.id);
 
-  const defaultCurrency = me?.defaultCurrency ?? "USD";
-  const nonZeroBalances = (balances ?? []).filter(
-    (b) => Math.abs(b.amount) >= 0.01,
-  );
-  // Direct friend settle-up records in the user's default currency only.
-  const settleableBalance =
-    nonZeroBalances.length === 1 &&
-    nonZeroBalances[0].currency === defaultCurrency
-      ? nonZeroBalances[0]
-      : null;
-  const needsCurrencyWarning =
-    nonZeroBalances.length > 0 && settleableBalance === null;
-  const currency = defaultCurrency;
-  const effectiveNet = settleableBalance
-    ? settleableBalance.amount
+  // Currency is a per-viewer display symbol — collapse all stored balances
+  // to a single signed amount so the user can settle in one shot.
+  const collapsedNet = (balances ?? []).reduce((acc, b) => acc + b.amount, 0);
+  const currency = me?.defaultCurrency ?? "USD";
+  const effectiveNet = Math.abs(collapsedNet) > 0.005
+    ? collapsedNet
     : (netBalance ?? 0);
 
   const [direction, setDirection] = useState<"youPaid" | "friendPaid">(
@@ -155,62 +144,6 @@ export function SettleUpWithFriendModal({
             contentContainerStyle={styles.body}
             keyboardShouldPersistTaps="handled"
           >
-            {needsCurrencyWarning ? (
-              <>
-                <View style={[styles.warning, { borderColor: "#fcd34d", backgroundColor: "#fffbeb" }]}>
-                  <Feather name="alert-triangle" size={18} color="#b45309" style={{ marginTop: 2 }} />
-                  <View style={{ flex: 1, gap: 6 }}>
-                    <Text style={{ color: "#78350f", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
-                      Can't settle this directly
-                    </Text>
-                    <Text style={{ color: "#92400e", fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 17 }}>
-                      {nonZeroBalances.length > 1
-                        ? `Balances span multiple currencies. Direct friend settle-up only records ${defaultCurrency}.`
-                        : `This balance is in ${nonZeroBalances[0]?.currency}, but direct friend settle-up only records ${defaultCurrency}.`}
-                      {" "}Settle within the relevant group, or add a non-group expense in that currency.
-                    </Text>
-                    <View style={{ gap: 2 }}>
-                      {nonZeroBalances.map((b) => {
-                        const owed = b.amount > 0;
-                        const tone = owed ? colors.positive : colors.negative;
-                        return (
-                          <Text key={b.currency} style={{ color: tone, fontFamily: "Inter_400Regular", fontSize: 12 }}>
-                            <Text style={{ fontFamily: "Inter_600SemiBold", color: tone }}>
-                              {formatCurrency(Math.abs(b.amount), b.currency)}
-                            </Text>
-                            {" — "}
-                            {owed ? `${friend.name} owes you` : `you owe ${friend.name}`}
-                          </Text>
-                        );
-                      })}
-                    </View>
-                  </View>
-                </View>
-
-                <View style={{ gap: 8, marginTop: 8 }}>
-                  <Button
-                    title="Settle in a group"
-                    variant="outline"
-                    onPress={() => {
-                      onClose();
-                      router.push("/(tabs)/groups");
-                    }}
-                    fullWidth
-                  />
-                  <Button
-                    title="Add non-group expense"
-                    variant="outline"
-                    onPress={() => {
-                      onClose();
-                      router.push("/non-group-expenses");
-                    }}
-                    fullWidth
-                  />
-                  <Button title="Close" variant="ghost" onPress={onClose} fullWidth />
-                </View>
-              </>
-            ) : (
-            <>
             <View
               style={[
                 styles.hint,
@@ -308,8 +241,6 @@ export function SettleUpWithFriendModal({
                 fullWidth
               />
             </View>
-            </>
-            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
