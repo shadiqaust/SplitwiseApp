@@ -342,24 +342,38 @@ export default function ProfileScreen() {
           {/* ── Avatar card ────────────────────────────────────────── */}
           <Card style={styles.avatarCard}>
             <Pressable onPress={() => setSheetOpen(true)} style={styles.avatarWrap}>
-              <Avatar name={me.name} url={me.avatarUrl} size={88} />
+              <Avatar name={me.name} url={me.avatarUrl} size={72} />
               <View style={[styles.editBadge, { backgroundColor: colors.primary }]}>
-                <Feather name="camera" size={14} color="#fff" />
+                <Feather name="camera" size={12} color="#fff" />
               </View>
             </Pressable>
-            <Text style={[styles.displayName, { color: colors.foreground }]}>{me.name}</Text>
-            <Text style={[styles.email, { color: colors.mutedForeground }]}>{me.email}</Text>
-            {me.country ? (
-              <View style={styles.metaRow}>
+            <View style={styles.avatarInfo}>
+              <Text
+                style={[styles.displayName, { color: colors.foreground }]}
+                numberOfLines={1}
+              >
+                {me.name}
+              </Text>
+              <Text
+                style={[styles.email, { color: colors.mutedForeground }]}
+                numberOfLines={1}
+              >
+                {me.email}
+              </Text>
+              {me.country ? (
                 <View style={styles.metaChip}>
                   <Feather name="globe" size={11} color={colors.mutedForeground} />
-                  <Text style={[styles.metaText, { color: colors.mutedForeground }]}>{me.country}</Text>
+                  <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
+                    {me.country}
+                  </Text>
                 </View>
-              </View>
-            ) : null}
-            <Pressable onPress={() => setSheetOpen(true)}>
-              <Text style={[styles.changeAvatarLink, { color: colors.primary }]}>Change avatar</Text>
-            </Pressable>
+              ) : null}
+              <Pressable onPress={() => setSheetOpen(true)} hitSlop={6}>
+                <Text style={[styles.changeAvatarLink, { color: colors.primary }]}>
+                  Change avatar
+                </Text>
+              </Pressable>
+            </View>
           </Card>
 
           {/* ── Edit profile form ───────────────────────────────────── */}
@@ -641,8 +655,14 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, gap: 16, paddingBottom: 48 },
 
   // Avatar card
-  avatarCard: { alignItems: "center", gap: 6, paddingVertical: 28 },
-  avatarWrap: { position: "relative", marginBottom: 4 },
+  avatarCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    paddingVertical: 18,
+  },
+  avatarWrap: { position: "relative" },
+  avatarInfo: { flex: 1, gap: 4, minWidth: 0 },
   editBadge: {
     position: "absolute",
     bottom: 2,
@@ -655,12 +675,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#fff",
   },
-  displayName: { fontFamily: "Inter_700Bold", fontSize: 20 },
+  displayName: { fontFamily: "Inter_700Bold", fontSize: 18 },
   email: { fontFamily: "Inter_400Regular", fontSize: 13 },
-  metaRow: { flexDirection: "row", gap: 12, marginTop: 4 },
-  metaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
+  metaChip: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
   metaText: { fontFamily: "Inter_400Regular", fontSize: 12 },
-  changeAvatarLink: { fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 6 },
+  changeAvatarLink: { fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 4 },
 
   // Invite card
   inviteCard: { gap: 12, padding: 16 },
