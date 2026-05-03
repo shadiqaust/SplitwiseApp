@@ -68,34 +68,50 @@ async function buildFriendList(me: string) {
   const userMap = new Map(friendUsers.map((u) => [u.id, u]));
 
   // ── 4. Balance computation ─────────────────────────────────────────────────
-  const netBalances = new Map<string, number>(allFriendIds.map((id) => [id, 0]));
+  // balancesByCurrency: friendId → { CUR → net amount }
+  const balancesByCurrency = new Map<string, Map<string, number>>(
+    allFriendIds.map((id) => [id, new Map<string, number>()]),
+  );
   const friendIdSet = new Set(allFriendIds);
 
-  // Helper to apply expense splits to net balances.
+  function bump(friendId: string, currency: string, delta: number) {
+    const m = balancesByCurrency.get(friendId)!;
+    m.set(currency, (m.get(currency) ?? 0) + delta);
+  }
+
+  // Helper to apply expense splits to per-currency balances.
   function applyExpenses(
     expenses: Array<typeof expensesTable.$inferSelect>,
     splitsByExpense: Map<string, Array<typeof expenseSplitsTable.$inferSelect>>,
   ) {
     for (const expense of expenses) {
       const expSplits = splitsByExpense.get(expense.id) ?? [];
+      const cur = expense.currency || "USD";
       if (expense.paidByUserId === me) {
         for (const s of expSplits) {
           if (friendIdSet.has(s.userId)) {
-            netBalances.set(s.userId, (netBalances.get(s.userId) ?? 0) + parseFloat(s.amount));
+            bump(s.userId, cur, parseFloat(s.amount));
           }
         }
       } else if (friendIdSet.has(expense.paidByUserId)) {
         const mySplit = expSplits.find((s) => s.userId === me);
         if (mySplit) {
-          const fid = expense.paidByUserId;
-          netBalances.set(fid, (netBalances.get(fid) ?? 0) - parseFloat(mySplit.amount));
+          bump(expense.paidByUserId, cur, -parseFloat(mySplit.amount));
         }
       }
     }
   }
 
   // ── 4a. Group-based expenses & payments ───────────────────────────────────
+  // Pre-fetch group currencies for payments without inherent currency.
+  const groupCurrencyMap = new Map<string, string>();
   if (myGroupIds.length > 0) {
+    const groupRows = await db
+      .select({ id: groupsTable.id, currency: groupsTable.currency })
+      .from(groupsTable)
+      .where(inArray(groupsTable.id, myGroupIds));
+    for (const g of groupRows) groupCurrencyMap.set(g.id, g.currency || "USD");
+
     const expenses = await db.select().from(expensesTable).where(and(inArray(expensesTable.groupId, myGroupIds), isNull(expensesTable.deletedAt)));
     const expenseIds = expenses.map((e) => e.id);
     const splits = expenseIds.length > 0
@@ -112,16 +128,16 @@ async function buildFriendList(me: string) {
 
     const payments = await db.select().from(paymentsTable).where(and(inArray(paymentsTable.groupId, myGroupIds), isNull(paymentsTable.deletedAt)));
     for (const p of payments) {
+      const cur = (p.groupId && groupCurrencyMap.get(p.groupId)) || "USD";
       if (p.fromUserId === me && friendIdSet.has(p.toUserId)) {
-        netBalances.set(p.toUserId, (netBalances.get(p.toUserId) ?? 0) + parseFloat(p.amount));
+        bump(p.toUserId, cur, parseFloat(p.amount));
       } else if (p.toUserId === me && friendIdSet.has(p.fromUserId)) {
-        netBalances.set(p.fromUserId, (netBalances.get(p.fromUserId) ?? 0) - parseFloat(p.amount));
+        bump(p.fromUserId, cur, -parseFloat(p.amount));
       }
     }
   }
 
   // ── 4b. Non-group (friend-only) expenses ──────────────────────────────────
-  // An expense is relevant if groupId IS NULL AND I am either paidBy or in splits.
   const nonGroupAsPayer = await db
     .select()
     .from(expensesTable)
@@ -159,6 +175,7 @@ async function buildFriendList(me: string) {
   }
 
   // ── 4c. Non-group payments (groupId IS NULL) involving me ─────────────────
+  // Payments table has no currency column; non-group payments default to USD.
   const nonGroupPayments = await db
     .select()
     .from(paymentsTable)
@@ -166,23 +183,15 @@ async function buildFriendList(me: string) {
       and(
         isNull(paymentsTable.groupId),
         isNull(paymentsTable.deletedAt),
-        or(
-          eq(paymentsTable.fromUserId, me),
-          eq(paymentsTable.toUserId, me),
-        ),
+        or(eq(paymentsTable.fromUserId, me), eq(paymentsTable.toUserId, me)),
       ),
     );
   for (const p of nonGroupPayments) {
+    const cur = "USD";
     if (p.fromUserId === me && friendIdSet.has(p.toUserId)) {
-      netBalances.set(
-        p.toUserId,
-        (netBalances.get(p.toUserId) ?? 0) + parseFloat(p.amount),
-      );
+      bump(p.toUserId, cur, parseFloat(p.amount));
     } else if (p.toUserId === me && friendIdSet.has(p.fromUserId)) {
-      netBalances.set(
-        p.fromUserId,
-        (netBalances.get(p.fromUserId) ?? 0) - parseFloat(p.amount),
-      );
+      bump(p.fromUserId, cur, -parseFloat(p.amount));
     }
   }
 
@@ -201,19 +210,40 @@ async function buildFriendList(me: string) {
         .map((gid) => groupMap.get(gid))
         .filter(Boolean) as { id: string; name: string }[];
       const isDirect = directFriendIds.has(friendId);
+
+      const perCur = balancesByCurrency.get(friendId) ?? new Map<string, number>();
+      const balances: { currency: string; amount: number }[] = [];
+      let netBalance = 0;
+      for (const [cur, amt] of perCur) {
+        const rounded = Math.round(amt * 100) / 100;
+        if (Math.abs(rounded) >= 0.01) {
+          balances.push({ currency: cur, amount: rounded });
+          netBalance += rounded;
+        }
+      }
+      // Stable sort: alphabetical by currency code.
+      balances.sort((a, b) => a.currency.localeCompare(b.currency));
+
       return {
         id: user.id,
         name: user.name,
         email: user.email,
         avatarUrl: user.avatarUrl,
-        netBalance: Math.round((netBalances.get(friendId) ?? 0) * 100) / 100,
+        netBalance: Math.round(netBalance * 100) / 100,
+        balances,
         sharedGroups,
         isDirect,
       };
     })
     .filter(Boolean);
 
-  result.sort((a, b) => b!.netBalance - a!.netBalance);
+  // Sort: friends with non-zero balances first, then by absolute total.
+  result.sort((a, b) => {
+    const aHas = (a!.balances?.length ?? 0) > 0 ? 1 : 0;
+    const bHas = (b!.balances?.length ?? 0) > 0 ? 1 : 0;
+    if (aHas !== bHas) return bHas - aHas;
+    return Math.abs(b!.netBalance) - Math.abs(a!.netBalance);
+  });
   return result;
 }
 

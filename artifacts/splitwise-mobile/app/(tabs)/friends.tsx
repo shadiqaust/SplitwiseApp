@@ -33,6 +33,7 @@ interface Friend {
   email: string;
   avatarUrl: string | null;
   netBalance: number;
+  balances: { currency: string; amount: number }[];
   sharedGroups: { id: number; name: string }[];
   isDirect: boolean;
 }
@@ -229,8 +230,8 @@ export default function FriendsScreen() {
 
         {/* List */}
         {filtered.map((friend) => {
-          const isOwed = friend.netBalance > 0;
-          const isEven = Math.abs(friend.netBalance) < 0.01;
+          const nonZeroBalances = (friend.balances ?? []).filter((b) => Math.abs(b.amount) >= 0.01);
+          const isEven = nonZeroBalances.length === 0;
           return (
             <Pressable
               key={friend.id}
@@ -279,18 +280,24 @@ export default function FriendsScreen() {
                     </Pressable>
                   </View>
                 </View>
-                <View style={{ alignItems: "flex-end" }}>
+                <View style={{ alignItems: "flex-end", gap: 4 }}>
                   {isEven ? (
                     <Text style={[styles.evenText, { color: colors.mutedForeground }]}>settled</Text>
                   ) : (
-                    <>
-                      <Text style={[styles.balanceLabel, { color: isOwed ? colors.positive : colors.negative }]}>
-                        {isOwed ? "owes you" : "you owe"}
-                      </Text>
-                      <Text style={[styles.balanceAmount, { color: isOwed ? colors.positive : colors.negative }]}>
-                        {formatCurrency(Math.abs(friend.netBalance))}
-                      </Text>
-                    </>
+                    nonZeroBalances.map((b) => {
+                      const owed = b.amount > 0;
+                      const tone = owed ? colors.positive : colors.negative;
+                      return (
+                        <View key={b.currency} style={{ alignItems: "flex-end" }}>
+                          <Text style={[styles.balanceLabel, { color: tone }]}>
+                            {owed ? "owes you" : "you owe"}
+                          </Text>
+                          <Text style={[styles.balanceAmount, { color: tone }]}>
+                            {formatCurrency(Math.abs(b.amount), b.currency)}
+                          </Text>
+                        </View>
+                      );
+                    })
                   )}
                 </View>
               </Card>
