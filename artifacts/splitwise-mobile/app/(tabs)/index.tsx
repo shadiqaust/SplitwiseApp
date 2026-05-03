@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { AddExpenseCTA } from "@/components/AddExpenseCTA";
+import { useAuth } from "@/lib/auth";
 
 export default function DashboardScreen() {
   const colors = useColors();
@@ -31,6 +32,8 @@ export default function DashboardScreen() {
   // QueryClient (5s, runs in background).
   const summary = useGetDashboardSummary();
   const activity = useGetActivity({ limit: 20 });
+  const { user } = useAuth();
+  const myCurrency = user?.defaultCurrency ?? "USD";
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -165,9 +168,9 @@ export default function DashboardScreen() {
                   ]}
                 >
                   {(data?.nonGroupNetBalance ?? 0) > 0
-                    ? `you are owed ${formatCurrency(data!.nonGroupNetBalance!)}`
+                    ? `you are owed ${formatCurrency(data!.nonGroupNetBalance!, myCurrency)}`
                     : (data?.nonGroupNetBalance ?? 0) < 0
-                      ? `you owe ${formatCurrency(Math.abs(data!.nonGroupNetBalance!))}`
+                      ? `you owe ${formatCurrency(Math.abs(data!.nonGroupNetBalance!), myCurrency)}`
                       : "settled up"}
                 </Text>
               </View>

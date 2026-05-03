@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpRight, ArrowDownRight, Activity, DollarSign, Users } from "lucide-react";
 import { AddExpenseCTA } from "@/components/add-expense-cta";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 
 const PAGE_SIZE = 8;
 
@@ -26,6 +27,8 @@ export function DashboardPage() {
   // needed here.
   const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary();
   const { data: activities, isLoading: loadingActivities } = useGetActivity({ limit: 20 });
+  const { user } = useAuth();
+  const myCurrency = user?.defaultCurrency ?? "USD";
 
   // Build the combined groups list: virtual "Non-group expenses" entry first,
   // then real groups.
@@ -36,6 +39,7 @@ export function DashboardPage() {
       name: "Non-group expenses",
       balance: summary.nonGroupNetBalance ?? 0,
       isVirtual: true,
+      currency: myCurrency,
     };
     const real: GroupRowData[] = (summary.groupSummaries ?? []).map((g) => ({
       href: `/groups/${g.groupId}`,
@@ -46,7 +50,7 @@ export function DashboardPage() {
       currency: g.currency,
     }));
     return [virtualRow, ...real];
-  }, [summary]);
+  }, [summary, myCurrency]);
 
   // Lazy load: render PAGE_SIZE rows initially, load more when sentinel scrolls
   // into view inside the inner scroll container.
