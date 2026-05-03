@@ -1,0 +1,31 @@
+kind = "video"
+previewPath = "/splitix-demo/"
+title = "Splitix Demo Video"
+version = "1.0.0"
+id = "artifacts/splitix-demo-video"
+router = "path"
+
+[[integratedSkills]]
+name = "video-js"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/splitix-demo/" ]
+localPort = 20609
+
+[services.development]
+run = "pnpm --filter @workspace/splitix-demo-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/splitix-demo-video", "run", "build" ]
+publicDir = "artifacts/splitix-demo-video/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20609"
+BASE_PATH = "/splitix-demo/"

@@ -1,8 +1,19 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "Puhj0yqphlXKqh5CnkbrN"
 uri = "file://artifacts/splitwise-mobile/assets/images/icon.png"
 type = "image"
 title = "generated_image"
+
+[[outputs]]
+id = "fGgn7fUfUbT3HbQqXG0Jk"
+uri = "file://artifacts/splitix-demo-video/public/images/friends.jpg"
+type = "image"
+title = "group of young friends laughing at a restaurant table having dinner or drinks"
+
+[[outputs]]
+id = "FszuRAIo1V0CCLyYgmOUF"
+uri = "file://artifacts/splitix-demo-video/public/images/beach.jpg"
+type = "image"
+title = "beautiful tropical beach landscape in goa india during sunset"

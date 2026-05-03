@@ -124,6 +124,32 @@ export function LandingPage() {
           </div>
         </section>
 
+        {/* Demo video */}
+        <section className="bg-background">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+            <div className="text-center max-w-2xl mx-auto">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+                See Splitix in action
+              </h2>
+              <p className="mt-3 text-muted-foreground">
+                A 40-second tour of how a group splits, tracks, and settles up.
+              </p>
+            </div>
+            <div className="mt-8 sm:mt-10 mx-auto rounded-2xl overflow-hidden border shadow-xl bg-neutral-900">
+              <div className="relative w-full aspect-video">
+                <iframe
+                  src="/splitix-demo/"
+                  title="Splitix product demo"
+                  className="absolute inset-0 w-full h-full"
+                  loading="lazy"
+                  allow="autoplay; fullscreen"
+                  data-testid="iframe-demo-video"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Two-up feature blocks */}
         <section className="grid md:grid-cols-2">
           <div className="bg-neutral-900 text-white px-6 py-16 sm:py-20 flex flex-col items-center text-center">
