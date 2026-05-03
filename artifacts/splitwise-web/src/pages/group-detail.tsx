@@ -104,10 +104,11 @@ function getInitials(name: string): string {
 }
 
 function MemberAvatar({ name, url, size = 32 }: { name: string; url?: string | null; size?: number }) {
-  if (url) {
+  const resolved = url ? (resolveAvatarUrl(url) ?? url) : null;
+  if (resolved) {
     return (
       <img
-        src={url}
+        src={resolved}
         alt={name}
         className="rounded-full object-cover flex-shrink-0"
         style={{ width: size, height: size }}

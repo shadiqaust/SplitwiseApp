@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Gift, ArrowLeft, Users } from "lucide-react";
 import { Link } from "wouter";
 import { Layout } from "@/components/layout";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 interface MyReferral {
   id: string;
@@ -26,8 +27,9 @@ async function fetchMyReferrals(): Promise<MyReferralsResponse> {
 }
 
 function Avatar({ name, url }: { name: string; url: string | null }) {
-  if (url) {
-    return <img src={url} alt="" className="w-10 h-10 rounded-full object-cover" />;
+  const resolved = url ? (resolveAvatarUrl(url) ?? url) : null;
+  if (resolved) {
+    return <img src={resolved} alt="" className="w-10 h-10 rounded-full object-cover" />;
   }
   return (
     <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold">

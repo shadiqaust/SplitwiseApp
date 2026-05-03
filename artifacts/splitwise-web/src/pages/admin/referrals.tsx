@@ -5,10 +5,12 @@ import { Gift, Search } from "lucide-react";
 import { adminApi } from "@/lib/admin-api";
 import { Input } from "@/components/ui/input";
 import { AdminLayout } from "./layout";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 function Avatar({ name, url }: { name: string; url: string | null }) {
-  if (url) {
-    return <img src={url} alt="" className="w-7 h-7 rounded-full object-cover" />;
+  const resolved = url ? (resolveAvatarUrl(url) ?? url) : null;
+  if (resolved) {
+    return <img src={resolved} alt="" className="w-7 h-7 rounded-full object-cover" />;
   }
   return (
     <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs">

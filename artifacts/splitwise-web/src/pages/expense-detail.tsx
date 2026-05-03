@@ -46,6 +46,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error";
 import { cn, formatCurrency, formatDate } from "@/lib/format";
 import { photoSrc } from "@/lib/upload";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 export function ExpenseDetailPage() {
   const params = useParams<{ expenseId: string }>();
@@ -459,7 +460,7 @@ function CommentItem({
     <div className="flex items-start gap-3">
       {comment.user?.avatarUrl ? (
         <img
-          src={comment.user.avatarUrl}
+          src={resolveAvatarUrl(comment.user.avatarUrl) ?? comment.user.avatarUrl}
           alt={comment.user.name ?? "User"}
           className="w-8 h-8 rounded-full object-cover shrink-0"
         />
