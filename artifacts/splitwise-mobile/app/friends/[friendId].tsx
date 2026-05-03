@@ -31,6 +31,7 @@ import { formatCurrency } from "@/lib/format";
 interface FriendActivityResponse {
   friend: User;
   netBalance: number;
+  balances: { currency: string; amount: number }[];
   expenses: ExpenseWithSplits[];
   payments: Payment[];
 }
@@ -270,6 +271,7 @@ export default function FriendDetailScreen() {
           friend={{ id: friend.id, name: friend.name }}
           currentUserId={myId}
           netBalance={net}
+          balances={query.data?.balances}
           onClose={() => setShowSettle(false)}
         />
       )}

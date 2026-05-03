@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetActivityQueryKey,
@@ -33,42 +34,62 @@ export function SettleUpWithFriendModal({
   friend,
   currentUserId,
   netBalance,
+  balances,
   onClose,
 }: {
   friend: SettleFriend;
   currentUserId: string;
   /** Positive: friend owes you. Negative: you owe friend. */
   netBalance?: number;
+  /** Per-currency balances. Positive: friend owes you. Negative: you owe friend. */
+  balances?: { currency: string; amount: number }[];
   onClose: () => void;
 }) {
   const colors = useColors();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const createPayment = useCreateNonGroupPayment();
   const { data: me } = useGetMe();
-  const currency = me?.defaultCurrency ?? "USD";
   const friendId = String(friend.id);
 
+  const defaultCurrency = me?.defaultCurrency ?? "USD";
+  const nonZeroBalances = (balances ?? []).filter(
+    (b) => Math.abs(b.amount) >= 0.01,
+  );
+  // Direct friend settle-up records in the user's default currency only.
+  const settleableBalance =
+    nonZeroBalances.length === 1 &&
+    nonZeroBalances[0].currency === defaultCurrency
+      ? nonZeroBalances[0]
+      : null;
+  const needsCurrencyWarning =
+    nonZeroBalances.length > 0 && settleableBalance === null;
+  const currency = defaultCurrency;
+  const effectiveNet = settleableBalance
+    ? settleableBalance.amount
+    : (netBalance ?? 0);
+
   const [direction, setDirection] = useState<"youPaid" | "friendPaid">(
-    typeof netBalance === "number" && netBalance > 0 ? "friendPaid" : "youPaid",
+    effectiveNet > 0 ? "friendPaid" : "youPaid",
   );
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof netBalance === "number" && Math.abs(netBalance) > 0.005) {
-      setAmount(Math.abs(netBalance).toFixed(2));
+    if (Math.abs(effectiveNet) > 0.005) {
+      setAmount(Math.abs(effectiveNet).toFixed(2));
     }
-  }, [netBalance]);
+  }, [effectiveNet]);
 
   const fromUserId = direction === "youPaid" ? currentUserId : friendId;
   const toUserId = direction === "youPaid" ? friendId : currentUserId;
 
   const hint =
-    typeof netBalance === "number" && Math.abs(netBalance) > 0.005
-      ? netBalance > 0
-        ? `${friend.name} owes you ${formatCurrency(netBalance, currency)}`
-        : `You owe ${friend.name} ${formatCurrency(Math.abs(netBalance), currency)}`
+    Math.abs(effectiveNet) > 0.005
+      ? effectiveNet > 0
+        ? `${friend.name} owes you ${formatCurrency(effectiveNet, currency)}`
+        : `You owe ${friend.name} ${formatCurrency(Math.abs(effectiveNet), currency)}`
       : "All settled up";
 
   const onSubmit = () => {
@@ -134,6 +155,61 @@ export function SettleUpWithFriendModal({
             contentContainerStyle={styles.body}
             keyboardShouldPersistTaps="handled"
           >
+            {needsCurrencyWarning ? (
+              <>
+                <View style={[styles.warning, { borderColor: "#fcd34d", backgroundColor: "#fffbeb" }]}>
+                  <Feather name="alert-triangle" size={18} color="#b45309" style={{ marginTop: 2 }} />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <Text style={{ color: "#78350f", fontFamily: "Inter_600SemiBold", fontSize: 13 }}>
+                      Can't settle this directly
+                    </Text>
+                    <Text style={{ color: "#92400e", fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 17 }}>
+                      {nonZeroBalances.length > 1
+                        ? `Balances span multiple currencies. Direct friend settle-up only records ${defaultCurrency}.`
+                        : `This balance is in ${nonZeroBalances[0]?.currency}, but direct friend settle-up only records ${defaultCurrency}.`}
+                      {" "}Settle within the relevant group, or add a non-group expense in that currency.
+                    </Text>
+                    <View style={{ gap: 2 }}>
+                      {nonZeroBalances.map((b) => {
+                        const owed = b.amount > 0;
+                        return (
+                          <Text key={b.currency} style={{ color: "#92400e", fontFamily: "Inter_400Regular", fontSize: 12 }}>
+                            <Text style={{ fontFamily: "Inter_600SemiBold" }}>
+                              {formatCurrency(Math.abs(b.amount), b.currency)}
+                            </Text>
+                            {" — "}
+                            {owed ? `${friend.name} owes you` : `you owe ${friend.name}`}
+                          </Text>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </View>
+
+                <View style={{ gap: 8, marginTop: 8 }}>
+                  <Button
+                    title="Settle in a group"
+                    variant="outline"
+                    onPress={() => {
+                      onClose();
+                      router.push("/(tabs)/groups");
+                    }}
+                    fullWidth
+                  />
+                  <Button
+                    title="Add non-group expense"
+                    variant="outline"
+                    onPress={() => {
+                      onClose();
+                      router.push("/non-group-expenses");
+                    }}
+                    fullWidth
+                  />
+                  <Button title="Close" variant="ghost" onPress={onClose} fullWidth />
+                </View>
+              </>
+            ) : (
+            <>
             <View
               style={[
                 styles.hint,
@@ -231,6 +307,8 @@ export function SettleUpWithFriendModal({
                 fullWidth
               />
             </View>
+            </>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -259,6 +337,13 @@ const styles = StyleSheet.create({
   title: { fontFamily: "Inter_700Bold", fontSize: 16, flex: 1 },
   body: { padding: 16, gap: 14 },
   hint: { borderRadius: 10, borderWidth: 1, padding: 12 },
+  warning: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    flexDirection: "row",
+    gap: 10,
+  },
   label: {
     fontFamily: "Inter_500Medium",
     fontSize: 12,

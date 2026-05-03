@@ -162,6 +162,7 @@ export function FriendDetailPage() {
             friend={{ id: friend.id, name: friend.name }}
             currentUserId={myId}
             netBalance={net}
+            balances={data?.balances}
             open={settleOpen}
             onOpenChange={setSettleOpen}
           />
