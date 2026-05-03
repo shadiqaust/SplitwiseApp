@@ -262,10 +262,10 @@ export function FriendDetailPage() {
       let title = "Payment";
       if (p.fromUserId === myId) {
         delta = amt;
-        title = `You paid ${friendShort}`;
+        title = `You paid ${friendShort} ${formatCurrency(amt)}`;
       } else {
         delta = -amt;
-        title = `${friendShort} paid you`;
+        title = `${friendShort} paid you ${formatCurrency(amt)}`;
       }
       const d = paymentDate(p);
       rows.push({
@@ -278,8 +278,8 @@ export function FriendDetailPage() {
         icon: "credit-card",
         title,
         subtitle: p.groupId
-          ? `Recorded payment · ${groupNameById.get(p.groupId) ?? "group"}`
-          : "Recorded payment",
+          ? `Settle-up · ${groupNameById.get(p.groupId) ?? "group"}`
+          : "Settle-up payment",
         kind: "payment",
         delta,
         href: p.groupId ? `/groups/${p.groupId}` : null,
