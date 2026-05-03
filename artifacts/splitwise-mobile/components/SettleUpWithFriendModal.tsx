@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
 import { getErrorMessage } from "@/lib/error";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, getCurrencySymbol } from "@/lib/format";
 
 export interface SettleFriend {
   id: string | number;
@@ -199,7 +199,7 @@ export function SettleUpWithFriendModal({
             </View>
 
             <Input
-              label={`Amount (${currency})`}
+              label={`Amount (${getCurrencySymbol(currency)})`}
               placeholder="0.00"
               value={amount}
               onChangeText={setAmount}

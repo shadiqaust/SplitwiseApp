@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
+import { getCurrencySymbol } from "@/lib/format";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -223,7 +224,7 @@ export default function NewExpenseScreen() {
             }}
           />
           <Input
-            label={`Amount (${group.data?.currency ?? "USD"})`}
+            label={`Amount (${getCurrencySymbol(group.data?.currency ?? "USD")})`}
             placeholder="0.00"
             value={amount}
             onChangeText={setAmount}

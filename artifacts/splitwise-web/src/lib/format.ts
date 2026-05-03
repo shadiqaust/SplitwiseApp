@@ -3,10 +3,23 @@ export function formatCurrency(amount: number, currency: string = "USD") {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency,
-      currencyDisplay: "code",
+      currencyDisplay: "narrowSymbol",
     }).format(amount);
   } catch {
-    return `${currency} ${amount.toFixed(2)}`;
+    return `${getCurrencySymbol(currency)}${amount.toFixed(2)}`;
+  }
+}
+
+export function getCurrencySymbol(currency: string = "USD"): string {
+  try {
+    const parts = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      currencyDisplay: "narrowSymbol",
+    }).formatToParts(0);
+    return parts.find((p) => p.type === "currency")?.value ?? currency;
+  } catch {
+    return currency;
   }
 }
 

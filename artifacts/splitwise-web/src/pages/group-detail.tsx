@@ -89,7 +89,7 @@ import {
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { cn, formatCurrency, formatDate } from "@/lib/format";
+import { cn, formatCurrency, formatDate, getCurrencySymbol } from "@/lib/format";
 import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/error";
 import { useListCurrencies } from "@workspace/api-client-react";
@@ -933,7 +933,7 @@ function AddExpenseDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Amount ({groupCurrency})</Label>
+              <Label>Amount ({getCurrencySymbol(groupCurrency)})</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -1243,7 +1243,7 @@ function SettleUpDialog({
           )}
 
           <div className="space-y-2">
-            <Label>Amount ({groupCurrency})</Label>
+            <Label>Amount ({getCurrencySymbol(groupCurrency)})</Label>
             <Input
               type="number"
               step="0.01"
@@ -1377,7 +1377,7 @@ function MemberProfileDialog({
                 : `Record payment from you to ${firstName}`}
             </p>
             <div className="space-y-1">
-              <Label>Amount ({groupCurrency})</Label>
+              <Label>Amount ({getCurrencySymbol(groupCurrency)})</Label>
               <Input
                 type="number"
                 min="0.01"

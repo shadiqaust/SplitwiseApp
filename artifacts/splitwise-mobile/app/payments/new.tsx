@@ -28,7 +28,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, getCurrencySymbol } from "@/lib/format";
 
 export default function NewPaymentScreen() {
   const colors = useColors();
@@ -212,7 +212,7 @@ export default function NewPaymentScreen() {
           )}
 
           <Input
-            label={`Amount (${group.data?.currency ?? "USD"})`}
+            label={`Amount (${getCurrencySymbol(group.data?.currency ?? "USD")})`}
             placeholder="0.00"
             value={amount}
             onChangeText={setAmount}

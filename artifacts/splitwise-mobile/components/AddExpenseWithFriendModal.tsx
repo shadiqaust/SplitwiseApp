@@ -22,7 +22,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { useColors } from "@/hooks/useColors";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, getCurrencySymbol } from "@/lib/format";
 import { getErrorMessage } from "@/lib/error";
 import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
 import { Avatar } from "@/components/ui/Avatar";
@@ -282,7 +282,7 @@ export function AddExpenseWithFriendModal({
           </View>
 
           <View style={{ gap: 6 }}>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Amount ({defaultCurrency})</Text>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Amount ({getCurrencySymbol(defaultCurrency)})</Text>
             <TextInput
               style={[
                 styles.fieldInput,

@@ -32,7 +32,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, getCurrencySymbol } from "@/lib/format";
 import { photoSrc, uploadPhoto } from "@/lib/upload";
 
 import { getCategoryIcon, guessCategory } from "@/lib/expense-categories";
@@ -375,7 +375,7 @@ export function ExpenseEditPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Amount ({expense?.currency ?? "USD"})</Label>
+                  <Label>Amount ({getCurrencySymbol(expense?.currency ?? "USD")})</Label>
                   <Input
                     type="number"
                     step="0.01"

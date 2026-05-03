@@ -3,12 +3,25 @@ export function formatCurrency(amount: number, currency = "USD"): string {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency,
-      currencyDisplay: "code",
+      currencyDisplay: "narrowSymbol",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
   } catch {
-    return `${currency} ${amount.toFixed(2)}`;
+    return `${getCurrencySymbol(currency)}${amount.toFixed(2)}`;
+  }
+}
+
+export function getCurrencySymbol(currency = "USD"): string {
+  try {
+    const parts = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      currencyDisplay: "narrowSymbol",
+    }).formatToParts(0);
+    return parts.find((p) => p.type === "currency")?.value ?? currency;
+  } catch {
+    return currency;
   }
 }
 

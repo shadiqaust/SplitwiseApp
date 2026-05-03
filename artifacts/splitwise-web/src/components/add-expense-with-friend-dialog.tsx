@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, getCurrencySymbol } from "@/lib/format";
 import { getCategoryIcon, guessCategory } from "@/lib/expense-categories";
 import { UserAvatar } from "@/components/ui/user-avatar";
 
@@ -239,7 +239,7 @@ export function AddExpenseWithFriendDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Amount ({defaultCurrency})</Label>
+              <Label>Amount ({getCurrencySymbol(defaultCurrency)})</Label>
               <Input
                 type="number"
                 step="0.01"

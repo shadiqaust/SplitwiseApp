@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, getCurrencySymbol } from "@/lib/format";
 
 export interface SettleFriend {
   id: string | number;
@@ -206,7 +206,7 @@ export function SettleUpWithFriendDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Amount ({currency})</Label>
+            <Label>Amount ({getCurrencySymbol(currency)})</Label>
             <Input
               type="number"
               step="0.01"
