@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route, Redirect, Router as WouterRouter } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -25,6 +26,27 @@ import { AdminUsersPage } from "./pages/admin/users";
 import { AdminUserDetailPage } from "./pages/admin/user-detail";
 import { AdminCurrenciesPage } from "./pages/admin/currencies";
 import { AdminNotificationsPage } from "./pages/admin/notifications";
+import { AdminReferralsPage } from "./pages/admin/referrals";
+
+const REF_KEY = "sw_pending_ref";
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Capture `?ref=<userId>` from any landing URL into sessionStorage so it
+// survives the landing → /sign-up navigation. Cleared on successful signup.
+function ReferralCapture() {
+  useEffect(() => {
+    try {
+      const ref = new URLSearchParams(window.location.search).get("ref");
+      if (ref && UUID_RE.test(ref)) {
+        sessionStorage.setItem(REF_KEY, ref);
+      }
+    } catch {
+      /* sessionStorage unavailable — ignore */
+    }
+  }, []);
+  return null;
+}
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -104,6 +126,9 @@ function Routes() {
       <Route path="/admin/notifications">
         <PrivateRoute><AdminNotificationsPage /></PrivateRoute>
       </Route>
+      <Route path="/admin/referrals">
+        <PrivateRoute><AdminReferralsPage /></PrivateRoute>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -115,6 +140,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <WouterRouter base={basePath}>
+            <ReferralCapture />
             <Routes />
           </WouterRouter>
           <Toaster />

@@ -1,5 +1,5 @@
 import { Link, useLocation, Redirect } from "wouter";
-import { Shield, Users, Coins, Bell, ArrowLeft, Home, User } from "lucide-react";
+import { Shield, Users, Coins, Bell, ArrowLeft, Home, User, Gift } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,7 @@ const NAV = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/currencies", label: "Currencies", icon: Coins },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
+  { href: "/admin/referrals", label: "Referrals", icon: Gift },
 ] as const;
 
 const APP_LINKS = [

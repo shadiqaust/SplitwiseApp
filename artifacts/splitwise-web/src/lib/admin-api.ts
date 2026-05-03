@@ -137,4 +137,33 @@ export const adminApi = {
     }),
   recentNotifications: () =>
     adminFetch<{ items: SentNotification[] }>("/admin/notifications/sent"),
+  listReferrals: () =>
+    adminFetch<{
+      referrals: ReferralRow[];
+      topReferrers: TopReferrer[];
+    }>("/admin/referrals"),
 };
+
+export interface ReferralRow {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl: string | null;
+    createdAt: string;
+  };
+  referrer: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl: string | null;
+  };
+}
+
+export interface TopReferrer {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  count: number;
+}

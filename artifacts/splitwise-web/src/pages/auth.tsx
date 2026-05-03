@@ -11,6 +11,10 @@ import { useListCurrencies } from "@workspace/api-client-react";
 
 type AuthMode = "sign-in" | "sign-up";
 
+const REF_KEY = "sw_pending_ref";
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }) {
   const [, setLocation] = useLocation();
   const { signIn, signUp } = useAuth();
@@ -22,6 +26,21 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
     if (!raw) return "/dashboard";
     if (!raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
     return raw;
+  })();
+
+  // Pull the referrer id captured at landing time (or from the current URL
+  // if they came straight to /sign-up?ref=...). Stored in sessionStorage so
+  // it survives the landing → sign-up navigation but not a closed tab.
+  const referrerId = (() => {
+    try {
+      const fromUrl = new URLSearchParams(window.location.search).get("ref");
+      if (fromUrl && UUID_RE.test(fromUrl)) return fromUrl;
+      const stored = sessionStorage.getItem(REF_KEY);
+      if (stored && UUID_RE.test(stored)) return stored;
+    } catch {
+      // sessionStorage unavailable (private mode, etc.) — ignore.
+    }
+    return undefined;
   })();
 
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -59,7 +78,12 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
     setError(null);
     setLoading(true);
     try {
-      await signUp(name.trim(), email.trim(), password, defaultCurrency);
+      await signUp(name.trim(), email.trim(), password, defaultCurrency, referrerId);
+      try {
+        sessionStorage.removeItem(REF_KEY);
+      } catch {
+        /* ignore */
+      }
       setLocation(nextPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign up failed");

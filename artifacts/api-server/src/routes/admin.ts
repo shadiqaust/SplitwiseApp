@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { and, asc, count, desc, eq, ilike, isNull, or, sql, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, sum } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -369,6 +369,103 @@ router.get("/admin/notifications/sent", requireSuperadmin, async (_req, res) => 
       createdAt: r.createdAt.toISOString(),
     })),
   });
+});
+
+// ─── Referrals ─────────────────────────────────────────────────────────────
+
+router.get("/admin/referrals", requireSuperadmin, async (_req, res) => {
+  // Pull every user who was referred, then look up referrer profiles in a
+  // second IN-clause. Cheaper and clearer than a Drizzle self-join alias.
+  const rows = await db
+    .select({
+      newUserId: usersTable.id,
+      newUserName: usersTable.name,
+      newUserEmail: usersTable.email,
+      newUserAvatar: usersTable.avatarUrl,
+      newUserCreatedAt: usersTable.createdAt,
+      referrerId: usersTable.referrerId,
+    })
+    .from(usersTable)
+    .where(isNotNull(usersTable.referrerId))
+    .orderBy(desc(usersTable.createdAt))
+    .limit(500);
+
+  // Second query for referrer details — small enough that one IN-clause
+  // beats a self-join via Drizzle alias.
+  const referrerIds = Array.from(
+    new Set(rows.map((r) => r.referrerId).filter((x): x is string => !!x)),
+  );
+  const referrerRows = referrerIds.length
+    ? await db
+        .select({
+          id: usersTable.id,
+          name: usersTable.name,
+          email: usersTable.email,
+          avatarUrl: usersTable.avatarUrl,
+        })
+        .from(usersTable)
+        .where(inArray(usersTable.id, referrerIds))
+    : [];
+  const refById = new Map(referrerRows.map((r) => [r.id, r]));
+
+  const referrals = rows
+    .map((r) => {
+      const ref = r.referrerId ? refById.get(r.referrerId) : undefined;
+      if (!ref) return null;
+      return {
+        user: {
+          id: r.newUserId,
+          name: r.newUserName,
+          email: r.newUserEmail,
+          avatarUrl: r.newUserAvatar,
+          createdAt: r.newUserCreatedAt.toISOString(),
+        },
+        referrer: ref,
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
+
+  // Leaderboard: who has invited the most users. Group by the referrer id
+  // explicitly and select that same column so the result row carries the
+  // referrer's id (not an arbitrary user id).
+  const topRows = await db
+    .select({
+      referrerId: usersTable.referrerId,
+      total: count(),
+    })
+    .from(usersTable)
+    .where(isNotNull(usersTable.referrerId))
+    .groupBy(usersTable.referrerId)
+    .orderBy(desc(count()))
+    .limit(10);
+
+  // Re-use the same profile lookup map; only fetch any referrers we haven't
+  // already loaded from the recent-signups query above.
+  const missingTopIds = topRows
+    .map((t) => t.referrerId)
+    .filter((id): id is string => !!id && !refById.has(id));
+  if (missingTopIds.length) {
+    const extra = await db
+      .select({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        avatarUrl: usersTable.avatarUrl,
+      })
+      .from(usersTable)
+      .where(inArray(usersTable.id, missingTopIds));
+    for (const r of extra) refById.set(r.id, r);
+  }
+  const topReferrers = topRows
+    .map((t) => {
+      if (!t.referrerId) return null;
+      const ref = refById.get(t.referrerId);
+      if (!ref) return null;
+      return { ...ref, count: Number(t.total) };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
+
+  res.json({ referrals, topReferrers });
 });
 
 // ─── Stats summary (for /admin landing) ────────────────────────────────────

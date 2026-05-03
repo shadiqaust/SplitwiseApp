@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { currenciesTable } from "./currencies";
@@ -19,6 +19,13 @@ export const usersTable = pgTable("users", {
   // the /admin section. Promotion is automatic when SUPERADMIN_EMAIL matches
   // the user's email at login/register time.
   role: text("role").notNull().default("user"),
+  // Referral tracking: who invited this user (if anyone). Set at signup time
+  // from the ?ref=<userId> query param on the install/share link. Null when
+  // the user signed up organically. SET NULL on referrer deletion so we
+  // never block account removal due to outstanding referrals.
+  referrerId: uuid("referrer_id").references((): AnyPgColumn => usersTable.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

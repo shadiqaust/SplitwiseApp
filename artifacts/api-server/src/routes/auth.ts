@@ -19,6 +19,15 @@ const RegisterBody = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   defaultCurrency: z.string().min(1).optional(),
+  // Optional referrer user id captured from `?ref=<userId>` on the install
+  // link. Must be a well-formed uuid (malformed values fail validation with
+  // 400 — the web client only forwards valid uuids). Unknown-but-well-formed
+  // ids are silently dropped during the existence check below so a stale
+  // share link can't block signup.
+  // NOTE: this is *attribution only* — it is not a fraud-prevention signal.
+  // Anyone can submit any user id as their referrer. If referrals start
+  // driving rewards, swap this for a signed invite token (HMAC/JWT).
+  referrerId: z.string().uuid().optional(),
 });
 
 const LoginBody = z.object({
@@ -33,7 +42,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  const { name, password, defaultCurrency } = parsed.data;
+  const { name, password, defaultCurrency, referrerId: rawReferrerId } = parsed.data;
   // Normalize emails to lowercase so logins are case-insensitive and we can
   // never end up with two accounts that differ only in casing.
   const email = parsed.data.email.trim().toLowerCase();
@@ -52,6 +61,18 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
+  // Validate the referrer is a real, existing user. If the caller passed a
+  // syntactically-valid uuid that doesn't match anyone, drop it silently
+  // rather than failing the signup.
+  let referrerId: string | undefined;
+  if (rawReferrerId) {
+    const [ref] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.id, rawReferrerId));
+    if (ref) referrerId = ref.id;
+  }
+
   const passwordHash = await bcrypt.hash(password, 12);
   const role = isSuperadminEmail(email) ? "superadmin" : "user";
   const [user] = await db
@@ -62,6 +83,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       passwordHash,
       role,
       ...(defaultCurrency ? { defaultCurrency } : {}),
+      ...(referrerId ? { referrerId } : {}),
     })
     .returning();
 

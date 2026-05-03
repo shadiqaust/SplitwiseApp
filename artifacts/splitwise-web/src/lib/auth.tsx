@@ -25,7 +25,13 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string, defaultCurrency?: string) => Promise<void>;
+  signUp: (
+    name: string,
+    email: string,
+    password: string,
+    defaultCurrency?: string,
+    referrerId?: string,
+  ) => Promise<void>;
   signOut: () => void;
   /**
    * Merge a partial update into the cached auth user (in-memory + localStorage).
@@ -121,13 +127,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ isLoaded: true, isSignedIn: true, user, token });
   }, []);
 
-  const signUp = useCallback(async (name: string, email: string, password: string, defaultCurrency?: string) => {
-    const { token, user } = await apiPost<AuthResponse>("/api/auth/register", { name, email, password, defaultCurrency });
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-    setAuthTokenGetter(() => token);
-    setState({ isLoaded: true, isSignedIn: true, user, token });
-  }, []);
+  const signUp = useCallback(
+    async (
+      name: string,
+      email: string,
+      password: string,
+      defaultCurrency?: string,
+      referrerId?: string,
+    ) => {
+      const { token, user } = await apiPost<AuthResponse>("/api/auth/register", {
+        name,
+        email,
+        password,
+        defaultCurrency,
+        ...(referrerId ? { referrerId } : {}),
+      });
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      setAuthTokenGetter(() => token);
+      setState({ isLoaded: true, isSignedIn: true, user, token });
+    },
+    [],
+  );
 
   const signOut = useCallback(() => {
     clearStoredAuth();
