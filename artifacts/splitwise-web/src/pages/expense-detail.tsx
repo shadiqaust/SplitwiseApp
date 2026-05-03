@@ -53,6 +53,15 @@ export function ExpenseDetailPage() {
   const params = useParams<{ expenseId: string }>();
   const expenseId = params.expenseId;
   const [, navigate] = useLocation();
+  // Honor an explicit `?from=` referrer so back returns to the screen that
+  // sent us here (e.g. friend detail) instead of the default group page.
+  const fromHref = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const raw = new URLSearchParams(window.location.search).get("from");
+    if (!raw) return null;
+    // Only allow same-origin in-app paths.
+    return raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
+  }, []);
   const me = useGetMe();
   const myId = me.data?.id;
   const expenseQ = useGetExpense(expenseId);
@@ -202,9 +211,9 @@ export function ExpenseDetailPage() {
     expense.paidByUserId === myId
       ? "You"
       : expense.paidByUser?.name ?? "Someone";
-  const backHref = expense.groupId
-    ? `/groups/${expense.groupId}`
-    : "/non-group-expenses";
+  const backHref =
+    fromHref ??
+    (expense.groupId ? `/groups/${expense.groupId}` : "/non-group-expenses");
 
   return (
     <Layout>

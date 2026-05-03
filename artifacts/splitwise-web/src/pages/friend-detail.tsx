@@ -224,7 +224,7 @@ export function FriendDetailPage() {
         subtitle,
         kind: "expense",
         delta,
-        href: `/expenses/${e.id}`,
+        href: `/expenses/${e.id}?from=${encodeURIComponent(`/friends/${friendId}`)}`,
       });
     }
 
