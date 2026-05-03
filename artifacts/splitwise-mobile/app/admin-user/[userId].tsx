@@ -1,7 +1,8 @@
 import React from "react";
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Pressable, Alert } from "react-native";
 import { Redirect, Stack, useLocalSearchParams } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Feather } from "@expo/vector-icons";
 
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/lib/auth";
@@ -9,6 +10,7 @@ import { adminApi } from "@/lib/admin-api";
 
 export default function AdminUserDetailScreen() {
   const colors = useColors();
+  const queryClient = useQueryClient();
   const { user: me, isLoaded } = useAuth();
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const isAdmin = me?.role === "superadmin";
@@ -17,6 +19,35 @@ export default function AdminUserDetailScreen() {
     queryFn: () => adminApi.getUser(String(userId)),
     enabled: !!userId && isAdmin,
   });
+
+  const verifyEmail = useMutation({
+    mutationFn: () => adminApi.verifyUserEmail(String(userId)),
+    onSuccess: (res) => {
+      Alert.alert(
+        "Done",
+        res.alreadyVerified
+          ? "Email was already verified."
+          : "Email marked as verified.",
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin", "user", userId] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
+    onError: (err: Error) => {
+      Alert.alert("Couldn't verify", err.message);
+    },
+  });
+
+  const onVerifyEmail = () => {
+    if (!data) return;
+    Alert.alert(
+      "Mark email verified?",
+      `${data.user.name} will be able to use all app features without clicking the verification link.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Mark verified", onPress: () => verifyEmail.mutate() },
+      ],
+    );
+  };
 
   if (isLoaded && !isAdmin) {
     // Block direct deep-linking by non-superadmins.
@@ -41,9 +72,45 @@ export default function AdminUserDetailScreen() {
         <View style={{ marginBottom: 16 }}>
           <Text style={{ color: colors.foreground, fontSize: 22, fontFamily: "Inter_700Bold" }}>{user.name}</Text>
           <Text style={{ color: colors.mutedForeground }}>{user.email}</Text>
-          <Text style={{ color: colors.mutedForeground, fontSize: 12, marginTop: 4 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+            {user.emailVerifiedAt ? (
+              <View style={[styles.statusPill, { backgroundColor: "#10b98122" }]}>
+                <Feather name="check-circle" size={12} color="#059669" />
+                <Text style={{ color: "#059669", fontSize: 11, marginLeft: 4 }}>email verified</Text>
+              </View>
+            ) : (
+              <View style={[styles.statusPill, { backgroundColor: "#f59e0b22" }]}>
+                <Feather name="alert-triangle" size={12} color="#d97706" />
+                <Text style={{ color: "#d97706", fontSize: 11, marginLeft: 4 }}>email unverified</Text>
+              </View>
+            )}
+          </View>
+          <Text style={{ color: colors.mutedForeground, fontSize: 12, marginTop: 6 }}>
             {user.role} · {user.defaultCurrency} · joined {new Date(user.createdAt).toLocaleDateString()}
           </Text>
+          {!user.emailVerifiedAt && (
+            <Pressable
+              onPress={onVerifyEmail}
+              disabled={verifyEmail.isPending}
+              style={[
+                styles.verifyBtn,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                  opacity: verifyEmail.isPending ? 0.6 : 1,
+                },
+              ]}
+            >
+              {verifyEmail.isPending ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Feather name="mail" size={14} color={colors.foreground} />
+              )}
+              <Text style={{ color: colors.foreground, marginLeft: 6, fontFamily: "Inter_600SemiBold" }}>
+                Mark email verified
+              </Text>
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.statsGrid}>
@@ -114,4 +181,6 @@ const styles = StyleSheet.create({
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   statCard: { flexBasis: "31%", flexGrow: 1, padding: 10, borderWidth: 1, borderRadius: 8 },
   row: { flexDirection: "row", padding: 10, borderBottomWidth: 1, gap: 8 },
+  statusPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  verifyBtn: { marginTop: 12, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
 });

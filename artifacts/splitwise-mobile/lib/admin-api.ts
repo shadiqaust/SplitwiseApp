@@ -27,6 +27,7 @@ export interface AdminUser {
   avatarUrl: string | null;
   defaultCurrency: string;
   role: "user" | "superadmin";
+  emailVerifiedAt: string | null;
   createdAt: string;
 }
 
@@ -117,6 +118,12 @@ export const adminApi = {
     }>(`/admin/users${suffix}`);
   },
   getUser: (id: string) => adminGet<AdminUserDetail>(`/admin/users/${id}`),
+  verifyUserEmail: (id: string) =>
+    adminSend<{ id: string; emailVerifiedAt: string | null; alreadyVerified: boolean }>(
+      `/admin/users/${id}/verify-email`,
+      "POST",
+      null,
+    ),
   listCurrencies: () => adminGet<{ currencies: AdminCurrency[] }>("/admin/currencies"),
   createCurrency: (input: AdminCurrency) =>
     adminSend<AdminCurrency>("/admin/currencies", "POST", input),

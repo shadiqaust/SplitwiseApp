@@ -444,6 +444,15 @@ function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
               <Text style={{ color: colors.primary, fontSize: 10 }}>admin</Text>
             </View>
           )}
+          {u.emailVerifiedAt ? (
+            <View style={[styles.badge, { backgroundColor: "#10b98122" }]}>
+              <Text style={{ color: "#059669", fontSize: 10 }}>verified</Text>
+            </View>
+          ) : (
+            <View style={[styles.badge, { backgroundColor: "#f59e0b22" }]}>
+              <Text style={{ color: "#d97706", fontSize: 10 }}>unverified</Text>
+            </View>
+          )}
         </Pressable>
       ))}
 
