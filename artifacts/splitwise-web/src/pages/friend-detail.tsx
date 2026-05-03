@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SettleUpWithFriendDialog } from "@/components/settle-up-with-friend-dialog";
 import { PaymentDetailDialog } from "@/components/payment-detail-dialog";
 import { cn, formatCurrency } from "@/lib/format";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 interface FriendActivityResponse {
   friend: User;
@@ -39,10 +40,11 @@ function authHeaders(): HeadersInit {
 
 function FriendAvatar({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
   const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-  if (avatarUrl) {
+  const resolved = avatarUrl ? (resolveAvatarUrl(avatarUrl) ?? avatarUrl) : null;
+  if (resolved) {
     return (
       <img
-        src={avatarUrl}
+        src={resolved}
         alt={name}
         className="w-14 h-14 rounded-full object-cover flex-shrink-0"
       />
