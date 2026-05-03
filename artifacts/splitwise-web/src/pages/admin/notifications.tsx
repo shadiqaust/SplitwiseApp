@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Users, User } from "lucide-react";
+import { Send, Users, User, Inbox, Bell } from "lucide-react";
 
 type Mode = "all" | "user";
 
@@ -18,6 +18,8 @@ export function AdminNotificationsPage() {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [sendInApp, setSendInApp] = useState(true);
+  const [sendPush, setSendPush] = useState(true);
 
   const usersQ = useQuery({
     queryKey: ["admin", "users", "for-notif", userQuery],
@@ -36,9 +38,11 @@ export function AdminNotificationsPage() {
         target: mode === "all" ? "all" : selectedUserId,
         title: title.trim(),
         body: body.trim(),
+        channels: { inApp: sendInApp, push: sendPush },
       }),
     onSuccess: (r) => {
-      toast({ title: `Sent to ${r.sent} user${r.sent === 1 ? "" : "s"}` });
+      const via = [sendInApp && "in-app", sendPush && "push"].filter(Boolean).join(" + ");
+      toast({ title: `Sent to ${r.sent} user${r.sent === 1 ? "" : "s"}`, description: `Via ${via}` });
       setTitle("");
       setBody("");
       qc.invalidateQueries({ queryKey: ["admin", "notifications", "sent"] });
@@ -50,6 +54,7 @@ export function AdminNotificationsPage() {
     title.trim().length > 0 &&
     body.trim().length > 0 &&
     (mode === "all" || !!selectedUserId) &&
+    (sendInApp || sendPush) &&
     !send.isPending;
 
   return (
@@ -114,6 +119,43 @@ export function AdminNotificationsPage() {
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Message</label>
           <Textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} rows={4} placeholder="Write a clear, friendly message…" />
+        </div>
+
+        <div>
+          <label className="text-xs text-muted-foreground mb-2 block">Delivery channels</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSendInApp((v) => !v)}
+              className={`flex-1 flex items-center justify-center gap-2 border rounded-md py-2 text-sm font-medium ${
+                sendInApp ? "bg-primary text-primary-foreground border-primary" : ""
+              }`}
+            >
+              <Inbox className="w-4 h-4" /> In-app inbox
+            </button>
+            <button
+              type="button"
+              onClick={() => setSendPush((v) => !v)}
+              className={`flex-1 flex items-center justify-center gap-2 border rounded-md py-2 text-sm font-medium ${
+                sendPush ? "bg-primary text-primary-foreground border-primary" : ""
+              }`}
+            >
+              <Bell className="w-4 h-4" /> Push notification
+            </button>
+          </div>
+          {!sendInApp && !sendPush && (
+            <p className="text-xs text-destructive mt-1">Pick at least one channel.</p>
+          )}
+          {!sendInApp && sendPush && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Push only — won't appear in the in-app inbox.
+            </p>
+          )}
+          {sendInApp && !sendPush && (
+            <p className="text-xs text-muted-foreground mt-1">
+              In-app only — no OS notification on mobile.
+            </p>
+          )}
         </div>
 
         <Button onClick={() => send.mutate()} disabled={!canSend}>

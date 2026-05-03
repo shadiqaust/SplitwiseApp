@@ -14,13 +14,21 @@ export async function getGroupName(groupId: string): Promise<string> {
 
 export async function createNotifications(
   rows: Array<Omit<InsertNotification, "id" | "createdAt" | "readAt">>,
+  options: { inApp?: boolean; push?: boolean } = {},
 ): Promise<void> {
   if (rows.length === 0) return;
-  try {
-    await db.insert(notificationsTable).values(rows);
-  } catch (err) {
-    console.error("[notifications] failed to insert", err);
+  const inApp = options.inApp !== false; // default true
+  const push = options.push !== false; // default true
+
+  if (inApp) {
+    try {
+      await db.insert(notificationsTable).values(rows);
+    } catch (err) {
+      console.error("[notifications] failed to insert", err);
+    }
   }
+
+  if (!push) return;
 
   // Best-effort OS-level push to every recipient's registered devices.
   // Group rows by userId so each device gets one push per logical event.

@@ -268,11 +268,26 @@ router.delete("/admin/currencies/:code", requireSuperadmin, async (req, res): Pr
 
 // ─── Notifications ────────────────────────────────────────────────────────
 
-const SendNotifBody = z.object({
-  target: z.union([z.literal("all"), z.string().uuid()]),
-  title: z.string().min(1).max(200),
-  body: z.string().min(1).max(2000),
-});
+const SendNotifBody = z
+  .object({
+    target: z.union([z.literal("all"), z.string().uuid()]),
+    title: z.string().min(1).max(200),
+    body: z.string().min(1).max(2000),
+    channels: z
+      .object({
+        inApp: z.boolean().optional(),
+        push: z.boolean().optional(),
+      })
+      .optional(),
+  })
+  .refine(
+    (v) => {
+      const inApp = v.channels?.inApp ?? true;
+      const push = v.channels?.push ?? true;
+      return inApp || push;
+    },
+    { message: "At least one delivery channel must be enabled", path: ["channels"] },
+  );
 
 router.post("/admin/notifications", requireSuperadmin, async (req, res): Promise<void> => {
   const parsed = SendNotifBody.safeParse(req.body);
@@ -280,7 +295,9 @@ router.post("/admin/notifications", requireSuperadmin, async (req, res): Promise
     res.status(400).json({ error: "Invalid body", details: parsed.error.issues });
     return;
   }
-  const { target, title, body } = parsed.data;
+  const { target, title, body, channels } = parsed.data;
+  const inApp = channels?.inApp ?? true;
+  const push = channels?.push ?? true;
 
   let recipients: Array<{ id: string }> = [];
   if (target === "all") {
@@ -302,19 +319,20 @@ router.post("/admin/notifications", requireSuperadmin, async (req, res): Promise
     return;
   }
 
-  // Route through createNotifications so the same code path also fires the
-  // OS-level Expo push for every recipient's registered devices.
+  // Route through createNotifications so the same code path can fire the
+  // in-app inbox insert and/or the OS-level Expo push, per the admin's choice.
   await createNotifications(
     recipients.map((r) => ({
       userId: r.id,
       type: target === "all" ? "admin_broadcast" : "admin_direct",
       title,
       body,
-      data: { sentBy: req.dbUserId, target },
+      data: { sentBy: req.dbUserId, target, channels: { inApp, push } },
     })),
+    { inApp, push },
   );
 
-  res.status(201).json({ sent: recipients.length });
+  res.status(201).json({ sent: recipients.length, channels: { inApp, push } });
 });
 
 router.get("/admin/notifications/sent", requireSuperadmin, async (_req, res) => {

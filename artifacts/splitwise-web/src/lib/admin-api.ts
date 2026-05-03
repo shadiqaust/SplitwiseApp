@@ -125,7 +125,12 @@ export const adminApi = {
     }),
   deleteCurrency: (code: string) =>
     adminFetch<void>(`/admin/currencies/${code}`, { method: "DELETE" }),
-  sendNotification: (input: { target: "all" | string; title: string; body: string }) =>
+  sendNotification: (input: {
+    target: "all" | string;
+    title: string;
+    body: string;
+    channels?: { inApp: boolean; push: boolean };
+  }) =>
     adminFetch<{ sent: number }>("/admin/notifications", {
       method: "POST",
       body: JSON.stringify(input),
