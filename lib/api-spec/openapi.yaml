@@ -1589,6 +1589,9 @@ components:
           type: string
         amount:
           type: number
+        currency:
+          type: string
+          description: ISO 4217 currency code for the amount
         involvedUserId:
           type: string
           format: uuid
@@ -1601,7 +1604,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, type, groupId, groupName, description, amount, involvedUserId, involvedUser, date, createdAt]
+      required: [id, type, groupId, groupName, description, amount, currency, involvedUserId, involvedUser, date, createdAt]
 
     UploadUrlRequest:
       type: object

@@ -994,6 +994,7 @@ export const GetActivityResponseItem = zod.object({
   groupName: zod.string(),
   description: zod.string(),
   amount: zod.number(),
+  currency: zod.string().describe("ISO 4217 currency code for the amount"),
   involvedUserId: zod
     .string()
     .uuid()

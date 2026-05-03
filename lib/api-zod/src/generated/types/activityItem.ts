@@ -16,6 +16,8 @@ export interface ActivityItem {
   groupName: string;
   description: string;
   amount: number;
+  /** ISO 4217 currency code for the amount */
+  currency: string;
   /** The paidBy user (expense) or fromUser (payment) */
   involvedUserId: string;
   involvedUser: User;

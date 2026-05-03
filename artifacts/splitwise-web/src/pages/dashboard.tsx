@@ -245,7 +245,7 @@ export function DashboardPage() {
                         </p>
                       </div>
                       <div className="font-medium">
-                        {formatCurrency(activity.amount)}
+                        {formatCurrency(activity.amount, activity.currency)}
                       </div>
                     </div>
                   ))}

@@ -265,7 +265,7 @@ export default function DashboardScreen() {
                 <Text
                   style={[styles.activityAmount, { color: colors.foreground }]}
                 >
-                  {formatCurrency(item.amount)}
+                  {formatCurrency(item.amount, item.currency)}
                 </Text>
               </Card>
             ))}
