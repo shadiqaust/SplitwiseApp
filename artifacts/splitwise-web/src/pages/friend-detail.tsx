@@ -43,6 +43,9 @@ type ActivityRow = {
   dayMonth: string;
   dayNum: string;
   icon: "file-text" | "users" | "credit-card";
+  /** When present, render this avatar in place of the icon (used for group rows). */
+  iconAvatarUrl?: string | null;
+  iconFallbackName?: string;
   title: string;
   subtitle: string;
   kind: "expense" | "payment";
@@ -125,6 +128,11 @@ export function FriendDetailPage() {
   const groupNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const g of groupsList ?? []) m.set(g.id, g.name);
+    return m;
+  }, [groupsList]);
+  const groupAvatarById = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const g of groupsList ?? []) m.set(g.id, g.avatarUrl ?? null);
     return m;
   }, [groupsList]);
   const [settleOpen, setSettleOpen] = useState(false);
@@ -239,6 +247,8 @@ export function FriendDetailPage() {
         dayMonth: monthShort.format(d),
         dayNum: String(d.getDate()),
         icon: "users",
+        iconAvatarUrl: groupAvatarById.get(gid) ?? null,
+        iconFallbackName: gname,
         title: gname,
         subtitle: `${agg.count} shared ${agg.count === 1 ? "expense" : "expenses"} · Shared group`,
         kind: "expense",
@@ -277,7 +287,7 @@ export function FriendDetailPage() {
     }
     rows.sort((a, b) => b.date.getTime() - a.date.getTime());
     return rows;
-  }, [data, myId, friendId]);
+  }, [data, myId, friendId, groupAvatarById, groupNameById]);
 
   const friend = data?.friend;
   const net = data?.netBalance ?? 0;
@@ -471,6 +481,15 @@ function TimelineRow({ row }: { row: ActivityRow }) {
         : "you borrowed";
   const Icon = row.icon === "users" ? Users : row.icon === "credit-card" ? CreditCard : FileText;
   const iconTint = row.icon === "users" ? "text-primary" : "text-muted-foreground";
+  const resolvedAvatar = row.iconAvatarUrl
+    ? (resolveAvatarUrl(row.iconAvatarUrl) ?? row.iconAvatarUrl)
+    : null;
+  const avatarInitials = (row.iconFallbackName ?? row.title)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
   const inner = (
     <>
       <div className="w-9 flex flex-col items-center shrink-0">
@@ -479,9 +498,21 @@ function TimelineRow({ row }: { row: ActivityRow }) {
         </span>
         <span className="text-base font-bold leading-tight">{row.dayNum}</span>
       </div>
-      <div className="w-10 h-10 rounded-md bg-muted border flex items-center justify-center shrink-0">
-        <Icon className={cn("w-4 h-4", iconTint)} />
-      </div>
+      {resolvedAvatar ? (
+        <img
+          src={resolvedAvatar}
+          alt={row.iconFallbackName ?? row.title}
+          className="w-10 h-10 rounded-md object-cover border shrink-0"
+        />
+      ) : row.iconAvatarUrl === null && row.icon === "users" ? (
+        <div className="w-10 h-10 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-primary text-xs font-semibold">
+          {avatarInitials}
+        </div>
+      ) : (
+        <div className="w-10 h-10 rounded-md bg-muted border flex items-center justify-center shrink-0">
+          <Icon className={cn("w-4 h-4", iconTint)} />
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm truncate">{row.title}</p>
         <p className="text-xs text-muted-foreground truncate">{row.subtitle}</p>

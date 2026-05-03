@@ -50,6 +50,9 @@ type ActivityRow = {
   dayNum: string;
   icon: "file-text" | "users" | "credit-card";
   iconTint: string;
+  /** When present, render this avatar in place of the icon (used for group rows). */
+  iconAvatarUrl?: string | null;
+  iconFallbackName?: string;
   title: string;
   subtitle: string;
   kind: "expense" | "payment";
@@ -99,6 +102,11 @@ export default function FriendDetailScreen() {
   const groupNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const g of groupsList ?? []) m.set(g.id, g.name);
+    return m;
+  }, [groupsList]);
+  const groupAvatarById = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const g of groupsList ?? []) m.set(g.id, g.avatarUrl ?? null);
     return m;
   }, [groupsList]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -222,6 +230,8 @@ export default function FriendDetailScreen() {
         dayNum: String(d.getDate()),
         icon: "users",
         iconTint: colors.primary,
+        iconAvatarUrl: groupAvatarById.get(gid) ?? null,
+        iconFallbackName: gname,
         title: gname,
         subtitle: `${agg.count} shared ${agg.count === 1 ? "expense" : "expenses"} · Shared group`,
         kind: "expense",
@@ -264,7 +274,7 @@ export default function FriendDetailScreen() {
     }
     rows.sort((a, b) => b.date.getTime() - a.date.getTime());
     return rows;
-  }, [query.data, myId, friendId, colors.primary, colors.mutedForeground]);
+  }, [query.data, myId, friendId, colors.primary, colors.mutedForeground, groupAvatarById, groupNameById]);
 
   if (query.isLoading && !query.data) {
     return (
@@ -504,14 +514,24 @@ function ActivityRowView({
         <Text style={[styles.dateMonth, { color: colors.mutedForeground }]}>{row.dayMonth}</Text>
         <Text style={[styles.dateDay, { color: colors.foreground }]}>{row.dayNum}</Text>
       </View>
-      <View
-        style={[
-          styles.activityIcon,
-          { backgroundColor: colors.muted, borderColor: colors.border },
-        ]}
-      >
-        <Feather name={row.icon} size={18} color={row.iconTint} />
-      </View>
+      {row.iconAvatarUrl ? (
+        <View style={styles.activityAvatarWrap}>
+          <Avatar
+            name={row.iconFallbackName ?? row.title}
+            url={row.iconAvatarUrl}
+            size={40}
+          />
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.activityIcon,
+            { backgroundColor: colors.muted, borderColor: colors.border },
+          ]}
+        >
+          <Feather name={row.icon} size={18} color={row.iconTint} />
+        </View>
+      )}
       <View style={{ flex: 1 }}>
         <Text style={[styles.activityTitle, { color: colors.foreground }]} numberOfLines={1}>
           {row.title}
@@ -648,6 +668,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
+  },
+  activityAvatarWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: "hidden",
   },
   activityTitle: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   activitySub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
