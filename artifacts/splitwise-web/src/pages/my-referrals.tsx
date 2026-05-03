@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Gift, ArrowLeft, Users } from "lucide-react";
 import { Link } from "wouter";
@@ -37,6 +38,20 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
 }
 
 export function MyReferralsPage() {
+  // Wouter does not reset scroll on route change. The link into this page
+  // typically lives near the bottom of the profile page, so without this the
+  // mobile <main> scroll container stays scrolled down and the page top sits
+  // hidden behind the sticky header. Reset both the window and the closest
+  // scrollable ancestor on mount.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    let el: HTMLElement | null = document.querySelector("main");
+    while (el) {
+      if (el.scrollTop > 0) el.scrollTop = 0;
+      el = el.parentElement;
+    }
+  }, []);
+
   const { data, isLoading } = useQuery({
     queryKey: ["me", "referrals"],
     queryFn: fetchMyReferrals,
