@@ -14,7 +14,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { Camera, Upload, Check, MapPin, Globe } from "lucide-react";
+import { Camera, Upload, Check, MapPin, Globe, Gift, Copy, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useListCurrencies } from "@workspace/api-client-react";
@@ -208,6 +208,55 @@ export function ProfilePage() {
     setLocation("/");
   };
 
+  // ── Invite friends ─────────────────────────────────────────────────
+  const inviteUrl = (() => {
+    const explicit = (import.meta.env.VITE_APP_INSTALL_URL as string | undefined) || "";
+    const base = explicit || (typeof window !== "undefined" ? window.location.origin : "");
+    const ref = userProfile?.id ?? "";
+    if (!ref) return base;
+    try {
+      const u = new URL(base);
+      u.searchParams.set("ref", ref);
+      return u.toString();
+    } catch {
+      // Malformed base — fall back to safe concatenation.
+      const sep = base.includes("?") ? "&" : "?";
+      return `${base}${sep}ref=${encodeURIComponent(ref)}`;
+    }
+  })();
+  const inviteMessage =
+    `Hey! I'm using Splitix to split bills with friends — it makes settling up effortless. ` +
+    `Join me here: ${inviteUrl}`;
+
+  const handleShareInvite = async () => {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: "Try Splitix", text: inviteMessage, url: inviteUrl });
+        return;
+      } catch (err) {
+        // User dismissed the share sheet — treat as a no-op, don't surprise
+        // them with a "copied" toast they didn't ask for.
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Otherwise fall through to clipboard fallback below.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      toast({ title: "Invite link copied", description: "Paste it anywhere to share." });
+    } catch {
+      toast({ title: "Couldn't share", variant: "destructive" });
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      toast({ title: "Copied to clipboard" });
+    } catch {
+      toast({ title: "Couldn't copy", variant: "destructive" });
+    }
+  };
+
   if (isLoading) {
     return (
       <Layout>
@@ -366,6 +415,36 @@ export function ProfilePage() {
             </Button>
           </form>
         </Form>
+
+        {/* Invite friends */}
+        <div className="rounded-xl border bg-card p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
+              <Gift className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <div className="font-semibold">Invite friends</div>
+              <div className="text-xs text-muted-foreground">
+                Share Splitix so others can split bills with you.
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-md border bg-muted px-3 py-2">
+            <span className="flex-1 text-xs font-medium truncate">{inviteUrl}</span>
+            <button
+              type="button"
+              onClick={handleCopyInvite}
+              className="text-primary hover:opacity-80"
+              aria-label="Copy invite link"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+          </div>
+          <Button onClick={handleShareInvite} className="w-full">
+            <Share2 className="w-4 h-4 mr-2" />
+            Share invite link
+          </Button>
+        </div>
 
         <div className="pt-4 border-t">
           <Button variant="destructive" onClick={handleSignOut} className="w-full">

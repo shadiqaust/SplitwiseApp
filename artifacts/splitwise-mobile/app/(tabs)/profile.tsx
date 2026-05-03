@@ -8,6 +8,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -15,6 +16,7 @@ import {
   Image,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { useGetMe, useUpdateMe, getGetMeQueryKey, useListCurrencies } from "@workspace/api-client-react";
@@ -86,6 +88,56 @@ export default function ProfileScreen() {
   const handleSignOut = async () => {
     await signOut();
     queryClient.clear();
+  };
+
+  // ── Invite / share app ────────────────────────────────────────────
+  // Build a shareable install link. Uses the configured public install URL
+  // when set, otherwise falls back to the deployed web app's domain.
+  const inviteUrl = (() => {
+    const explicit = process.env.EXPO_PUBLIC_APP_INSTALL_URL as string | undefined;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN as string | undefined;
+    const base = explicit || (domain ? `https://${domain}` : "https://splitix.app");
+    const ref = me?.id ?? "";
+    if (!ref) return base;
+    try {
+      const u = new URL(base);
+      u.searchParams.set("ref", ref);
+      return u.toString();
+    } catch {
+      const sep = base.includes("?") ? "&" : "?";
+      return `${base}${sep}ref=${encodeURIComponent(ref)}`;
+    }
+  })();
+
+  const handleInviteFriends = async () => {
+    const message =
+      `Hey! I'm using Splitix to split bills with friends — it makes settling up effortless. ` +
+      `Join me here: ${inviteUrl}`;
+    try {
+      await Share.share(
+        Platform.OS === "ios"
+          ? { message, url: inviteUrl }
+          : { message, title: "Try Splitix" },
+        { dialogTitle: "Invite friends to Splitix" },
+      );
+    } catch {
+      // Share sheet was dismissed or unavailable — copy as a fallback.
+      try {
+        await Clipboard.setStringAsync(inviteUrl);
+        Alert.alert("Link copied", "Your invite link is on the clipboard.");
+      } catch {
+        Alert.alert("Couldn't share", "Try again in a moment.");
+      }
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    try {
+      await Clipboard.setStringAsync(inviteUrl);
+      Alert.alert("Copied", "Invite link copied to clipboard.");
+    } catch {
+      Alert.alert("Couldn't copy", "Try again in a moment.");
+    }
   };
 
   const handleSaveProfile = () => {
@@ -365,6 +417,44 @@ export default function ProfileScreen() {
             />
           </Card>
 
+          {/* ── Invite friends ─────────────────────────────────────── */}
+          <Card style={styles.inviteCard}>
+            <View style={styles.inviteHeader}>
+              <View style={[styles.inviteIcon, { backgroundColor: colors.primary + "22" }]}>
+                <Feather name="gift" size={20} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sectionTitle, { color: colors.foreground, marginBottom: 0 }]}>
+                  Invite friends
+                </Text>
+                <Text style={[styles.inviteHint, { color: colors.mutedForeground }]}>
+                  Share Splitix so others can split bills with you.
+                </Text>
+              </View>
+            </View>
+            <View
+              style={[
+                styles.inviteLinkBox,
+                { backgroundColor: colors.muted, borderColor: colors.border },
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[styles.inviteLinkText, { color: colors.foreground }]}
+              >
+                {inviteUrl}
+              </Text>
+              <Pressable onPress={handleCopyInvite} hitSlop={10} style={styles.inviteCopyBtn}>
+                <Feather name="copy" size={16} color={colors.primary} />
+              </Pressable>
+            </View>
+            <Button
+              title="Share invite link"
+              onPress={handleInviteFriends}
+              fullWidth
+            />
+          </Card>
+
           {/* ── Logout ──────────────────────────────────────────────── */}
           <Button title="Log out" variant="destructive" onPress={handleSignOut} fullWidth />
         </ScrollView>
@@ -485,6 +575,29 @@ const styles = StyleSheet.create({
   metaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
   metaText: { fontFamily: "Inter_400Regular", fontSize: 12 },
   changeAvatarLink: { fontFamily: "Inter_500Medium", fontSize: 13, marginTop: 6 },
+
+  // Invite card
+  inviteCard: { gap: 12, padding: 16 },
+  inviteHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  inviteIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inviteHint: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  inviteLinkBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
+  },
+  inviteLinkText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 12 },
+  inviteCopyBtn: { padding: 4 },
 
   // Form card
   formCard: { gap: 16, padding: 16 },
