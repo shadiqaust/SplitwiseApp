@@ -82,14 +82,18 @@ export default function ProfileScreen() {
     setBioBusy(true);
     try {
       if (next) {
-        if (!bioCapability?.available) {
+        // Re-check capability at toggle time rather than trusting the stale
+        // mount-time snapshot — the user may have just enrolled biometrics.
+        const cap = await getBiometricCapability();
+        setBioCapability(cap);
+        if (!cap.available) {
           Alert.alert("Not supported", "This device doesn't support biometric authentication.");
           return;
         }
-        if (!bioCapability.enrolled) {
+        if (!cap.enrolled) {
           Alert.alert(
             "Set up biometrics first",
-            `Please enrol ${bioCapability.label} in your device settings, then try again.`,
+            `Please enrol ${cap.label} in your device settings, then try again.`,
           );
           return;
         }
@@ -98,7 +102,9 @@ export default function ProfileScreen() {
         await disableBiometricLogin();
       }
     } catch (err) {
-      Alert.alert("Couldn't update", err instanceof Error ? err.message : "Try again.");
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn("[biometric] toggle failed", err);
+      Alert.alert("Couldn't update", message || "Try again.");
     } finally {
       setBioBusy(false);
     }

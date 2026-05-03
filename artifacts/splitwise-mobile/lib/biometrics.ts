@@ -5,6 +5,11 @@ import * as SecureStore from "expo-secure-store";
 const BIO_TOKEN_KEY = "sw_bio_token";
 const BIO_USER_KEY = "sw_bio_user";
 const BIO_ENABLED_KEY = "sw_bio_enabled";
+// Records whether the vault entries were written with the OS-level
+// `requireAuthentication` keychain access control. Reads must use the
+// matching options or SecureStore will throw "item not found"-style errors,
+// so we persist this alongside the data.
+const BIO_SECURED_KEY = "sw_bio_secured";
 
 export type BiometricKind = "face" | "fingerprint" | "iris" | "generic";
 
@@ -74,12 +79,35 @@ export async function promptBiometricAuth(reason: string): Promise<boolean> {
  * Keystore-backed key. Combined with our app-level prompt, this means
  * the stored JWT cannot be lifted off the device by simply reading
  * SecureStore — the OS gates decryption too.
+ *
+ * Not all environments support this — Expo Go, iOS simulators without
+ * enrolled biometrics, and Android devices without a screen-lock will
+ * reject `requireAuthentication: true`. In those cases we transparently
+ * fall back to plain SecureStore (still gated by our app-level
+ * `authenticateAsync` prompt). `canSecure()` reports which mode applies.
  */
 const SECURE_OPTIONS: SecureStore.SecureStoreOptions = {
   requireAuthentication: true,
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   authenticationPrompt: "Unlock Splitix",
 };
+const PLAIN_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
+function canSecure(): boolean {
+  if (Platform.OS === "web") return false;
+  try {
+    return SecureStore.canUseBiometricAuthentication();
+  } catch {
+    return false;
+  }
+}
+
+async function readSecuredFlag(): Promise<boolean> {
+  if (Platform.OS === "web") return false;
+  return (await SecureStore.getItemAsync(BIO_SECURED_KEY)) === "1";
+}
 
 /** True if the user previously opted in to biometric login on this device. */
 export async function isBiometricEnabled(): Promise<boolean> {
@@ -97,8 +125,24 @@ export async function isBiometricEnabled(): Promise<boolean> {
  */
 export async function enableBiometric(token: string, user: unknown): Promise<void> {
   if (Platform.OS === "web") return;
-  await SecureStore.setItemAsync(BIO_TOKEN_KEY, token, SECURE_OPTIONS);
-  await SecureStore.setItemAsync(BIO_USER_KEY, JSON.stringify(user), SECURE_OPTIONS);
+  // Prefer OS-bound storage. Fall back to plain SecureStore if the runtime
+  // can't keep the auth-protected variant (Expo Go, simulator without
+  // enrolled biometrics, Android with no screen-lock).
+  const userJson = JSON.stringify(user);
+  let secured = canSecure();
+  if (secured) {
+    try {
+      await SecureStore.setItemAsync(BIO_TOKEN_KEY, token, SECURE_OPTIONS);
+      await SecureStore.setItemAsync(BIO_USER_KEY, userJson, SECURE_OPTIONS);
+    } catch {
+      secured = false;
+    }
+  }
+  if (!secured) {
+    await SecureStore.setItemAsync(BIO_TOKEN_KEY, token, PLAIN_OPTIONS);
+    await SecureStore.setItemAsync(BIO_USER_KEY, userJson, PLAIN_OPTIONS);
+  }
+  await SecureStore.setItemAsync(BIO_SECURED_KEY, secured ? "1" : "0");
   // Enabled flag is non-sensitive: read on every cold start to decide
   // whether to render the biometric button — keep it free of OS auth gates.
   await SecureStore.setItemAsync(BIO_ENABLED_KEY, "1");
@@ -106,11 +150,16 @@ export async function enableBiometric(token: string, user: unknown): Promise<voi
 
 export async function disableBiometric(): Promise<void> {
   if (Platform.OS === "web") return;
+  const secured = await readSecuredFlag();
+  const opts = secured ? SECURE_OPTIONS : PLAIN_OPTIONS;
   // The protected items can't be deleted without auth on some platforms;
-  // swallow errors so we always clear the flag and best-effort the rest.
-  await SecureStore.deleteItemAsync(BIO_TOKEN_KEY, SECURE_OPTIONS).catch(() => {});
-  await SecureStore.deleteItemAsync(BIO_USER_KEY, SECURE_OPTIONS).catch(() => {});
+  // swallow errors so we always clear the flags and best-effort the rest.
+  await SecureStore.deleteItemAsync(BIO_TOKEN_KEY, opts).catch(() => {});
+  await SecureStore.deleteItemAsync(BIO_USER_KEY, opts).catch(() => {});
+  await SecureStore.deleteItemAsync(BIO_TOKEN_KEY, PLAIN_OPTIONS).catch(() => {});
+  await SecureStore.deleteItemAsync(BIO_USER_KEY, PLAIN_OPTIONS).catch(() => {});
   await SecureStore.deleteItemAsync(BIO_ENABLED_KEY).catch(() => {});
+  await SecureStore.deleteItemAsync(BIO_SECURED_KEY).catch(() => {});
 }
 
 export interface BiometricSession {
@@ -136,9 +185,11 @@ export async function unlockBiometricSession(reason: string): Promise<BiometricS
   if (!ok) return null;
   let token: string | null = null;
   let userStr: string | null = null;
+  const secured = await readSecuredFlag();
+  const opts = secured ? SECURE_OPTIONS : PLAIN_OPTIONS;
   try {
-    token = await SecureStore.getItemAsync(BIO_TOKEN_KEY, SECURE_OPTIONS);
-    userStr = await SecureStore.getItemAsync(BIO_USER_KEY, SECURE_OPTIONS);
+    token = await SecureStore.getItemAsync(BIO_TOKEN_KEY, opts);
+    userStr = await SecureStore.getItemAsync(BIO_USER_KEY, opts);
   } catch {
     await disableBiometric();
     return null;
@@ -160,6 +211,14 @@ export async function unlockBiometricSession(reason: string): Promise<BiometricS
 export async function refreshStoredBiometricToken(token: string, user: unknown): Promise<void> {
   if (Platform.OS === "web") return;
   if (!(await isBiometricEnabled())) return;
-  await SecureStore.setItemAsync(BIO_TOKEN_KEY, token, SECURE_OPTIONS);
-  await SecureStore.setItemAsync(BIO_USER_KEY, JSON.stringify(user), SECURE_OPTIONS);
+  const secured = await readSecuredFlag();
+  const opts = secured ? SECURE_OPTIONS : PLAIN_OPTIONS;
+  try {
+    await SecureStore.setItemAsync(BIO_TOKEN_KEY, token, opts);
+    await SecureStore.setItemAsync(BIO_USER_KEY, JSON.stringify(user), opts);
+  } catch {
+    // Best-effort: if a refresh fails (e.g. user removed biometrics),
+    // tear the vault down so the next sign-in re-establishes it cleanly.
+    await disableBiometric();
+  }
 }
