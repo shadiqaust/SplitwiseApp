@@ -125,24 +125,8 @@ function MemberAvatar({ name, url, size = 32 }: { name: string; url?: string | n
 }
 
 // ─── Group avatar presets ─────────────────────────────────────────────────────
-const GROUP_PRESETS = [
-  { url: "https://api.dicebear.com/9.x/bottts/png?seed=alpha&size=200", label: "Alpha" },
-  { url: "https://api.dicebear.com/9.x/bottts/png?seed=beta&size=200", label: "Beta" },
-  { url: "https://api.dicebear.com/9.x/bottts/png?seed=gamma&size=200", label: "Gamma" },
-  { url: "https://api.dicebear.com/9.x/bottts/png?seed=delta&size=200", label: "Delta" },
-  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=hike&size=200", label: "Hike" },
-  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=trip&size=200", label: "Trip" },
-  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=squad&size=200", label: "Squad" },
-  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=crew&size=200", label: "Crew" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=house&size=200", label: "House" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=flat&size=200", label: "Flat" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=family&size=200", label: "Family" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=work&size=200", label: "Work" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=voyage&size=200", label: "Voyage" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=explorer&size=200", label: "Explorer" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=nomad&size=200", label: "Nomad" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=trailblazer&size=200", label: "Trailblazer" },
-];
+import { GROUP_AVATAR_PRESETS as GROUP_PRESETS_DATA, presetIdToAvatarUrl, resolveAvatarUrl } from "@/lib/avatar-presets";
+const GROUP_PRESETS = GROUP_PRESETS_DATA;
 
 function compressGroupImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -366,7 +350,7 @@ function GroupAvatarDialog({
       >
         {previewUrl ? (
           <img
-            src={currentUrl ?? previewUrl}
+            src={resolveAvatarUrl(currentUrl ?? previewUrl) ?? (currentUrl ?? previewUrl)}
             alt={groupName}
             className="w-16 h-16 rounded-2xl object-cover"
           />
@@ -388,7 +372,7 @@ function GroupAvatarDialog({
 
           <div className="flex items-center gap-4 py-2">
             {(selectedUrl ?? currentUrl) ? (
-              <img src={selectedUrl ?? currentUrl!} alt={groupName} className="w-14 h-14 rounded-xl object-cover" />
+              <img src={resolveAvatarUrl(selectedUrl ?? currentUrl!) ?? (selectedUrl ?? currentUrl!)} alt={groupName} className="w-14 h-14 rounded-xl object-cover" />
             ) : (
               <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
                 {initials}
@@ -408,17 +392,18 @@ function GroupAvatarDialog({
             <TabsContent value="presets">
               <div className="grid grid-cols-4 gap-3 py-3 max-h-72 overflow-y-auto">
                 {GROUP_PRESETS.map((p) => {
-                  const isSelected = selectedUrl === p.url || (!selectedUrl && currentUrl === p.url);
+                  const presetUrl = presetIdToAvatarUrl(p.id);
+                  const isSelected = selectedUrl === presetUrl || (!selectedUrl && currentUrl === presetUrl);
                   return (
                     <button
-                      key={p.url}
-                      onClick={() => setSelectedUrl(p.url)}
+                      key={p.id}
+                      onClick={() => setSelectedUrl(presetUrl)}
                       className={cn(
                         "relative rounded-xl overflow-hidden border-2 transition-all hover:scale-105 focus:outline-none",
                         isSelected ? "border-primary shadow-md" : "border-transparent",
                       )}
                     >
-                      <img src={p.url} alt={p.label} className="w-full aspect-square object-cover" />
+                      <img src={p.src} alt={p.label} className="w-full aspect-square object-cover" />
                       {isSelected && (
                         <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
                           <Check className="w-3 h-3 text-white" />

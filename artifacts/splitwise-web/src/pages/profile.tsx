@@ -18,26 +18,7 @@ import { Camera, Upload, Check, Globe, Gift, Copy, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useListCurrencies } from "@workspace/api-client-react";
-
-// ─── Predefined avatar presets ────────────────────────────────────────────────
-const PRESETS = [
-  { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Alice&size=200", label: "Alice" },
-  { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Bob&size=200", label: "Bob" },
-  { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Charlie&size=200", label: "Charlie" },
-  { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Diana&size=200", label: "Diana" },
-  { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Alex&size=200", label: "Alex" },
-  { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Sam&size=200", label: "Sam" },
-  { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Jordan&size=200", label: "Jordan" },
-  { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Casey&size=200", label: "Casey" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Felix&size=200", label: "Felix" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Luna&size=200", label: "Luna" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Rider&size=200", label: "Rider" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Max&size=200", label: "Max" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=River&size=200", label: "River" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=Sage&size=200", label: "Sage" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=Sky&size=200", label: "Sky" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=Storm&size=200", label: "Storm" },
-];
+import { USER_AVATAR_PRESETS, presetIdToAvatarUrl, resolveAvatarUrl } from "@/lib/avatar-presets";
 
 function compressImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -462,20 +443,21 @@ export function ProfilePage() {
 
             <TabsContent value="presets">
               <div className="grid grid-cols-4 gap-3 py-3 max-h-72 overflow-y-auto">
-                {PRESETS.map((p) => {
+                {USER_AVATAR_PRESETS.map((p) => {
+                  const presetUrl = presetIdToAvatarUrl(p.id);
                   const isSelected =
-                    selectedUrl === p.url || (!selectedUrl && currentAvatar === p.url);
+                    selectedUrl === presetUrl || (!selectedUrl && currentAvatar === presetUrl);
                   return (
                     <button
-                      key={p.url}
-                      onClick={() => setSelectedUrl(p.url)}
+                      key={p.id}
+                      onClick={() => setSelectedUrl(presetUrl)}
                       className={cn(
                         "relative rounded-xl overflow-hidden border-2 transition-all hover:scale-105 focus:outline-none",
                         isSelected ? "border-primary shadow-md" : "border-transparent",
                       )}
                     >
                       <img
-                        src={p.url}
+                        src={p.src}
                         alt={p.label}
                         className="w-full aspect-square object-cover"
                       />

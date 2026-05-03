@@ -49,24 +49,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 
 const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
 
-const GROUP_PRESETS = [
-  { url: "https://api.dicebear.com/9.x/bottts/png?seed=alpha&size=200", label: "Alpha" },
-  { url: "https://api.dicebear.com/9.x/bottts/png?seed=beta&size=200", label: "Beta" },
-  { url: "https://api.dicebear.com/9.x/bottts/png?seed=gamma&size=200", label: "Gamma" },
-  { url: "https://api.dicebear.com/9.x/bottts/png?seed=delta&size=200", label: "Delta" },
-  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=hike&size=200", label: "Hike" },
-  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=trip&size=200", label: "Trip" },
-  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=squad&size=200", label: "Squad" },
-  { url: "https://api.dicebear.com/9.x/thumbs/png?seed=crew&size=200", label: "Crew" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=house&size=200", label: "House" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=flat&size=200", label: "Flat" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=family&size=200", label: "Family" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=work&size=200", label: "Work" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=voyage&size=200", label: "Voyage" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=explorer&size=200", label: "Explorer" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=nomad&size=200", label: "Nomad" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=trailblazer&size=200", label: "Trailblazer" },
-];
+import { GROUP_AVATAR_PRESETS as GROUP_PRESETS, presetIdToAvatarUrl, resolvePresetSource } from "@/lib/avatarPresets";
 
 const domain = process.env.EXPO_PUBLIC_DOMAIN;
 const API_BASE_URL = domain ? `https://${domain}` : "";
@@ -525,7 +508,10 @@ export default function GroupDetailScreen() {
           <View style={styles.groupHeaderRow}>
             <Pressable onPress={() => setShowAvatarSheet(true)} style={styles.groupAvatarWrap}>
               {group.data.avatarUrl ? (
-                <Image source={{ uri: group.data.avatarUrl }} style={styles.groupAvatar} />
+                <Image
+                  source={resolvePresetSource(group.data.avatarUrl) ?? { uri: group.data.avatarUrl }}
+                  style={styles.groupAvatar}
+                />
               ) : (
                 <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
                   <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>
@@ -1089,7 +1075,15 @@ export default function GroupDetailScreen() {
               {/* Preview */}
               <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
                 {(selectedAvatarUrl ?? group.data.avatarUrl) ? (
-                  <Image source={{ uri: selectedAvatarUrl ?? group.data.avatarUrl! }} style={styles.groupAvatar} />
+                  (() => {
+                    const previewUrl = (selectedAvatarUrl ?? group.data.avatarUrl)!;
+                    return (
+                      <Image
+                        source={resolvePresetSource(previewUrl) ?? { uri: previewUrl }}
+                        style={styles.groupAvatar}
+                      />
+                    );
+                  })()
                 ) : (
                   <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
                     <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>
@@ -1105,16 +1099,17 @@ export default function GroupDetailScreen() {
               <Text style={[{ fontFamily: "Inter_600SemiBold", fontSize: 14, marginTop: 8 }, { color: colors.foreground }]}>Preset icons</Text>
               <FlatList
                 data={GROUP_PRESETS}
-                keyExtractor={(item) => item.url}
+                keyExtractor={(item) => item.id}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
                 renderItem={({ item }) => {
-                  const isSelected = selectedAvatarUrl === item.url || (!selectedAvatarUrl && group.data?.avatarUrl === item.url);
+                  const presetUrl = presetIdToAvatarUrl(item.id);
+                  const isSelected = selectedAvatarUrl === presetUrl || (!selectedAvatarUrl && group.data?.avatarUrl === presetUrl);
                   return (
-                    <Pressable onPress={() => setSelectedAvatarUrl(item.url)}>
+                    <Pressable onPress={() => setSelectedAvatarUrl(presetUrl)}>
                       <Image
-                        source={{ uri: item.url }}
+                        source={item.source}
                         style={[styles.presetImg, { borderColor: isSelected ? colors.primary : colors.border }]}
                       />
                       {isSelected && (

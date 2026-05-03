@@ -26,6 +26,7 @@ import { useColors } from "@/hooks/useColors";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { getErrorMessage } from "@/lib/error";
+import { resolvePresetSource } from "@/lib/avatarPresets";
 
 export default function GroupJoinScreen() {
   const colors = useColors();
@@ -173,7 +174,7 @@ export default function GroupJoinScreen() {
             <View>
               <View style={styles.row}>
                 {preview.data.avatarUrl ? (
-                  <Image source={{ uri: preview.data.avatarUrl }} style={styles.avatar} />
+                  <Image source={resolvePresetSource(preview.data.avatarUrl) ?? { uri: preview.data.avatarUrl }} style={styles.avatar} />
                 ) : (
                   <View style={[styles.avatar, { backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }]}>
                     <Feather name="users" size={26} color={colors.accentForeground} />

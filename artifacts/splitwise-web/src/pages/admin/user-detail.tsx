@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { AdminLayout } from "./layout";
 import { ArrowLeft, Shield, ShieldOff, Loader2, MailCheck, MailWarning, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 export function AdminUserDetailPage() {
   const params = useParams<{ userId: string }>();
@@ -122,7 +123,7 @@ export function AdminUserDetailPage() {
 
       <div className="flex items-start gap-4 mb-6">
         {user.avatarUrl ? (
-          <img src={user.avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover" />
+          <img src={resolveAvatarUrl(user.avatarUrl) ?? user.avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover" />
         ) : (
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
             {user.name?.[0]?.toUpperCase() ?? "?"}

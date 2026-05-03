@@ -20,6 +20,7 @@ import { UserPlus, Search, Plus, HandCoins } from "lucide-react";
 import { AddExpenseWithFriendDialog } from "@/components/add-expense-with-friend-dialog";
 import { SettleUpWithFriendDialog } from "@/components/settle-up-with-friend-dialog";
 import { Link } from "wouter";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 interface Friend {
   id: number;
@@ -45,7 +46,7 @@ function authHeaders(): HeadersInit {
 
 function FriendAvatar({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
   const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-  if (avatarUrl) return <img src={avatarUrl} alt={name} className="w-11 h-11 rounded-full object-cover flex-shrink-0" />;
+  if (avatarUrl) return <img src={resolveAvatarUrl(avatarUrl) ?? avatarUrl} alt={name} className="w-11 h-11 rounded-full object-cover flex-shrink-0" />;
   return (
     <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm flex-shrink-0">
       {initials}

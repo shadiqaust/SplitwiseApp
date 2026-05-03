@@ -28,6 +28,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
+import { resolvePresetSource } from "@/lib/avatarPresets";
 import { formatCurrency, getCurrencySymbol } from "@/lib/format";
 
 export default function NewPaymentScreen() {
@@ -158,7 +159,7 @@ export default function NewPaymentScreen() {
           {group.data && (
             <View style={[styles.groupBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {group.data.avatarUrl ? (
-                <Image source={{ uri: group.data.avatarUrl }} style={styles.groupBannerAvatar} />
+                <Image source={resolvePresetSource(group.data.avatarUrl) ?? { uri: group.data.avatarUrl }} style={styles.groupBannerAvatar} />
               ) : (
                 <View style={[styles.groupBannerAvatarFallback, { backgroundColor: colors.accent }]}>
                   <Text style={[styles.groupBannerAvatarText, { color: colors.accentForeground }]}>

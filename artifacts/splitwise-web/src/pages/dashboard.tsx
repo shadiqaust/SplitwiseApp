@@ -9,6 +9,7 @@ import { ArrowUpRight, ArrowDownRight, Activity, DollarSign, Users } from "lucid
 import { AddExpenseCTA } from "@/components/add-expense-cta";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 const PAGE_SIZE = 8;
 
@@ -224,7 +225,7 @@ export function DashboardPage() {
                             </div>
                           ) : group.avatarUrl ? (
                             <img
-                              src={group.avatarUrl}
+                              src={resolveAvatarUrl(group.avatarUrl) ?? group.avatarUrl}
                               alt={group.name}
                               className="w-9 h-9 rounded-lg object-cover flex-shrink-0"
                             />

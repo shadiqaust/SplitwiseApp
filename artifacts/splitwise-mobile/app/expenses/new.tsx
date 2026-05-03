@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
+import { resolvePresetSource } from "@/lib/avatarPresets";
 
 const EXPENSE_CATEGORIES = [
   "General",
@@ -194,7 +195,7 @@ export default function NewExpenseScreen() {
           {group.data && (
             <View style={[styles.groupBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {group.data.avatarUrl ? (
-                <Image source={{ uri: group.data.avatarUrl }} style={styles.groupBannerAvatar} />
+                <Image source={resolvePresetSource(group.data.avatarUrl) ?? { uri: group.data.avatarUrl }} style={styles.groupBannerAvatar} />
               ) : (
                 <View style={[styles.groupBannerAvatarFallback, { backgroundColor: colors.accent }]}>
                   <Text style={[styles.groupBannerAvatarText, { color: colors.accentForeground }]}>

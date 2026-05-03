@@ -25,6 +25,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { AddExpenseCTA } from "@/components/AddExpenseCTA";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { useAuth } from "@/lib/auth";
+import { resolvePresetSource } from "@/lib/avatarPresets";
 
 export default function DashboardScreen() {
   const colors = useColors();
@@ -241,7 +242,7 @@ export default function DashboardScreen() {
                 >
                   <Card style={styles.groupRow}>
                     {g.avatarUrl ? (
-                      <Image source={{ uri: g.avatarUrl }} style={styles.groupAvatar} />
+                      <Image source={resolvePresetSource(g.avatarUrl) ?? { uri: g.avatarUrl }} style={styles.groupAvatar} />
                     ) : (
                       <View style={[styles.groupAvatarFallback, { backgroundColor: colors.accent }]}>
                         <Text style={[styles.groupAvatarText, { color: colors.accentForeground }]}>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { EmailVerificationBanner } from "@/components/email-verification-banner";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -89,7 +90,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
             {user.avatarUrl ? (
               <img
-                src={user.avatarUrl}
+                src={resolveAvatarUrl(user.avatarUrl) ?? user.avatarUrl}
                 alt="Avatar"
                 className="w-8 h-8 rounded-full object-cover"
               />
@@ -142,7 +143,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           >
             {user.avatarUrl ? (
               <img
-                src={user.avatarUrl}
+                src={resolveAvatarUrl(user.avatarUrl) ?? user.avatarUrl}
                 alt="Avatar"
                 className="w-10 h-10 rounded-full object-cover"
               />

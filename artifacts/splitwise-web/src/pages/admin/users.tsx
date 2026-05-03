@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 const PAGE_SIZE = 25;
 
@@ -241,7 +242,7 @@ export function AdminUsersPage() {
                   >
                     {u.avatarUrl ? (
                       <img
-                        src={u.avatarUrl}
+                        src={resolveAvatarUrl(u.avatarUrl) ?? u.avatarUrl}
                         alt=""
                         className="w-7 h-7 rounded-full object-cover"
                       />

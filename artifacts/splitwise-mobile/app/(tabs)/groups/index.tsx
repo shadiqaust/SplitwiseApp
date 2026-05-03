@@ -39,6 +39,7 @@ import { useColors } from "@/hooks/useColors";
 import { useViewMode, type ViewMode } from "@/hooks/useViewMode";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Input } from "@/components/ui/Input";
+import { resolvePresetSource } from "@/lib/avatarPresets";
 
 type StatusFilter = "all" | "owed" | "owe" | "settled";
 
@@ -249,7 +250,7 @@ export default function GroupsScreen() {
                       >
                         <Card style={styles.row}>
                     {g.avatarUrl ? (
-                      <Image source={{ uri: g.avatarUrl }} style={styles.avatar} />
+                      <Image source={resolvePresetSource(g.avatarUrl) ?? { uri: g.avatarUrl }} style={styles.avatar} />
                     ) : (
                       <View style={[styles.bubble, { backgroundColor: colors.accent }]}>
                         <Text style={[styles.bubbleText, { color: colors.accentForeground }]}>
@@ -309,7 +310,7 @@ export default function GroupsScreen() {
                         <Card style={styles.cardInner}>
                     <View style={styles.cardHeader}>
                       {g.avatarUrl ? (
-                        <Image source={{ uri: g.avatarUrl }} style={styles.cardAvatar} />
+                        <Image source={resolvePresetSource(g.avatarUrl) ?? { uri: g.avatarUrl }} style={styles.cardAvatar} />
                       ) : (
                         <View style={[styles.cardAvatarFallback, { backgroundColor: colors.accent }]}>
                           <Text style={[styles.cardAvatarText, { color: colors.accentForeground }]}>

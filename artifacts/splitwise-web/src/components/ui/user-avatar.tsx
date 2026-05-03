@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 function getInitials(name: string): string {
   return name
@@ -21,10 +22,11 @@ export function UserAvatar({
   className?: string;
 }) {
   const style = { width: size, height: size };
-  if (url) {
+  const resolvedUrl = resolveAvatarUrl(url);
+  if (resolvedUrl) {
     return (
       <img
-        src={url}
+        src={resolvedUrl}
         alt={name}
         style={style}
         className={cn(

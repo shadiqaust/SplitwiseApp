@@ -17,6 +17,7 @@ import {
 import { Calendar, ChevronRight, DollarSign, LayoutGrid, List, Plus, Search, Users } from "lucide-react";
 import { useViewMode, type ViewMode } from "@/hooks/use-view-mode";
 import { useMemo, useState } from "react";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 type StatusFilter = "all" | "owed" | "owe" | "settled";
 
@@ -200,7 +201,7 @@ export function GroupsPage() {
                               <div className="flex items-center gap-3 mb-2">
                                 {group.avatarUrl ? (
                                   <img
-                                    src={group.avatarUrl}
+                                    src={resolveAvatarUrl(group.avatarUrl) ?? group.avatarUrl}
                                     alt={group.name}
                                     className="w-11 h-11 rounded-lg object-cover shrink-0"
                                   />
@@ -249,7 +250,7 @@ export function GroupsPage() {
                           <CardContent className="p-4 flex items-center gap-4">
                             {group.avatarUrl ? (
                               <img
-                                src={group.avatarUrl}
+                                src={resolveAvatarUrl(group.avatarUrl) ?? group.avatarUrl}
                                 alt={group.name}
                                 className="w-11 h-11 rounded-lg object-cover shrink-0"
                               />

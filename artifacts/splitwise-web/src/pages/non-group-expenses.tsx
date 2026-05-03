@@ -30,6 +30,7 @@ import {
 } from "@/components/settle-up-with-friend-dialog";
 import { getCategoryIcon } from "@/lib/expense-categories";
 import { cn, formatCurrency, formatDate } from "@/lib/format";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
 
@@ -455,7 +456,7 @@ function FriendBalanceRow({
       <CardContent className="p-4 flex items-center gap-4">
         <Avatar className="h-10 w-10">
           {friend.avatarUrl && (
-            <AvatarImage src={friend.avatarUrl} alt={friend.name} />
+            <AvatarImage src={resolveAvatarUrl(friend.avatarUrl) ?? friend.avatarUrl} alt={friend.name} />
           )}
           <AvatarFallback>{initials(friend.name) || "?"}</AvatarFallback>
         </Avatar>

@@ -28,6 +28,7 @@ import {
 } from "@workspace/api-client-react";
 import { queryClient } from "@/lib/queryClient";
 import { Smartphone, Users } from "lucide-react";
+import { resolveAvatarUrl } from "@/lib/avatar-presets";
 
 const APP_SCHEME = "splitwise-mobile";
 
@@ -200,7 +201,7 @@ export function GroupJoinPage() {
                 <div className="flex items-center gap-3">
                   {preview.data.avatarUrl ? (
                     <img
-                      src={preview.data.avatarUrl}
+                      src={resolveAvatarUrl(preview.data.avatarUrl) ?? preview.data.avatarUrl}
                       alt=""
                       className="w-14 h-14 rounded-lg object-cover bg-muted"
                     />
