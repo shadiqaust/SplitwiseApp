@@ -14,6 +14,7 @@ import {
   useCreateExpenseComment,
   useDeleteExpenseComment,
   useDeleteExpense,
+  useListGroups,
   type ExpenseComment,
 } from "@workspace/api-client-react";
 import { ArrowLeft, MessageSquare, Pencil, Send, Trash2 } from "lucide-react";
@@ -55,6 +56,7 @@ export function ExpenseDetailPage() {
   const me = useGetMe();
   const myId = me.data?.id;
   const expenseQ = useGetExpense(expenseId);
+  const { data: groupsList } = useListGroups();
   const commentsQ = useListExpenseComments(expenseId);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -66,6 +68,10 @@ export function ExpenseDetailPage() {
 
   const expense = expenseQ.data;
   const comments = commentsQ.data ?? [];
+  const groupName = useMemo(() => {
+    if (!expense?.groupId) return null;
+    return groupsList?.find((g) => g.id === expense.groupId)?.name ?? null;
+  }, [expense?.groupId, groupsList]);
 
   const myShare = useMemo(() => {
     if (!expense || !myId) return null;
@@ -274,7 +280,9 @@ export function ExpenseDetailPage() {
                   {formatDate(expense.date)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {expense.groupId ? "Group expense" : "Non-group expense"}
+                  {expense.groupId
+                    ? groupName ?? "Group expense"
+                    : "Non-group expense"}
                 </p>
               </div>
               {expense.photoUrl && photoSrc(expense.photoUrl) && (
