@@ -1671,7 +1671,8 @@ export function GroupDetailPage() {
 
         {balances.data &&
           balances.data.length === 0 &&
-          (expenses.data?.length ?? 0) > 0 && (
+          ((expenses.data?.length ?? 0) > 0 ||
+            (payments.data?.length ?? 0) > 0) && (
             <div
               role="status"
               className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900/50 dark:bg-green-950/30 p-4 flex items-center gap-3"

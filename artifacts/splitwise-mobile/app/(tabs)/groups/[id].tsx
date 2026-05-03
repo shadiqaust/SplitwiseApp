@@ -624,7 +624,8 @@ export default function GroupDetailScreen() {
 
         {balances.data &&
           balances.data.length === 0 &&
-          (expenses.data?.length ?? 0) > 0 && (
+          ((expenses.data?.length ?? 0) > 0 ||
+            (payments.data?.length ?? 0) > 0) && (
             <View style={styles.settledBanner} accessibilityRole="text">
               <Text style={styles.settledEmoji}>🎉</Text>
               <View style={{ flex: 1 }}>
