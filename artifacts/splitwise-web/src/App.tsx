@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Switch, Route, Redirect, Router as WouterRouter } from "wouter";
+import { useEffect, useLayoutEffect } from "react";
+import { Switch, Route, Redirect, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { AuthProvider, useAuth } from "./lib/auth";
@@ -52,6 +52,28 @@ function ReferralCapture() {
 }
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// Reset scroll on every route change. Wouter doesn't do this by default and
+// the layout's <main> is its own scroll container on mobile, so without this
+// the new page can land mid-scroll and have its top hidden behind the
+// translucent sticky header. Runs synchronously before paint.
+function ScrollToTop() {
+  const [location] = useLocation();
+  useLayoutEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    document
+      .querySelectorAll("main, [data-scroll-container]")
+      .forEach((el) => {
+        (el as HTMLElement).scrollTop = 0;
+      });
+  }, [location]);
+  return null;
+}
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
@@ -151,6 +173,7 @@ function App() {
         <TooltipProvider>
           <WouterRouter base={basePath}>
             <ReferralCapture />
+            <ScrollToTop />
             <Routes />
           </WouterRouter>
           <Toaster />
