@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Gift, ArrowLeft, Users } from "lucide-react";
 import { Link } from "wouter";
@@ -38,17 +38,39 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
 }
 
 export function MyReferralsPage() {
-  // Wouter does not reset scroll on route change. The link into this page
-  // typically lives near the bottom of the profile page, so without this the
-  // mobile <main> scroll container stays scrolled down and the page top sits
-  // hidden behind the sticky header. Reset both the window and the closest
-  // scrollable ancestor on mount.
+  // Wouter does not reset scroll on route change, so the page lands at
+  // whatever scroll position the previous page (typically /profile, scrolled
+  // far down to find the invite link) left behind. The translucent sticky
+  // mobile header then covers the top of this page until the user scrolls.
+  // Force scroll-to-top synchronously before paint, then again on the next
+  // frame to defeat any browser scroll-restoration that fires after mount.
+  useLayoutEffect(() => {
+    const reset = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      document.querySelectorAll("main, [data-scroll-container]").forEach((el) => {
+        (el as HTMLElement).scrollTop = 0;
+      });
+    };
+    reset();
+    const r1 = requestAnimationFrame(reset);
+    const r2 = requestAnimationFrame(() => requestAnimationFrame(reset));
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+    };
+  }, []);
+
+  // Also disable browser scroll restoration globally for SPA navigation —
+  // wouter relies on history but doesn't manage scroll itself.
   useEffect(() => {
-    window.scrollTo(0, 0);
-    let el: HTMLElement | null = document.querySelector("main");
-    while (el) {
-      if (el.scrollTop > 0) el.scrollTop = 0;
-      el = el.parentElement;
+    if ("scrollRestoration" in window.history) {
+      const prev = window.history.scrollRestoration;
+      window.history.scrollRestoration = "manual";
+      return () => {
+        window.history.scrollRestoration = prev;
+      };
     }
   }, []);
 
