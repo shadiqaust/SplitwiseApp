@@ -29,6 +29,7 @@ import { AdminCurrenciesPage } from "./pages/admin/currencies";
 import { AdminNotificationsPage } from "./pages/admin/notifications";
 import { AdminReferralsPage } from "./pages/admin/referrals";
 import { AdminEmailSettingsPage } from "./pages/admin/email-settings";
+import { MyReferralsPage } from "./pages/my-referrals";
 
 const REF_KEY = "sw_pending_ref";
 const UUID_RE =
@@ -113,6 +114,9 @@ function Routes() {
       </Route>
       <Route path="/profile">
         <PrivateRoute><ProfilePage /></PrivateRoute>
+      </Route>
+      <Route path="/my-referrals">
+        <PrivateRoute><MyReferralsPage /></PrivateRoute>
       </Route>
       <Route path="/admin">
         <PrivateRoute><AdminOverviewPage /></PrivateRoute>

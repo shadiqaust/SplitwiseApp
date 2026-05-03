@@ -13,7 +13,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Camera, Upload, Check, MapPin, Globe, Gift, Copy, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -444,6 +444,12 @@ export function ProfilePage() {
             <Share2 className="w-4 h-4 mr-2" />
             Share invite link
           </Button>
+          <Link
+            href="/my-referrals"
+            className="flex items-center justify-center gap-2 text-sm text-primary hover:underline"
+          >
+            View who joined through your link →
+          </Link>
         </div>
 
         <div className="pt-4 border-t">

@@ -8,6 +8,34 @@ import { isSupportedCurrency } from "../lib/currencies.js";
 
 const router: IRouter = Router();
 
+router.get("/users/me/referrals", requireAuth, async (req, res): Promise<void> => {
+  // List the users who registered with the current user's invite link
+  // (?ref=<myId>). Returns lightweight public profile info only — no email
+  // verification status, currency, or role — since this is shown to the
+  // referrer themselves, not to admins.
+  const rows = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      avatarUrl: usersTable.avatarUrl,
+      createdAt: usersTable.createdAt,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.referrerId, req.dbUserId!))
+    .orderBy(sql`${usersTable.createdAt} DESC`)
+    .limit(500);
+
+  res.json({
+    count: rows.length,
+    referrals: rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      avatarUrl: r.avatarUrl,
+      createdAt: r.createdAt.toISOString(),
+    })),
+  });
+});
+
 router.get("/users/me", requireAuth, async (req, res): Promise<void> => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.dbUserId!));
   if (!user) {

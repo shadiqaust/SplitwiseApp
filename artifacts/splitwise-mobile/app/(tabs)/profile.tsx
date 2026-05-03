@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/lib/auth";
+import { useRouter } from "expo-router";
 
 // ─── Predefined avatar presets ────────────────────────────────────────────────
 const PRESETS = [
@@ -50,6 +51,7 @@ const PRESETS = [
 
 export default function ProfileScreen() {
   const colors = useColors();
+  const router = useRouter();
   const { signOut } = useAuth();
   const { data: me, isLoading } = useGetMe();
   const updateMe = useUpdateMe();
@@ -453,6 +455,20 @@ export default function ProfileScreen() {
               onPress={handleInviteFriends}
               fullWidth
             />
+            <Pressable
+              onPress={() => router.push("/my-referrals" as never)}
+              style={{ alignItems: "center", paddingVertical: 4 }}
+            >
+              <Text
+                style={{
+                  color: colors.primary,
+                  fontFamily: "Inter_600SemiBold",
+                  fontSize: 13,
+                }}
+              >
+                View who joined through your link →
+              </Text>
+            </Pressable>
           </Card>
 
           {/* ── Logout ──────────────────────────────────────────────── */}
