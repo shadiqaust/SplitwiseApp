@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   RefreshControl,
@@ -9,9 +10,22 @@ import {
   Text,
   View,
 } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import { Feather } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
-import { useListGroups, type GroupWithBalance } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  getGetActivityQueryKey,
+  getGetDashboardSummaryQueryKey,
+  getGetGroupBalancesQueryKey,
+  getGetGroupQueryKey,
+  getListGroupsQueryKey,
+  useDeleteGroup,
+  useGetMe,
+  useListGroups,
+  type GroupWithBalance,
+} from "@workspace/api-client-react";
+import { getErrorMessage } from "@/lib/error";
 
 const MONTH_FMT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
 
@@ -43,6 +57,108 @@ import { resolvePresetSource } from "@/lib/avatarPresets";
 
 type StatusFilter = "all" | "owed" | "owe" | "settled";
 
+function GroupListRow({
+  group: g,
+  canDelete,
+  colors,
+  onPress,
+  onDelete,
+  swipeRefs,
+}: {
+  group: GroupWithBalance;
+  canDelete: boolean;
+  colors: ReturnType<typeof useColors>;
+  onPress: () => void;
+  onDelete: () => void;
+  swipeRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
+}) {
+  const inner = (
+    <Pressable onPress={onPress}>
+      <Card style={styles.row}>
+        {g.avatarUrl ? (
+          <Image source={resolvePresetSource(g.avatarUrl) ?? { uri: g.avatarUrl }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.bubble, { backgroundColor: colors.accent }]}>
+            <Text style={[styles.bubbleText, { color: colors.accentForeground }]}>
+              {g.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
+            {g.name}
+          </Text>
+          <Text style={[styles.sub, { color: colors.mutedForeground }]}>
+            {g.memberCount} {g.memberCount === 1 ? "member" : "members"}
+            {g.createdAt ? ` · Created ${formatDate(g.createdAt)}` : ""}
+          </Text>
+        </View>
+        <View style={{ alignItems: "flex-end" }}>
+          <Text
+            style={[
+              styles.balance,
+              {
+                color:
+                  g.myNetBalance > 0
+                    ? colors.positive
+                    : g.myNetBalance < 0
+                      ? colors.negative
+                      : colors.mutedForeground,
+              },
+            ]}
+          >
+            {g.myNetBalance > 0
+              ? `+${formatCurrency(g.myNetBalance, g.currency)}`
+              : g.myNetBalance < 0
+                ? `-${formatCurrency(Math.abs(g.myNetBalance), g.currency)}`
+                : formatCurrency(0, g.currency)}
+          </Text>
+          <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
+            {g.myNetBalance > 0
+              ? "you are owed"
+              : g.myNetBalance < 0
+                ? "you owe"
+                : "settled up"}
+          </Text>
+        </View>
+      </Card>
+    </Pressable>
+  );
+
+  if (!canDelete) return inner;
+
+  return (
+    <Swipeable
+      ref={(r) => {
+        if (r) swipeRefs.current.set(g.id, r);
+        else swipeRefs.current.delete(g.id);
+      }}
+      friction={2}
+      rightThreshold={40}
+      renderRightActions={() => (
+        <Pressable
+          onPress={onDelete}
+          style={{
+            backgroundColor: colors.negative,
+            justifyContent: "center",
+            alignItems: "center",
+            width: 88,
+            borderRadius: 12,
+            marginLeft: 6,
+          }}
+        >
+          <Feather name="trash-2" size={18} color="#fff" />
+          <Text style={{ color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 12, marginTop: 4 }}>
+            Delete
+          </Text>
+        </Pressable>
+      )}
+    >
+      {inner}
+    </Swipeable>
+  );
+}
+
 const STATUS_OPTIONS: { key: StatusFilter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "owed", label: "You're owed" },
@@ -57,6 +173,46 @@ export default function GroupsScreen() {
   const [viewMode, setViewMode] = useViewMode("groups", "list");
   // Polling is configured globally on the QueryClient (5s, runs in background).
   const { data, isLoading, refetch } = useListGroups();
+  const me = useGetMe();
+  const myUserId = me.data?.id;
+  const deleteGroup = useDeleteGroup();
+  const queryClient = useQueryClient();
+  const swipeRefs = useRef<Map<string, Swipeable | null>>(new Map());
+
+  const confirmDelete = useCallback(
+    (g: GroupWithBalance) => {
+      swipeRefs.current.get(g.id)?.close();
+      Alert.alert(
+        `Delete "${g.name}"?`,
+        "This will permanently remove the group along with all its expenses, payments, and member history. This cannot be undone.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => {
+              deleteGroup.mutate(
+                { groupId: g.id },
+                {
+                  onSuccess: () => {
+                    queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
+                    queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+                    queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey() });
+                    queryClient.removeQueries({ queryKey: getGetGroupQueryKey(g.id) });
+                    queryClient.removeQueries({ queryKey: getGetGroupBalancesQueryKey(g.id) });
+                  },
+                  onError: (err) => {
+                    Alert.alert("Failed to delete group", getErrorMessage(err));
+                  },
+                },
+              );
+            },
+          },
+        ],
+      );
+    },
+    [deleteGroup, queryClient],
+  );
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
 
@@ -244,61 +400,17 @@ export default function GroupsScreen() {
                 {viewMode === "list" ? (
                   <View style={{ gap: 8 }}>
                     {section.items.map((g) => (
-                      <Pressable
+                      <GroupListRow
                         key={g.id}
+                        group={g}
+                        canDelete={!!myUserId && g.createdByUserId === myUserId}
+                        colors={colors}
                         onPress={() => router.push(`/groups/${g.id}`)}
-                      >
-                        <Card style={styles.row}>
-                    {g.avatarUrl ? (
-                      <Image source={resolvePresetSource(g.avatarUrl) ?? { uri: g.avatarUrl }} style={styles.avatar} />
-                    ) : (
-                      <View style={[styles.bubble, { backgroundColor: colors.accent }]}>
-                        <Text style={[styles.bubbleText, { color: colors.accentForeground }]}>
-                          {g.name.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
-                        {g.name}
-                      </Text>
-                      <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-                        {g.memberCount} {g.memberCount === 1 ? "member" : "members"}
-                        {g.createdAt ? ` · Created ${formatDate(g.createdAt)}` : ""}
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: "flex-end" }}>
-                      <Text
-                        style={[
-                          styles.balance,
-                          {
-                            color:
-                              g.myNetBalance > 0
-                                ? colors.positive
-                                : g.myNetBalance < 0
-                                  ? colors.negative
-                                  : colors.mutedForeground,
-                          },
-                        ]}
-                      >
-                        {g.myNetBalance > 0
-                          ? `+${formatCurrency(g.myNetBalance, g.currency)}`
-                          : g.myNetBalance < 0
-                            ? `-${formatCurrency(Math.abs(g.myNetBalance), g.currency)}`
-                            : formatCurrency(0, g.currency)}
-                      </Text>
-                      <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
-                        {g.myNetBalance > 0
-                          ? "you are owed"
-                          : g.myNetBalance < 0
-                            ? "you owe"
-                            : "settled up"}
-                      </Text>
-                    </View>
-                  </Card>
-                </Pressable>
-              ))}
-            </View>
+                        onDelete={() => confirmDelete(g)}
+                        swipeRefs={swipeRefs}
+                      />
+                    ))}
+                  </View>
                 ) : (
                   <View style={styles.cardGrid}>
                     {section.items.map((g) => (

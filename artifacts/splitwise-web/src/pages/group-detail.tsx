@@ -13,6 +13,7 @@ import {
   useAddGroupMember,
   useCreateExpense,
   useCreatePayment,
+  useDeleteGroup,
   useGetGroup,
   useGetGroupBalances,
   useGetMe,
@@ -23,7 +24,7 @@ import {
   type GroupMember,
   type Payment,
 } from "@workspace/api-client-react";
-import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight, Pencil, QrCode, Copy } from "lucide-react";
+import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight, Pencil, QrCode, Copy, Trash2 } from "lucide-react";
 import { getCategoryIcon, guessCategory } from "@/lib/expense-categories";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -156,18 +157,23 @@ function EditGroupDialog({
   currentName,
   currentDescription,
   currentCurrency,
+  isCreator,
 }: {
   groupId: string;
   currentName: string;
   currentDescription: string;
   currentCurrency: string;
+  isCreator?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(currentName);
   const [description, setDescription] = useState(currentDescription);
   const [currency, setCurrency] = useState(currentCurrency);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { toast } = useToast();
   const updateGroup = useUpdateGroup();
+  const deleteGroup = useDeleteGroup();
+  const [, navigate] = useLocation();
   const { data: currencies } = useListCurrencies();
 
   useEffect(() => {
@@ -272,15 +278,76 @@ function EditGroupDialog({
             </Select>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} type="button">
-            Cancel
-          </Button>
-          <Button type="button" onClick={onSave} disabled={updateGroup.isPending}>
-            {updateGroup.isPending ? "Saving…" : "Save"}
-          </Button>
+        <DialogFooter className="gap-2 sm:gap-0 sm:justify-between">
+          {isCreator ? (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setConfirmDelete(true)}
+              disabled={updateGroup.isPending || deleteGroup.isPending}
+              data-testid="button-delete-group"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete group
+            </Button>
+          ) : <span />}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)} type="button">
+              Cancel
+            </Button>
+            <Button type="button" onClick={onSave} disabled={updateGroup.isPending}>
+              {updateGroup.isPending ? "Saving…" : "Save"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this group?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the group along with all its expenses,
+              payments, and member history. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteGroup.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteGroup.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                deleteGroup.mutate(
+                  { groupId },
+                  {
+                    onSuccess: () => {
+                      toast({ title: "Group deleted" });
+                      queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
+                      queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+                      queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey() });
+                      queryClient.removeQueries({ queryKey: getGetGroupQueryKey(groupId) });
+                      queryClient.removeQueries({ queryKey: getGetGroupBalancesQueryKey(groupId) });
+                      setConfirmDelete(false);
+                      setOpen(false);
+                      navigate("/groups");
+                    },
+                    onError: (err) => {
+                      toast({
+                        title: "Failed to delete group",
+                        description: getErrorMessage(err),
+                        variant: "destructive",
+                      });
+                    },
+                  },
+                );
+              }}
+              data-testid="button-confirm-delete-group"
+            >
+              {deleteGroup.isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
@@ -1529,6 +1596,7 @@ export function GroupDetailPage() {
                   currentName={group.data.name}
                   currentDescription={group.data.description ?? ""}
                   currentCurrency={group.data.currency ?? "USD"}
+                  isCreator={group.data.createdByUserId === myUserId}
                 />
               </div>
               {group.data.description ? (

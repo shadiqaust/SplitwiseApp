@@ -22,10 +22,13 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  getGetActivityQueryKey,
+  getGetDashboardSummaryQueryKey,
   getGetGroupBalancesQueryKey,
   getGetGroupQueryKey,
   getListGroupsQueryKey,
   useAddGroupMember,
+  useDeleteGroup,
   useGetGroup,
   useGetGroupBalances,
   useGetMe,
@@ -105,6 +108,7 @@ export default function GroupDetailScreen() {
   const addMember = useAddGroupMember();
   const includeInPast = useIncludeMemberInPastExpenses();
   const updateGroup = useUpdateGroup();
+  const deleteGroup = useDeleteGroup();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -1048,6 +1052,49 @@ export default function GroupDetailScreen() {
                 ) : null}
               </View>
             </ScrollView>
+            {group.data?.createdByUserId === myUserId ? (
+              <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+                <Button
+                  title={deleteGroup.isPending ? "Deleting…" : "Delete group"}
+                  variant="destructive"
+                  icon={<Feather name="trash-2" size={16} color="#fff" />}
+                  disabled={deleteGroup.isPending || editSaving}
+                  fullWidth
+                  onPress={() => {
+                    Alert.alert(
+                      "Delete this group?",
+                      "This will permanently remove the group along with all its expenses, payments, and member history. This cannot be undone.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Delete",
+                          style: "destructive",
+                          onPress: () => {
+                            deleteGroup.mutate(
+                              { groupId },
+                              {
+                                onSuccess: () => {
+                                  queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
+                                  queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+                                  queryClient.invalidateQueries({ queryKey: getGetActivityQueryKey() });
+                                  queryClient.removeQueries({ queryKey: getGetGroupQueryKey(groupId) });
+                                  queryClient.removeQueries({ queryKey: getGetGroupBalancesQueryKey(groupId) });
+                                  setShowEditSheet(false);
+                                  router.replace("/(tabs)/groups");
+                                },
+                                onError: (err) => {
+                                  Alert.alert("Failed to delete group", getErrorMessage(err));
+                                },
+                              },
+                            );
+                          },
+                        },
+                      ],
+                    );
+                  }}
+                />
+              </View>
+            ) : null}
             <View style={[styles.sheetFooterRow, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
               <Button title="Cancel" variant="outline" onPress={() => setShowEditSheet(false)} />
               <Button title={editSaving ? "Saving…" : "Save"} onPress={handleSaveEdit} disabled={editSaving || !editName.trim()} />
