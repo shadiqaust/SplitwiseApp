@@ -133,8 +133,11 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
     await storeItem(USER_KEY, JSON.stringify(user));
     // Keep the biometric vault in sync if the user already opted in: store
     // the freshest token so the next biometric unlock doesn't hit an
-    // expired/revoked JWT.
+    // expired/revoked JWT. If the vault belonged to a different user it gets
+    // wiped inside this call — refresh our React flag so Profile's toggle
+    // immediately reflects the new (off) state.
     await refreshStoredBiometricToken(token, user);
+    setBiometricEnabled(await isBiometricEnabled());
     setState({ isLoaded: true, isSignedIn: true, user, token });
     void registerForPushNotificationsAsync(apiBaseUrl);
   }, [callApi, apiBaseUrl]);
@@ -144,6 +147,7 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
     await storeItem(TOKEN_KEY, token);
     await storeItem(USER_KEY, JSON.stringify(user));
     await refreshStoredBiometricToken(token, user);
+    setBiometricEnabled(await isBiometricEnabled());
     setState({ isLoaded: true, isSignedIn: true, user, token });
     void registerForPushNotificationsAsync(apiBaseUrl);
   }, [callApi, apiBaseUrl]);
