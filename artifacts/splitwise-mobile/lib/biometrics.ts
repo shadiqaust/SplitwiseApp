@@ -5,6 +5,11 @@ import * as SecureStore from "expo-secure-store";
 const BIO_TOKEN_KEY = "sw_bio_token";
 const BIO_USER_KEY = "sw_bio_user";
 const BIO_ENABLED_KEY = "sw_bio_enabled";
+// Per-user marker recording that we've already shown the post-login
+// "Use Face ID next time?" prompt. Once set we never ask that user again
+// (they can still opt in from Profile). Stored as a single colon-joined
+// list of user-ids so we don't accumulate one SecureStore entry per user.
+const BIO_OFFERED_USERS_KEY = "sw_bio_offered_users";
 // Records whether the vault entries were written with the OS-level
 // `requireAuthentication` keychain access control. Reads must use the
 // matching options or SecureStore will throw "item not found"-style errors,
@@ -265,6 +270,28 @@ export async function refreshStoredBiometricToken(token: string, user: unknown):
     // tear the vault down so the next sign-in re-establishes it cleanly.
     await disableBiometric();
   }
+}
+
+/** True if we've already prompted this user with the post-login
+ *  "Use Face ID next time?" offer. Used to suppress the prompt on
+ *  subsequent logins so it only appears once per user. */
+export async function hasOfferedBiometricSetup(userId: string): Promise<boolean> {
+  if (Platform.OS === "web") return true;
+  if (!userId) return true;
+  const raw = (await SecureStore.getItemAsync(BIO_OFFERED_USERS_KEY)) ?? "";
+  return raw.split(":").filter(Boolean).includes(userId);
+}
+
+/** Record that we've shown the post-login biometric offer to this user
+ *  (whether they accepted or declined). Idempotent. */
+export async function markBiometricSetupOffered(userId: string): Promise<void> {
+  if (Platform.OS === "web") return;
+  if (!userId) return;
+  const raw = (await SecureStore.getItemAsync(BIO_OFFERED_USERS_KEY)) ?? "";
+  const ids = new Set(raw.split(":").filter(Boolean));
+  if (ids.has(userId)) return;
+  ids.add(userId);
+  await SecureStore.setItemAsync(BIO_OFFERED_USERS_KEY, Array.from(ids).join(":"));
 }
 
 /** Returns the user-id the biometric vault is currently bound to, or null

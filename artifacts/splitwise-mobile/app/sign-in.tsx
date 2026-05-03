@@ -17,8 +17,11 @@ import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/lib/auth";
 import {
   getBiometricCapability,
+  hasOfferedBiometricSetup,
+  markBiometricSetupOffered,
   type BiometricCapability,
 } from "@/lib/biometrics";
+import * as SecureStore from "expo-secure-store";
 import { useListCurrencies } from "@workspace/api-client-react";
 
 type Mode = "sign-in" | "sign-up";
@@ -74,10 +77,30 @@ export default function SignInScreen() {
     if (!bioCapability?.available) return;
     if (!bioCapability.enrolled) return; // No biometrics enrolled on the device — nothing to offer.
     if (biometricEnabled) return; // Already on.
+
+    // Look up the freshly-signed-in user's id (the React state from useAuth
+    // hasn't propagated to this closure yet) so we can suppress the prompt
+    // for users who've already seen it once.
+    let userId = "";
+    if (Platform.OS !== "web") {
+      const stored = await SecureStore.getItemAsync("sw_auth_user");
+      if (stored) {
+        try {
+          userId = (JSON.parse(stored) as { id?: string }).id ?? "";
+        } catch {
+          userId = "";
+        }
+      }
+    }
+    if (userId && (await hasOfferedBiometricSetup(userId))) {
+      // Already prompted this user — respect their previous choice.
+      return;
+    }
+
     await new Promise<void>((resolve) => {
       Alert.alert(
         `Use ${bioCapability.label} next time?`,
-        `Sign in faster with ${bioCapability.label} on this device. You can turn it off anytime in Profile.`,
+        `Sign in faster with ${bioCapability.label} on this device. You can turn it on anytime in Profile.`,
         [
           { text: "Not now", style: "cancel", onPress: () => resolve() },
           {
@@ -98,6 +121,10 @@ export default function SignInScreen() {
         ],
       );
     });
+    // Record the offer regardless of accept/decline so we don't nag again.
+    if (userId) {
+      await markBiometricSetupOffered(userId);
+    }
   };
 
   const { data: currenciesData } = useListCurrencies();
