@@ -12,6 +12,7 @@ import {
   paymentsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireVerifiedEmail } from "../middlewares/requireVerifiedEmail";
 import { buildPayment } from "./payments";
 import {
   requireGroupMember,
@@ -361,7 +362,7 @@ router.get(
 // POST /expenses — create a non-group expense between current user and a friend.
 router.post(
   "/expenses",
-  requireAuth,
+  requireVerifiedEmail,
   async (req, res): Promise<void> => {
     const me = req.dbUserId!;
     const parsed = CreateFriendExpenseBody.safeParse(req.body);
@@ -527,7 +528,7 @@ router.get(
 
 router.post(
   "/groups/:groupId/expenses",
-  requireAuth,
+  requireVerifiedEmail,
   requireGroupMember(),
   async (req, res): Promise<void> => {
     const groupId = req.authorizedGroupId!;
@@ -634,7 +635,7 @@ router.get(
 
 router.put(
   "/expenses/:expenseId",
-  requireAuth,
+  requireVerifiedEmail,
   requireExpenseAccess(),
   async (req, res): Promise<void> => {
     const raw = Array.isArray(req.params.expenseId)
@@ -775,7 +776,7 @@ router.put(
 
 router.delete(
   "/expenses/:expenseId",
-  requireAuth,
+  requireVerifiedEmail,
   requireExpenseAccess(),
   async (req, res): Promise<void> => {
     const raw = Array.isArray(req.params.expenseId)
@@ -845,7 +846,7 @@ router.get(
 
 router.post(
   "/expenses/:expenseId/comments",
-  requireAuth,
+  requireVerifiedEmail,
   requireExpenseAccess(),
   async (req, res): Promise<void> => {
     const userId = req.dbUserId;
@@ -892,7 +893,7 @@ router.post(
 
 router.delete(
   "/expenses/:expenseId/comments/:commentId",
-  requireAuth,
+  requireVerifiedEmail,
   requireExpenseAccess(),
   async (req, res): Promise<void> => {
     const userId = req.dbUserId;

@@ -14,7 +14,16 @@ router.get("/users/me", requireAuth, async (req, res): Promise<void> => {
     res.status(404).json({ error: "User not found" });
     return;
   }
-  res.json(GetMeResponse.parse(user));
+  // Bypass GetMeResponse.parse so we can include `emailVerifiedAt` (which
+  // isn't yet part of the OpenAPI schema). Pass everything else through the
+  // existing zod shape to keep the contract stable.
+  const base = GetMeResponse.parse(user);
+  res.json({
+    ...base,
+    emailVerifiedAt: user.emailVerifiedAt
+      ? user.emailVerifiedAt.toISOString()
+      : null,
+  });
 });
 
 router.put("/users/me", requireAuth, async (req, res): Promise<void> => {
@@ -42,7 +51,13 @@ router.put("/users/me", requireAuth, async (req, res): Promise<void> => {
     .where(eq(usersTable.id, req.dbUserId!))
     .returning();
 
-  res.json(UpdateMeResponse.parse(user));
+  const base = UpdateMeResponse.parse(user);
+  res.json({
+    ...base,
+    emailVerifiedAt: user.emailVerifiedAt
+      ? user.emailVerifiedAt.toISOString()
+      : null,
+  });
 });
 
 /** Resolve "known" user IDs for the current user.

@@ -12,6 +12,7 @@ import storageRouter from "./storage";
 import notificationsRouter from "./notifications";
 import devicesRouter from "./devices";
 import adminRouter from "./admin";
+import adminSmtpRouter from "./admin-smtp";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(storageRouter);
 router.use(notificationsRouter);
 router.use(devicesRouter);
 router.use(adminRouter);
+router.use(adminSmtpRouter);
 
 export default router;

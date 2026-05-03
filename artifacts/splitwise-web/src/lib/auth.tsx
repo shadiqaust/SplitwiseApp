@@ -14,6 +14,7 @@ export interface AuthUser {
   location?: string | null;
   defaultCurrency?: string;
   role?: "user" | "superadmin";
+  emailVerifiedAt?: string | null;
 }
 
 interface AuthState {

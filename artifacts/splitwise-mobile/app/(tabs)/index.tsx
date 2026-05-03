@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useColors } from "@/hooks/useColors";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { AddExpenseCTA } from "@/components/AddExpenseCTA";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { useAuth } from "@/lib/auth";
 
 export default function DashboardScreen() {
@@ -71,6 +72,7 @@ export default function DashboardScreen() {
         />
       }
     >
+      <EmailVerificationBanner />
       <View style={styles.ctaRow}>
         <View style={{ flex: 1 }}>
           <Button

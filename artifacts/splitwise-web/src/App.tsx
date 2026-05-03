@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LandingPage } from "./pages/landing";
 import { Layout } from "./components/layout";
 import { AuthPage } from "./pages/auth";
+import { VerifyEmailPage } from "./pages/verify-email";
 
 import { DashboardPage } from "./pages/dashboard";
 import { GroupsPage } from "./pages/groups";
@@ -27,6 +28,7 @@ import { AdminUserDetailPage } from "./pages/admin/user-detail";
 import { AdminCurrenciesPage } from "./pages/admin/currencies";
 import { AdminNotificationsPage } from "./pages/admin/notifications";
 import { AdminReferralsPage } from "./pages/admin/referrals";
+import { AdminEmailSettingsPage } from "./pages/admin/email-settings";
 
 const REF_KEY = "sw_pending_ref";
 const UUID_RE =
@@ -78,6 +80,7 @@ function Routes() {
       <Route path="/sign-up">
         <AuthPage initialMode="sign-up" />
       </Route>
+      <Route path="/verify-email" component={VerifyEmailPage} />
       <Route path="/dashboard">
         <PrivateRoute><DashboardPage /></PrivateRoute>
       </Route>
@@ -128,6 +131,9 @@ function Routes() {
       </Route>
       <Route path="/admin/referrals">
         <PrivateRoute><AdminReferralsPage /></PrivateRoute>
+      </Route>
+      <Route path="/admin/email-settings">
+        <PrivateRoute><AdminEmailSettingsPage /></PrivateRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>

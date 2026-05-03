@@ -9,6 +9,7 @@ import {
   friendshipsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireVerifiedEmail } from "../middlewares/requireVerifiedEmail";
 import {
   requireGroupMember,
   requirePaymentAccess,
@@ -61,7 +62,7 @@ router.get(
 
 router.post(
   "/groups/:groupId/payments",
-  requireAuth,
+  requireVerifiedEmail,
   requireGroupMember(),
   async (req, res): Promise<void> => {
     const groupId = req.authorizedGroupId!;
@@ -127,7 +128,7 @@ router.post(
 // Non-group payment between two friends (no groupId).
 router.post(
   "/payments",
-  requireAuth,
+  requireVerifiedEmail,
   async (req, res): Promise<void> => {
     const me = req.dbUserId!;
     const parsed = CreateNonGroupPaymentBody.safeParse(req.body);
@@ -242,7 +243,7 @@ router.post(
 
 router.delete(
   "/payments/:paymentId",
-  requireAuth,
+  requireVerifiedEmail,
   requirePaymentAccess(),
   async (req, res): Promise<void> => {
     const raw = Array.isArray(req.params.paymentId)

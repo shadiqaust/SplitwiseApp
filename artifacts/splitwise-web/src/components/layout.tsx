@@ -6,6 +6,7 @@ import { useGetMe } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { EmailVerificationBanner } from "@/components/email-verification-banner";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -173,7 +174,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto">
-        <div className="max-w-5xl mx-auto">{children}</div>
+        <div className="max-w-5xl mx-auto">
+          <EmailVerificationBanner />
+          {children}
+        </div>
       </main>
 
       {/* Mobile bottom tab nav */}

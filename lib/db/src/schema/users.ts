@@ -26,6 +26,11 @@ export const usersTable = pgTable("users", {
   referrerId: uuid("referrer_id").references((): AnyPgColumn => usersTable.id, {
     onDelete: "set null",
   }),
+  // When the user confirmed their email via the verification link.
+  // NULL = unverified. Sensitive mutations (creating expenses, adding
+  // members, etc.) are blocked while this is null; read-only browsing
+  // remains allowed (hybrid enforcement mode).
+  emailVerifiedAt: timestamp("email_verified_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

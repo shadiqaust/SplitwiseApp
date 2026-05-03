@@ -11,6 +11,7 @@ import {
   friendshipsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireVerifiedEmail } from "../middlewares/requireVerifiedEmail";
 
 const router: IRouter = Router();
 
@@ -443,7 +444,7 @@ router.get(
 );
 
 // POST /friends  { friendId }
-router.post("/friends", requireAuth, async (req, res): Promise<void> => {
+router.post("/friends", requireVerifiedEmail, async (req, res): Promise<void> => {
   const me = req.dbUserId!;
   const { friendId } = req.body as { friendId?: string };
 
@@ -493,7 +494,7 @@ router.post("/friends", requireAuth, async (req, res): Promise<void> => {
 });
 
 // DELETE /friends/:friendId
-router.delete("/friends/:friendId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/friends/:friendId", requireVerifiedEmail, async (req, res): Promise<void> => {
   const me = req.dbUserId!;
   const friendId = req.params.friendId;
   if (!UUID_RE.test(friendId)) {

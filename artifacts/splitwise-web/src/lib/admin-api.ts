@@ -156,7 +156,44 @@ export const adminApi = {
       referrals: ReferralRow[];
       topReferrers: TopReferrer[];
     }>(`/admin/referrals${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  getSmtp: () => adminFetch<SmtpSettings>("/admin/settings/smtp"),
+  putSmtp: (input: SmtpSettingsInput) =>
+    adminFetch<SmtpSettings>("/admin/settings/smtp", {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+  testSmtp: (to: string) =>
+    adminFetch<{ ok: boolean; messageId?: string; error?: string }>(
+      "/admin/settings/smtp/test",
+      { method: "POST", body: JSON.stringify({ to }) },
+    ),
 };
+
+export interface SmtpSettings {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  hasPassword: boolean;
+  fromAddress: string;
+  fromName: string;
+  appPublicUrl: string;
+  updatedAt: string | null;
+}
+
+export interface SmtpSettingsInput {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  /** Empty string means "leave password unchanged". */
+  password: string;
+  fromAddress: string;
+  fromName: string;
+  appPublicUrl: string;
+}
 
 export interface ReferralRow {
   user: {

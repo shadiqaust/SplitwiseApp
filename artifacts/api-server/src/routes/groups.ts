@@ -12,6 +12,7 @@ import {
   friendshipsTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireVerifiedEmail } from "../middlewares/requireVerifiedEmail";
 import {
   requireGroupMember,
   requireGroupMemberByMember,
@@ -156,7 +157,7 @@ router.get("/groups", requireAuth, async (req, res): Promise<void> => {
   res.json(result);
 });
 
-router.post("/groups", requireAuth, async (req, res): Promise<void> => {
+router.post("/groups", requireVerifiedEmail, async (req, res): Promise<void> => {
   const parsed = CreateGroupBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -231,7 +232,7 @@ router.get(
 );
 
 // Join a group via its invite code. Authenticated.
-router.post("/groups/join", requireAuth, async (req, res): Promise<void> => {
+router.post("/groups/join", requireVerifiedEmail, async (req, res): Promise<void> => {
   const parsed = JoinGroupBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -326,7 +327,7 @@ router.get(
 
 router.put(
   "/groups/:groupId",
-  requireAuth,
+  requireVerifiedEmail,
   requireGroupMember(),
   async (req, res): Promise<void> => {
     const groupId = req.authorizedGroupId!;
@@ -365,7 +366,7 @@ router.put(
 
 router.delete(
   "/groups/:groupId",
-  requireAuth,
+  requireVerifiedEmail,
   requireGroupMember(),
   async (req, res): Promise<void> => {
     const groupId = req.authorizedGroupId!;
@@ -405,7 +406,7 @@ router.delete(
 
 router.post(
   "/groups/:groupId/members",
-  requireAuth,
+  requireVerifiedEmail,
   requireGroupMember(),
   async (req, res): Promise<void> => {
     const groupId = req.authorizedGroupId!;
@@ -518,7 +519,7 @@ router.post(
 
 router.post(
   "/groups/:groupId/expenses/include-member",
-  requireAuth,
+  requireVerifiedEmail,
   requireGroupMember(),
   async (req, res): Promise<void> => {
     const groupId = req.authorizedGroupId!;
@@ -604,7 +605,7 @@ router.post(
 
 router.delete(
   "/groups/:groupId/members/:memberId",
-  requireAuth,
+  requireVerifiedEmail,
   requireGroupMemberByMember(),
   async (req, res): Promise<void> => {
     const memberIdRaw = Array.isArray(req.params.memberId)
