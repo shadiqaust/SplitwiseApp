@@ -4,12 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Pressable,
   ActivityIndicator,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
-import { useRouter, Stack } from "expo-router";
+import { Stack } from "expo-router";
 
 import { useColors } from "@/hooks/useColors";
 import { authFetch } from "@/lib/api";
@@ -34,7 +33,6 @@ async function fetchMyReferrals(): Promise<MyReferralsResponse> {
 
 export default function MyReferralsScreen() {
   const colors = useColors();
-  const router = useRouter();
 
   const { data, isLoading } = useQuery({
     queryKey: ["me", "referrals"],
@@ -47,14 +45,6 @@ export default function MyReferralsScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Stack.Screen options={{ title: "Your referrals" }} />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
-        <Pressable
-          onPress={() => router.back()}
-          style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-        >
-          <Feather name="arrow-left" size={16} color={colors.mutedForeground} />
-          <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>Back</Text>
-        </Pressable>
-
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View
             style={{
