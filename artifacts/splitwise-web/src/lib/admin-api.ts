@@ -96,8 +96,16 @@ export interface MonthlyAnalyticsItem {
 
 export const adminApi = {
   stats: () => adminFetch<AdminStats>("/admin/stats"),
-  monthly: () =>
-    adminFetch<{ months: MonthlyAnalyticsItem[] }>("/admin/analytics/monthly"),
+  monthly: (params?: { from?: string; to?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.from) qs.set("from", params.from);
+    if (params?.to) qs.set("to", params.to);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return adminFetch<{
+      range: { from: string; to: string };
+      months: MonthlyAnalyticsItem[];
+    }>(`/admin/analytics/monthly${suffix}`);
+  },
   listUsers: (q?: string) =>
     adminFetch<{ users: AdminUser[] }>(
       `/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`,

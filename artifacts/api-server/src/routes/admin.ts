@@ -391,61 +391,71 @@ void sql;
 //   - payments      — payments created that month
 //   - activeUsers   — distinct user IDs that paid an expense OR sent/received
 //                     a payment that month (rough engagement proxy)
-router.get("/admin/analytics/monthly", requireSuperadmin, async (_req, res) => {
-  // Build a series of the last 12 months (current month inclusive) so the
-  // response always has 12 buckets even when nothing happened.
-  const monthsSeries = sql<string>`
-    to_char(
-      generate_series(
-        date_trunc('month', now()) - interval '11 months',
-        date_trunc('month', now()),
-        interval '1 month'
-      ),
-      'YYYY-MM'
-    )
-  `;
+router.get("/admin/analytics/monthly", requireSuperadmin, async (req, res): Promise<void> => {
+  // Filters:
+  //   ?from=YYYY-MM-DD  (inclusive, defaults to first day of "11 months ago")
+  //   ?to=YYYY-MM-DD    (inclusive end-of-day, defaults to now)
+  // Both are optional; the response always contains a contiguous, zero-filled
+  // monthly series between (truncated) from and to.
+  // Strict YYYY-MM-DD parsing — rejects garbage and refuses to silently
+  // re-interpret invalid calendar dates (e.g. "2026-02-31" → March).
+  // Returns: Date when valid, "invalid" when present-but-bad, null when absent.
+  const parseDate = (s: unknown): Date | "invalid" | null => {
+    if (s === undefined || s === null || s === "") return null;
+    if (typeof s !== "string") return "invalid";
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (!m) return "invalid";
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const da = Number(m[3]);
+    const d = new Date(y, mo - 1, da);
+    if (
+      d.getFullYear() !== y ||
+      d.getMonth() !== mo - 1 ||
+      d.getDate() !== da
+    ) {
+      return "invalid";
+    }
+    return d;
+  };
 
-  const usersAgg = db
-    .select({
-      m: sql<string>`to_char(date_trunc('month', ${usersTable.createdAt}), 'YYYY-MM')`.as("m"),
-      c: count().as("c"),
-    })
-    .from(usersTable)
-    .where(sql`${usersTable.createdAt} >= date_trunc('month', now()) - interval '11 months'`)
-    .groupBy(sql`1`)
-    .as("u");
+  const fromParsed = parseDate(req.query.from);
+  const toParsed = parseDate(req.query.to);
+  if (fromParsed === "invalid" || toParsed === "invalid") {
+    res.status(400).json({
+      error: "Invalid date — use YYYY-MM-DD",
+      field: fromParsed === "invalid" ? "from" : "to",
+    });
+    return;
+  }
 
-  const expensesAgg = db
-    .select({
-      m: sql<string>`to_char(date_trunc('month', ${expensesTable.createdAt}), 'YYYY-MM')`.as("m"),
-      c: count().as("c"),
-      a: sql<string>`count(distinct ${expensesTable.paidByUserId})`.as("a"),
-    })
-    .from(expensesTable)
-    .where(sql`${expensesTable.createdAt} >= date_trunc('month', now()) - interval '11 months'`)
-    .groupBy(sql`1`)
-    .as("e");
+  const now = new Date();
+  const defaultFrom = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  let from = fromParsed ?? defaultFrom;
+  let to = toParsed ?? now;
+  if (from > to) [from, to] = [to, from];
+  // Push `to` to end-of-day so a same-day from/to still includes today.
+  const toEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999);
 
-  const paymentsAgg = db
-    .select({
-      m: sql<string>`to_char(date_trunc('month', ${paymentsTable.createdAt}), 'YYYY-MM')`.as("m"),
-      c: count().as("c"),
-      af: sql<string>`count(distinct ${paymentsTable.fromUserId})`.as("af"),
-      at: sql<string>`count(distinct ${paymentsTable.toUserId})`.as("at"),
-    })
-    .from(paymentsTable)
-    .where(sql`${paymentsTable.createdAt} >= date_trunc('month', now()) - interval '11 months'`)
-    .groupBy(sql`1`)
-    .as("p");
+  const fromIso = from.toISOString();
+  const toIso = toEnd.toISOString();
 
   const rows = await db.execute(sql`
     with
-      months as (select ${monthsSeries} as m),
+      months as (
+        select to_char(gs, 'YYYY-MM') as m
+        from generate_series(
+          date_trunc('month', ${fromIso}::timestamptz),
+          date_trunc('month', ${toIso}::timestamptz),
+          interval '1 month'
+        ) as gs
+      ),
       u as (
         select to_char(date_trunc('month', ${usersTable.createdAt}), 'YYYY-MM') as m,
                count(*)::int as c
         from ${usersTable}
-        where ${usersTable.createdAt} >= date_trunc('month', now()) - interval '11 months'
+        where ${usersTable.createdAt} >= ${fromIso}::timestamptz
+          and ${usersTable.createdAt} <= ${toIso}::timestamptz
         group by 1
       ),
       e as (
@@ -453,7 +463,8 @@ router.get("/admin/analytics/monthly", requireSuperadmin, async (_req, res) => {
                count(*)::int as c,
                array_agg(distinct ${expensesTable.paidByUserId}::text) as actors
         from ${expensesTable}
-        where ${expensesTable.createdAt} >= date_trunc('month', now()) - interval '11 months'
+        where ${expensesTable.createdAt} >= ${fromIso}::timestamptz
+          and ${expensesTable.createdAt} <= ${toIso}::timestamptz
         group by 1
       ),
       p as (
@@ -462,7 +473,8 @@ router.get("/admin/analytics/monthly", requireSuperadmin, async (_req, res) => {
                array_agg(distinct ${paymentsTable.fromUserId}::text) as senders,
                array_agg(distinct ${paymentsTable.toUserId}::text) as receivers
         from ${paymentsTable}
-        where ${paymentsTable.createdAt} >= date_trunc('month', now()) - interval '11 months'
+        where ${paymentsTable.createdAt} >= ${fromIso}::timestamptz
+          and ${paymentsTable.createdAt} <= ${toIso}::timestamptz
         group by 1
       )
     select
@@ -491,9 +503,6 @@ router.get("/admin/analytics/monthly", requireSuperadmin, async (_req, res) => {
     order by months.m asc;
   `);
 
-  // suppress unused warnings (these helpers are kept for potential reuse)
-  void usersAgg; void expensesAgg; void paymentsAgg;
-
   const items = (rows.rows as Array<{
     month: string;
     new_users: number | string;
@@ -508,7 +517,10 @@ router.get("/admin/analytics/monthly", requireSuperadmin, async (_req, res) => {
     activeUsers: Number(r.active_users),
   }));
 
-  res.json({ months: items });
+  res.json({
+    range: { from: from.toISOString(), to: toEnd.toISOString() },
+    months: items,
+  });
 });
 
 export default router;

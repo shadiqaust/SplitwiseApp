@@ -73,12 +73,36 @@ function formatMonthLabel(ym: string): string {
   return d.toLocaleString(undefined, { month: "short", year: "2-digit" });
 }
 
+function toLocalISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function isoMonthsAgo(n: number): string {
+  const now = new Date();
+  return toLocalISODate(new Date(now.getFullYear(), now.getMonth() - n, 1));
+}
+function todayIso(): string {
+  return toLocalISODate(new Date());
+}
+
 function AnalyticsTab() {
   const colors = useColors();
+  const [from, setFrom] = useState<string>(isoMonthsAgo(11));
+  const [to, setTo] = useState<string>(todayIso());
+
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "monthly"],
-    queryFn: () => adminApi.monthly(),
+    queryKey: ["admin", "monthly", from, to],
+    queryFn: () => adminApi.monthly({ from, to }),
   });
+
+  const presets: { label: string; months: number }[] = [
+    { label: "3mo", months: 2 },
+    { label: "6mo", months: 5 },
+    { label: "12mo", months: 11 },
+    { label: "24mo", months: 23 },
+  ];
 
   const months = data?.months ?? [];
   const totals = months.reduce(
@@ -97,6 +121,78 @@ function AnalyticsTab() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+      {/* Filter row */}
+      <View
+        style={{
+          padding: 12,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 8,
+          backgroundColor: colors.card,
+          gap: 10,
+        }}
+      >
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.mutedForeground, fontSize: 11, marginBottom: 4 }}>From</Text>
+            <TextInput
+              value={from}
+              onChangeText={setFrom}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              style={[
+                styles.input,
+                {
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                  backgroundColor: colors.background,
+                },
+              ]}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.mutedForeground, fontSize: 11, marginBottom: 4 }}>To</Text>
+            <TextInput
+              value={to}
+              onChangeText={setTo}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              style={[
+                styles.input,
+                {
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                  backgroundColor: colors.background,
+                },
+              ]}
+            />
+          </View>
+        </View>
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {presets.map((p) => (
+            <Pressable
+              key={p.label}
+              onPress={() => {
+                setFrom(isoMonthsAgo(p.months));
+                setTo(todayIso());
+              }}
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 6,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: colors.foreground, fontSize: 12 }}>{p.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
       {isLoading && <ActivityIndicator color={colors.primary} />}
 
       {/* Summary cards */}
