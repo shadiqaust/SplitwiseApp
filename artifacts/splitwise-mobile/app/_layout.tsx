@@ -46,6 +46,15 @@ const API_BASE_URL = domain ? `https://${domain}` : "";
 // formatCurrency / getCurrencySymbol call renders amounts with the user's
 // own symbol regardless of what's stored on the expense/group/payment.
 function DisplayCurrencyBridge() {
+  // Only call useGetMe once we have a token. Firing it before AuthProvider's
+  // mount effect has restored the token causes an unauthenticated request,
+  // a 401, and the global handler signing the user out on every refresh.
+  const { isLoaded, isSignedIn } = useAuth();
+  if (!isLoaded || !isSignedIn) return null;
+  return <DisplayCurrencyBridgeInner />;
+}
+
+function DisplayCurrencyBridgeInner() {
   const me = useGetMe();
   const next = me.data?.defaultCurrency;
   // Push the latest defaultCurrency into the format module after commit so
