@@ -304,6 +304,9 @@ async function buildExpenseWithSplits(
   splits: Array<typeof expenseSplitsTable.$inferSelect>,
 ) {
   const paidByUser = await getUserById(expense.paidByUserId);
+  const createdByUser = expense.createdByUserId
+    ? await getUserById(expense.createdByUserId)
+    : null;
   const splitsWithUsers = await Promise.all(
     splits.map(async (split) => {
       const u = await getUserById(split.userId);
@@ -320,6 +323,9 @@ async function buildExpenseWithSplits(
     createdAt: expense.createdAt.toISOString(),
     totalAmount: parseFloat(expense.totalAmount),
     paidByUser: { ...paidByUser, createdAt: paidByUser.createdAt.toISOString() },
+    createdByUser: createdByUser
+      ? { ...createdByUser, createdAt: createdByUser.createdAt.toISOString() }
+      : null,
     splits: splitsWithUsers,
   };
 }

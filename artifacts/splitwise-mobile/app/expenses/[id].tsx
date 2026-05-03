@@ -190,6 +190,13 @@ export default function ExpenseDetailScreen() {
     expense.paidByUserId === myId
       ? "You"
       : expense.paidByUser?.name ?? "Someone";
+  const creatorId = expense.createdByUserId ?? expense.paidByUserId;
+  const isNonGroup = expense.groupId === null;
+  const canMutate = !isNonGroup || creatorId === myId;
+  const creatorName =
+    creatorId === myId
+      ? "you"
+      : expense.createdByUser?.name ?? expense.paidByUser?.name ?? "someone";
 
   return (
     <>
@@ -197,47 +204,49 @@ export default function ExpenseDetailScreen() {
         options={{
           title: "Expense",
           headerBackTitle: "Back",
-          headerRight: () => (
-            <View style={styles.headerRightRow}>
-              <Pressable
-                onPress={() => router.push(`/expenses/edit/${expenseId}`)}
-                hitSlop={8}
-                accessibilityLabel="Edit expense"
-                style={({ pressed }) => [
-                  styles.headerIconBtn,
-                  {
-                    backgroundColor: colors.muted,
-                    opacity: pressed ? 0.7 : 1,
-                  },
-                ]}
-              >
-                <Feather name="edit-2" size={15} color={colors.foreground} />
-              </Pressable>
-              <Pressable
-                onPress={onDeleteExpense}
-                disabled={deleteExpenseMutation.isPending}
-                hitSlop={8}
-                accessibilityLabel="Delete expense"
-                style={({ pressed }) => [
-                  styles.headerIconBtn,
-                  {
-                    backgroundColor: colors.muted,
-                    opacity: deleteExpenseMutation.isPending
-                      ? 0.5
-                      : pressed
-                        ? 0.7
-                        : 1,
-                  },
-                ]}
-              >
-                <Feather
-                  name="trash-2"
-                  size={15}
-                  color={colors.negative}
-                />
-              </Pressable>
-            </View>
-          ),
+          headerRight: canMutate
+            ? () => (
+                <View style={styles.headerRightRow}>
+                  <Pressable
+                    onPress={() => router.push(`/expenses/edit/${expenseId}`)}
+                    hitSlop={8}
+                    accessibilityLabel="Edit expense"
+                    style={({ pressed }) => [
+                      styles.headerIconBtn,
+                      {
+                        backgroundColor: colors.muted,
+                        opacity: pressed ? 0.7 : 1,
+                      },
+                    ]}
+                  >
+                    <Feather name="edit-2" size={15} color={colors.foreground} />
+                  </Pressable>
+                  <Pressable
+                    onPress={onDeleteExpense}
+                    disabled={deleteExpenseMutation.isPending}
+                    hitSlop={8}
+                    accessibilityLabel="Delete expense"
+                    style={({ pressed }) => [
+                      styles.headerIconBtn,
+                      {
+                        backgroundColor: colors.muted,
+                        opacity: deleteExpenseMutation.isPending
+                          ? 0.5
+                          : pressed
+                            ? 0.7
+                            : 1,
+                      },
+                    ]}
+                  >
+                    <Feather
+                      name="trash-2"
+                      size={15}
+                      color={colors.negative}
+                    />
+                  </Pressable>
+                </View>
+              )
+            : undefined,
         }}
       />
       <KeyboardAvoidingView
@@ -274,12 +283,17 @@ export default function ExpenseDetailScreen() {
                 <Text
                   style={[styles.subTitleSmall, { color: colors.mutedForeground }]}
                 >
-                  {expense.groupId
-                    ? groupName ?? "Group expense"
-                    : "Non-group expense"}
+                  {isNonGroup
+                    ? `Non-group expense · ${expense.category ?? "General"}`
+                    : groupName ?? "Group expense"}
+                </Text>
+                <Text
+                  style={[styles.subTitleSmall, { color: colors.mutedForeground }]}
+                >
+                  Added by {creatorName} on {formatDate(expense.createdAt)}
                 </Text>
               </View>
-              {expense.photoUrl && photoUri(expense.photoUrl) && (
+              {expense.photoUrl && photoUri(expense.photoUrl) ? (
                 <Pressable
                   onPress={() => setPhotoOpen(true)}
                   style={({ pressed }) => [
@@ -293,7 +307,36 @@ export default function ExpenseDetailScreen() {
                     resizeMode="cover"
                   />
                 </Pressable>
-              )}
+              ) : canMutate ? (
+                <Pressable
+                  onPress={() => router.push(`/expenses/edit/${expenseId}`)}
+                  style={({ pressed }) => [
+                    styles.receiptPlaceholder,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.muted,
+                      opacity: pressed ? 0.7 : 1,
+                    },
+                  ]}
+                  accessibilityLabel="Add receipt"
+                >
+                  <Feather
+                    name="camera"
+                    size={18}
+                    color={colors.mutedForeground}
+                  />
+                  <Text
+                    style={{
+                      color: colors.mutedForeground,
+                      fontSize: 10,
+                      fontFamily: "Inter_500Medium",
+                      marginTop: 2,
+                    }}
+                  >
+                    Receipt
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
 
             <View style={styles.amountRow}>
@@ -656,6 +699,15 @@ const styles = StyleSheet.create({
   receiptThumb: {
     width: 64,
     height: 64,
+  },
+  receiptPlaceholder: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalBackdrop: {
     flex: 1,

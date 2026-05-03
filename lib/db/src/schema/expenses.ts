@@ -21,6 +21,10 @@ export const expensesTable = pgTable("expenses", {
   paidByUserId: uuid("paid_by_user_id")
     .notNull()
     .references(() => usersTable.id),
+  // Creator of the expense. Nullable for legacy rows created before this
+  // column existed; new inserts always set it. Used for "Added by" attribution
+  // and creator-only edit/delete on non-group expenses.
+  createdByUserId: uuid("created_by_user_id").references(() => usersTable.id),
   date: date("date").notNull(),
   photoUrl: text("photo_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

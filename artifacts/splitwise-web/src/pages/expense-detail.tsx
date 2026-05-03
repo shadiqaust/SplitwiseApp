@@ -17,7 +17,7 @@ import {
   useListGroups,
   type ExpenseComment,
 } from "@workspace/api-client-react";
-import { ArrowLeft, MessageSquare, Pencil, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, Camera, MessageSquare, Pencil, Send, Trash2 } from "lucide-react";
 import { getCategoryIcon } from "@/lib/expense-categories";
 
 import { Layout } from "@/components/layout";
@@ -211,6 +211,15 @@ export function ExpenseDetailPage() {
     expense.paidByUserId === myId
       ? "You"
       : expense.paidByUser?.name ?? "Someone";
+  // Creator gets edit/delete on non-group expenses. Fall back to payer for
+  // legacy rows that were created before the column existed.
+  const creatorId = expense.createdByUserId ?? expense.paidByUserId;
+  const isNonGroup = expense.groupId === null;
+  const canMutate = !isNonGroup || creatorId === myId;
+  const creatorName =
+    creatorId === myId
+      ? "you"
+      : expense.createdByUser?.name ?? expense.paidByUser?.name ?? "someone";
   const backHref =
     fromHref ??
     (expense.groupId ? `/groups/${expense.groupId}` : "/non-group-expenses");
@@ -225,29 +234,31 @@ export function ExpenseDetailPage() {
             </a>
           </Link>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(`/expenses/${expenseId}/edit`)}
-              aria-label="Edit expense"
-              title="Edit expense"
-            >
-              <Pencil className="w-4 h-4" />
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            {canMutate && (
+              <>
                 <Button
                   variant="ghost"
                   size="icon"
-                  disabled={deleteExpenseMutation.isPending}
-                  aria-label="Delete expense"
-                  title="Delete expense"
-                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => navigate(`/expenses/${expenseId}/edit`)}
+                  aria-label="Edit expense"
+                  title="Edit expense"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Pencil className="w-4 h-4" />
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={deleteExpenseMutation.isPending}
+                      aria-label="Delete expense"
+                      title="Delete expense"
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete this expense?</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -255,17 +266,19 @@ export function ExpenseDetailPage() {
                     You can't undo this from the app.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={deleteExpenseFn}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={deleteExpenseFn}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
           </div>
         </div>
 
@@ -289,12 +302,15 @@ export function ExpenseDetailPage() {
                   {formatDate(expense.date)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {expense.groupId
-                    ? groupName ?? "Group expense"
-                    : "Non-group expense"}
+                  {isNonGroup
+                    ? `Non-group expense · ${expense.category ?? "General"}`
+                    : groupName ?? "Group expense"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Added by {creatorName} on {formatDate(expense.createdAt)}
                 </p>
               </div>
-              {expense.photoUrl && photoSrc(expense.photoUrl) && (
+              {expense.photoUrl && photoSrc(expense.photoUrl) ? (
                 <button
                   type="button"
                   onClick={() => setPhotoOpen(true)}
@@ -307,6 +323,19 @@ export function ExpenseDetailPage() {
                     className="h-20 w-20 object-cover"
                   />
                 </button>
+              ) : (
+                canMutate && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/expenses/${expenseId}/edit`)}
+                    className="shrink-0 h-20 w-20 rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/30 hover:bg-muted flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors"
+                    aria-label="Add receipt"
+                    title="Add receipt"
+                  >
+                    <Camera className="w-5 h-5" />
+                    <span className="text-[10px] font-medium">Receipt</span>
+                  </button>
+                )
               )}
             </div>
 

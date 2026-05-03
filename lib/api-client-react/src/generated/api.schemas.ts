@@ -168,6 +168,10 @@ export interface Expense {
   splitType: SplitType;
   paidByUserId: string;
   paidByUser: User;
+  /** User who created the expense. Null for legacy rows. */
+  createdByUserId?: string | null;
+  /** Creator profile, when known. */
+  createdByUser?: User | null;
   date: string;
   /** Optional receipt photo URL (object storage path). */
   photoUrl?: string | null;

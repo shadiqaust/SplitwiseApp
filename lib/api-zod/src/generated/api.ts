@@ -380,6 +380,24 @@ export const GetFriendActivityResponse = zod.object({
           role: zod.enum(["user", "superadmin"]).optional(),
           createdAt: zod.coerce.date(),
         }),
+        createdByUserId: zod
+          .string()
+          .uuid()
+          .nullish()
+          .describe("User who created the expense. Null for legacy rows."),
+        createdByUser: zod
+          .object({
+            id: zod.string().uuid(),
+            name: zod.string(),
+            email: zod.string(),
+            avatarUrl: zod.string().nullish(),
+            country: zod.string().nullish(),
+            defaultCurrency: zod.string(),
+            role: zod.enum(["user", "superadmin"]).optional(),
+            createdAt: zod.coerce.date(),
+          })
+          .nullish()
+          .describe("Creator profile, when known."),
         date: zod.coerce.date(),
         photoUrl: zod
           .string()
@@ -488,6 +506,24 @@ export const ListNonGroupExpensesResponse = zod.object({
           role: zod.enum(["user", "superadmin"]).optional(),
           createdAt: zod.coerce.date(),
         }),
+        createdByUserId: zod
+          .string()
+          .uuid()
+          .nullish()
+          .describe("User who created the expense. Null for legacy rows."),
+        createdByUser: zod
+          .object({
+            id: zod.string().uuid(),
+            name: zod.string(),
+            email: zod.string(),
+            avatarUrl: zod.string().nullish(),
+            country: zod.string().nullish(),
+            defaultCurrency: zod.string(),
+            role: zod.enum(["user", "superadmin"]).optional(),
+            createdAt: zod.coerce.date(),
+          })
+          .nullish()
+          .describe("Creator profile, when known."),
         date: zod.coerce.date(),
         photoUrl: zod
           .string()
@@ -604,6 +640,24 @@ export const ListExpensesResponseItem = zod
       role: zod.enum(["user", "superadmin"]).optional(),
       createdAt: zod.coerce.date(),
     }),
+    createdByUserId: zod
+      .string()
+      .uuid()
+      .nullish()
+      .describe("User who created the expense. Null for legacy rows."),
+    createdByUser: zod
+      .object({
+        id: zod.string().uuid(),
+        name: zod.string(),
+        email: zod.string(),
+        avatarUrl: zod.string().nullish(),
+        country: zod.string().nullish(),
+        defaultCurrency: zod.string(),
+        role: zod.enum(["user", "superadmin"]).optional(),
+        createdAt: zod.coerce.date(),
+      })
+      .nullish()
+      .describe("Creator profile, when known."),
     date: zod.coerce.date(),
     photoUrl: zod
       .string()
@@ -698,6 +752,24 @@ export const GetExpenseResponse = zod
       role: zod.enum(["user", "superadmin"]).optional(),
       createdAt: zod.coerce.date(),
     }),
+    createdByUserId: zod
+      .string()
+      .uuid()
+      .nullish()
+      .describe("User who created the expense. Null for legacy rows."),
+    createdByUser: zod
+      .object({
+        id: zod.string().uuid(),
+        name: zod.string(),
+        email: zod.string(),
+        avatarUrl: zod.string().nullish(),
+        country: zod.string().nullish(),
+        defaultCurrency: zod.string(),
+        role: zod.enum(["user", "superadmin"]).optional(),
+        createdAt: zod.coerce.date(),
+      })
+      .nullish()
+      .describe("Creator profile, when known."),
     date: zod.coerce.date(),
     photoUrl: zod
       .string()
@@ -785,6 +857,24 @@ export const UpdateExpenseResponse = zod
       role: zod.enum(["user", "superadmin"]).optional(),
       createdAt: zod.coerce.date(),
     }),
+    createdByUserId: zod
+      .string()
+      .uuid()
+      .nullish()
+      .describe("User who created the expense. Null for legacy rows."),
+    createdByUser: zod
+      .object({
+        id: zod.string().uuid(),
+        name: zod.string(),
+        email: zod.string(),
+        avatarUrl: zod.string().nullish(),
+        country: zod.string().nullish(),
+        defaultCurrency: zod.string(),
+        role: zod.enum(["user", "superadmin"]).optional(),
+        createdAt: zod.coerce.date(),
+      })
+      .nullish()
+      .describe("Creator profile, when known."),
     date: zod.coerce.date(),
     photoUrl: zod
       .string()

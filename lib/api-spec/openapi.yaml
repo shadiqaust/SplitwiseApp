@@ -1287,6 +1287,16 @@ components:
           format: uuid
         paidByUser:
           $ref: "#/components/schemas/User"
+        createdByUserId:
+          type: string
+          format: uuid
+          nullable: true
+          description: User who created the expense. Null for legacy rows.
+        createdByUser:
+          allOf:
+            - $ref: "#/components/schemas/User"
+          nullable: true
+          description: Creator profile, when known.
         date:
           type: string
           format: date

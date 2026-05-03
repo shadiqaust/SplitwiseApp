@@ -44,6 +44,9 @@ async function buildExpenseWithSplits(expense: typeof expensesTable.$inferSelect
     .from(expenseSplitsTable)
     .where(eq(expenseSplitsTable.expenseId, expense.id));
   const paidByUser = await getUserById(expense.paidByUserId);
+  const createdByUser = expense.createdByUserId
+    ? await getUserById(expense.createdByUserId)
+    : null;
   const splitsWithUsers = await Promise.all(
     splits.map(async (split) => {
       const user = await getUserById(split.userId);
@@ -61,6 +64,9 @@ async function buildExpenseWithSplits(expense: typeof expensesTable.$inferSelect
     createdAt: expense.createdAt.toISOString(),
     totalAmount: parseFloat(expense.totalAmount),
     paidByUser: { ...paidByUser, createdAt: paidByUser.createdAt.toISOString() },
+    createdByUser: createdByUser
+      ? { ...createdByUser, createdAt: createdByUser.createdAt.toISOString() }
+      : null,
     splits: splitsWithUsers,
   };
 }
@@ -483,6 +489,7 @@ router.post(
         currency: storedCurrency,
         splitType,
         paidByUserId,
+        createdByUserId: me,
         date: toDateString(String(date)),
       })
       .returning();
@@ -593,6 +600,7 @@ router.post(
         currency: groupCurrency,
         splitType,
         paidByUserId,
+        createdByUserId: me,
         date: toDateString(String(date)),
       })
       .returning();
@@ -667,6 +675,17 @@ router.put(
     if (!current) {
       res.status(404).json({ error: "Expense not found" });
       return;
+    }
+
+    // Non-group expenses can only be edited by their creator (or, for legacy
+    // rows without a creator recorded, by the original payer as a fallback).
+    if (current.groupId === null) {
+      const me = req.dbUserId!;
+      const owner = current.createdByUserId ?? current.paidByUserId;
+      if (owner !== me) {
+        res.status(403).json({ error: "Only the creator can edit this expense" });
+        return;
+      }
     }
 
     // For group expenses, allowed participants are group members.
@@ -794,6 +813,26 @@ router.delete(
       ? req.params.expenseId[0]
       : req.params.expenseId;
     const expenseId = raw;
+
+    // Non-group expenses can only be deleted by their creator (or, for legacy
+    // rows without a creator recorded, by the original payer as a fallback).
+    const [current] = await db
+      .select()
+      .from(expensesTable)
+      .where(and(eq(expensesTable.id, expenseId), isNull(expensesTable.deletedAt)));
+    if (!current) {
+      res.status(404).json({ error: "Expense not found" });
+      return;
+    }
+    if (current.groupId === null) {
+      const me = req.dbUserId!;
+      const owner = current.createdByUserId ?? current.paidByUserId;
+      if (owner !== me) {
+        res.status(403).json({ error: "Only the creator can delete this expense" });
+        return;
+      }
+    }
+
     const [expense] = await db
       .update(expensesTable)
       .set({ deletedAt: new Date() })
