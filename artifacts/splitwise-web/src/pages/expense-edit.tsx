@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useLocation, Link } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getGetActivityQueryKey,
   getGetDashboardSummaryQueryKey,
@@ -14,7 +14,7 @@ import {
   useUpdateExpense,
   SplitType,
 } from "@workspace/api-client-react";
-import { ArrowLeft, ImagePlus, Loader2, X } from "lucide-react";
+import { ArrowLeft, ImagePlus, Loader2, Search, UserPlus, X } from "lucide-react";
 
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,25 @@ const EXPENSE_CATEGORIES = [
 
 type Participant = { userId: string; name: string; avatarUrl: string | null };
 
+interface ApiFriend {
+  id: string | number;
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
+}
+
+interface UserResult {
+  id: number;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+}
+
+function authHeaders(): HeadersInit {
+  const token = localStorage.getItem("sw_auth_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export function ExpenseEditPage() {
   const params = useParams<{ expenseId: string }>();
   const expenseId = params.expenseId;
@@ -86,6 +105,9 @@ export function ExpenseEditPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [hydrated, setHydrated] = useState(false);
+  // People added to this expense during edit (non-group only).
+  const [extraParticipants, setExtraParticipants] = useState<Participant[]>([]);
+  const [personSearch, setPersonSearch] = useState("");
 
   // Build the list of selectable participants:
   // - Group expenses: all current group members
@@ -113,12 +135,137 @@ export function ExpenseEditPage() {
         avatarUrl: expense.paidByUser.avatarUrl ?? null,
       });
     }
+    for (const p of extraParticipants) {
+      if (!seen.has(p.userId)) {
+        seen.set(p.userId, { name: p.name, avatarUrl: p.avatarUrl });
+      }
+    }
     return Array.from(seen.entries()).map(([userId, v]) => ({
       userId,
       name: v.name,
       avatarUrl: v.avatarUrl,
     }));
-  }, [expense, groupQ.data]);
+  }, [expense, groupQ.data, extraParticipants]);
+
+  const isNonGroup = !!expense && !expense.groupId;
+  const participantIdSet = useMemo(
+    () => new Set(participants.map((p) => p.userId)),
+    [participants],
+  );
+
+  // Friends list + user search (non-group only) — same pattern as the
+  // multi-friend Add Expense picker.
+  const friendsQuery = useQuery<ApiFriend[]>({
+    queryKey: ["friends"],
+    queryFn: async () => {
+      const res = await fetch("/api/friends", { headers: authHeaders() });
+      if (!res.ok) throw new Error("Failed to load friends");
+      return res.json();
+    },
+    enabled: isNonGroup,
+  });
+
+  const filteredFriends = useMemo(() => {
+    const q = personSearch.trim().toLowerCase();
+    return (friendsQuery.data ?? []).filter((f) => {
+      // Hide friends already participating.
+      if (participantIdSet.has(String(f.id))) return false;
+      if (!q) return true;
+      return (
+        f.name.toLowerCase().includes(q) ||
+        f.email.toLowerCase().includes(q)
+      );
+    });
+  }, [friendsQuery.data, personSearch, participantIdSet]);
+
+  const userSearchEnabled =
+    isNonGroup &&
+    personSearch.trim().length >= 2 &&
+    filteredFriends.length === 0;
+
+  const userSearch = useQuery<UserResult[]>({
+    queryKey: ["user-search-edit-expense", personSearch.trim()],
+    queryFn: async () => {
+      const params = new URLSearchParams({ q: personSearch.trim() });
+      const res = await fetch(`/api/users/search?${params}`, {
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error("Failed to search users");
+      return res.json();
+    },
+    enabled: userSearchEnabled,
+    staleTime: 0,
+  });
+
+  const friendIdSet = useMemo(
+    () => new Set((friendsQuery.data ?? []).map((f) => String(f.id))),
+    [friendsQuery.data],
+  );
+  const newPeople = useMemo(() => {
+    if (!userSearchEnabled) return [];
+    return (userSearch.data ?? []).filter(
+      (u) =>
+        String(u.id) !== String(myId) &&
+        !friendIdSet.has(String(u.id)) &&
+        !participantIdSet.has(String(u.id)),
+    );
+  }, [userSearchEnabled, userSearch.data, friendIdSet, participantIdSet, myId]);
+
+  const addParticipant = (p: Participant) => {
+    setExtraParticipants((prev) =>
+      prev.some((x) => x.userId === p.userId) ? prev : [...prev, p],
+    );
+    setParticipantIds((prev) => {
+      const next = new Set(prev);
+      next.add(p.userId);
+      return next;
+    });
+    setPersonSearch("");
+  };
+
+  const addFriend = useMutation({
+    mutationFn: async (user: UserResult) => {
+      const res = await fetch("/api/friends", {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ friendId: user.id }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to add friend");
+      }
+      return user;
+    },
+    onSuccess: (user) => {
+      toast({ title: `${user.name} added!` });
+      queryClient.setQueryData<ApiFriend[]>(["friends"], (prev) => {
+        const list = prev ?? [];
+        if (list.some((f) => String(f.id) === String(user.id))) return list;
+        return [
+          ...list,
+          {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            avatarUrl: user.avatarUrl,
+          },
+        ];
+      });
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
+      addParticipant({
+        userId: String(user.id),
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+      });
+    },
+    onError: (err: Error) => {
+      toast({
+        title: "Couldn't add friend",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   // One-shot hydration from server state
   useEffect(() => {
@@ -513,6 +660,87 @@ export function ExpenseEditPage() {
                     );
                   })}
                 </div>
+
+                {isNonGroup && (
+                  <div className="space-y-2 pt-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        value={personSearch}
+                        onChange={(e) => setPersonSearch(e.target.value)}
+                        placeholder="Add a friend or search by email…"
+                        className="pl-9"
+                      />
+                    </div>
+                    {(filteredFriends.length > 0 || newPeople.length > 0) && (
+                      <div className="border rounded-md divide-y max-h-56 overflow-auto">
+                        {filteredFriends.map((f) => (
+                          <button
+                            key={String(f.id)}
+                            type="button"
+                            onClick={() =>
+                              addParticipant({
+                                userId: String(f.id),
+                                name: f.name,
+                                avatarUrl: f.avatarUrl ?? null,
+                              })
+                            }
+                            className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted"
+                          >
+                            <UserAvatar
+                              name={f.name}
+                              url={f.avatarUrl ?? null}
+                              size={28}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm truncate">{f.name}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {f.email}
+                              </div>
+                            </div>
+                            <span className="text-xs text-primary">Add</span>
+                          </button>
+                        ))}
+                        {newPeople.map((u) => (
+                          <div
+                            key={String(u.id)}
+                            className="flex items-center gap-3 p-3"
+                          >
+                            <UserAvatar
+                              name={u.name}
+                              url={u.avatarUrl}
+                              size={28}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm truncate">{u.name}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                Not your friend yet · {u.email}
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={addFriend.isPending}
+                              onClick={() => addFriend.mutate(u)}
+                            >
+                              <UserPlus className="w-3.5 h-3.5 mr-1" />
+                              Add
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {personSearch.trim().length >= 2 &&
+                      filteredFriends.length === 0 &&
+                      newPeople.length === 0 &&
+                      !userSearch.isFetching && (
+                        <p className="text-xs text-muted-foreground">
+                          No matches.
+                        </p>
+                      )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

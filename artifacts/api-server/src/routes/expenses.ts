@@ -697,8 +697,10 @@ router.put(
     }
 
     // For group expenses, allowed participants are group members.
-    // For non-group (friend) expenses, allowed participants are the existing
-    // split user IDs (the original payer + friend(s)).
+    // For non-group (friend) expenses, any user may be added as a participant
+    // during edit (the picker on the client adds them as a friend first), so
+    // we don't constrain split userIds. `memberIds` here is only used for
+    // group-expense gating + computing notification recipients.
     let memberIds: Set<string>;
     if (current.groupId !== null) {
       memberIds = await getMemberIds(current.groupId);
@@ -709,6 +711,7 @@ router.put(
         .where(eq(expenseSplitsTable.expenseId, expenseId));
       memberIds = new Set(existingSplits.map((s) => s.userId));
       memberIds.add(current.paidByUserId);
+      if (current.createdByUserId) memberIds.add(current.createdByUserId);
     }
 
     const newSplitType = (parsed.data.splitType ?? current.splitType) as
@@ -728,13 +731,11 @@ router.put(
       res.status(400).json({ error: "Total amount must be positive" });
       return;
     }
-    if (!memberIds.has(newPaidBy)) {
-      res.status(400).json({
-        error:
-          current.groupId !== null
-            ? "Payer must be a group member"
-            : "Payer must be one of the original participants",
-      });
+    // Group expenses still constrain payer to group members. Non-group
+    // expenses allow the payer to be any user (will be validated implicitly
+    // by the split-includes-payer check below).
+    if (current.groupId !== null && !memberIds.has(newPaidBy)) {
+      res.status(400).json({ error: "Payer must be a group member" });
       return;
     }
 
@@ -749,16 +750,31 @@ router.put(
     if (parsed.data.date !== undefined) updateData.date = toDateString(String(parsed.data.date));
     if (parsed.data.photoUrl !== undefined) updateData.photoUrl = parsed.data.photoUrl;
 
+    const me = req.dbUserId!;
+
     if (parsed.data.splits) {
-      for (const s of parsed.data.splits) {
-        if (!memberIds.has(s.userId)) {
-          res.status(400).json({
-            error:
-              current.groupId !== null
-                ? "All split participants must be group members"
-                : "All split participants must be among the original participants",
-          });
-          return;
+      // Group expenses: all split userIds must be current group members.
+      // Non-group expenses: any user may participate, but newly introduced
+      // userIds must already be friends of (or share a group with) the editor
+      // — same policy as the create path.
+      if (current.groupId !== null) {
+        for (const s of parsed.data.splits) {
+          if (!memberIds.has(s.userId)) {
+            res.status(400).json({
+              error: "All split participants must be group members",
+            });
+            return;
+          }
+        }
+      } else {
+        for (const s of parsed.data.splits) {
+          if (memberIds.has(s.userId) || s.userId === me) continue;
+          if (!(await areFriends(me, s.userId))) {
+            res.status(403).json({
+              error: "You can only add participants who are your friends",
+            });
+            return;
+          }
         }
       }
       const splitUserIds = new Set(parsed.data.splits.map((s) => s.userId));
@@ -768,6 +784,22 @@ router.put(
           .json({ error: "Payer must be included in the split participants" });
         return;
       }
+    } else if (parsed.data.paidByUserId !== undefined) {
+      // Payer changed without supplying splits — verify the new payer is
+      // among the current splits so the invariant 'payer ∈ splits' holds.
+      const currentSplits = await db
+        .select({ userId: expenseSplitsTable.userId })
+        .from(expenseSplitsTable)
+        .where(eq(expenseSplitsTable.expenseId, expenseId));
+      if (!currentSplits.some((s) => s.userId === newPaidBy)) {
+        res
+          .status(400)
+          .json({ error: "Payer must be included in the split participants" });
+        return;
+      }
+    }
+
+    if (parsed.data.splits) {
       const computed = computeFinalSplits(
         newSplitType,
         newTotal,
@@ -794,9 +826,18 @@ router.put(
       .where(and(eq(expensesTable.id, expenseId), isNull(expensesTable.deletedAt)))
       .returning();
 
-    const me = req.dbUserId!;
     const actorName = await getActorName(me);
-    const recipients = Array.from(memberIds).filter((id) => id !== me);
+    // Notify everyone touched by the (possibly newly expanded) expense:
+    // group members for group expenses, or the union of original + final
+    // split userIds + payer + creator for non-group expenses.
+    const recipientSet = new Set<string>(memberIds);
+    if (current.groupId === null) {
+      if (parsed.data.splits) {
+        for (const s of parsed.data.splits) recipientSet.add(s.userId);
+      }
+      recipientSet.add(newPaidBy);
+    }
+    const recipients = Array.from(recipientSet).filter((id) => id !== me);
     const groupName = current.groupId ? ` in ${await getGroupName(current.groupId)}` : "";
     await createNotifications(
       recipients.map((uid) => ({

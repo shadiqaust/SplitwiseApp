@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -15,7 +16,8 @@ import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
 import { getCurrencySymbol } from "@/lib/format";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { authFetch } from "@/lib/api";
 import {
   getGetActivityQueryKey,
   getGetDashboardSummaryQueryKey,
@@ -54,6 +56,20 @@ const EXPENSE_CATEGORIES = [
 
 type Participant = { userId: string; name: string; avatarUrl: string | null };
 
+interface ApiFriend {
+  id: string | number;
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
+}
+
+interface UserResult {
+  id: number;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+}
+
 export default function EditExpenseScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -87,6 +103,8 @@ export default function EditExpenseScreen() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [extraParticipants, setExtraParticipants] = useState<Participant[]>([]);
+  const [personSearch, setPersonSearch] = useState("");
 
   const participants = useMemo<Participant[]>(() => {
     if (!expense) return [];
@@ -111,12 +129,127 @@ export default function EditExpenseScreen() {
         avatarUrl: expense.paidByUser.avatarUrl ?? null,
       });
     }
+    for (const p of extraParticipants) {
+      if (!seen.has(p.userId)) {
+        seen.set(p.userId, { name: p.name, avatarUrl: p.avatarUrl });
+      }
+    }
     return Array.from(seen.entries()).map(([userId, v]) => ({
       userId,
       name: v.name,
       avatarUrl: v.avatarUrl,
     }));
-  }, [expense, groupQ.data]);
+  }, [expense, groupQ.data, extraParticipants]);
+
+  const isNonGroup = !!expense && !expense.groupId;
+  const participantIdSet = useMemo(
+    () => new Set(participants.map((p) => p.userId)),
+    [participants],
+  );
+
+  const friendsQuery = useQuery<ApiFriend[]>({
+    queryKey: ["friends-mobile"],
+    queryFn: async () => {
+      const res = await authFetch("/api/friends");
+      if (!res.ok) throw new Error("Failed to load friends");
+      return res.json();
+    },
+    enabled: isNonGroup,
+  });
+
+  const filteredFriends = useMemo(() => {
+    const q = personSearch.trim().toLowerCase();
+    return (friendsQuery.data ?? []).filter((f) => {
+      if (participantIdSet.has(String(f.id))) return false;
+      if (!q) return true;
+      return (
+        f.name.toLowerCase().includes(q) ||
+        f.email.toLowerCase().includes(q)
+      );
+    });
+  }, [friendsQuery.data, personSearch, participantIdSet]);
+
+  const userSearchEnabled =
+    isNonGroup &&
+    personSearch.trim().length >= 2 &&
+    filteredFriends.length === 0;
+
+  const userSearch = useQuery<UserResult[]>({
+    queryKey: ["user-search-edit-expense-mobile", personSearch.trim()],
+    queryFn: async () => {
+      const params = new URLSearchParams({ q: personSearch.trim() });
+      const res = await authFetch(`/api/users/search?${params}`);
+      if (!res.ok) throw new Error("Failed to search users");
+      return res.json();
+    },
+    enabled: userSearchEnabled,
+    staleTime: 0,
+  });
+
+  const friendIdSet = useMemo(
+    () => new Set((friendsQuery.data ?? []).map((f) => String(f.id))),
+    [friendsQuery.data],
+  );
+  const newPeople = useMemo(() => {
+    if (!userSearchEnabled) return [];
+    return (userSearch.data ?? []).filter(
+      (u) =>
+        String(u.id) !== String(myId) &&
+        !friendIdSet.has(String(u.id)) &&
+        !participantIdSet.has(String(u.id)),
+    );
+  }, [userSearchEnabled, userSearch.data, friendIdSet, participantIdSet, myId]);
+
+  const addParticipantLocal = (p: Participant) => {
+    setExtraParticipants((prev) =>
+      prev.some((x) => x.userId === p.userId) ? prev : [...prev, p],
+    );
+    setParticipantIds((prev) => {
+      const next = new Set(prev);
+      next.add(p.userId);
+      return next;
+    });
+    setPersonSearch("");
+  };
+
+  const addFriend = useMutation({
+    mutationFn: async (user: UserResult) => {
+      const res = await authFetch("/api/friends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ friendId: user.id }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to add friend");
+      }
+      return user;
+    },
+    onSuccess: (user) => {
+      queryClient.setQueryData<ApiFriend[]>(["friends-mobile"], (prev) => {
+        const list = prev ?? [];
+        if (list.some((f) => String(f.id) === String(user.id))) return list;
+        return [
+          ...list,
+          {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            avatarUrl: user.avatarUrl,
+          },
+        ];
+      });
+      queryClient.invalidateQueries({ queryKey: ["friends-mobile"] });
+      addParticipantLocal({
+        userId: String(user.id),
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+      });
+    },
+    onError: (err: Error) => {
+      Alert.alert("Couldn't add friend", err.message);
+    },
+  });
 
   useEffect(() => {
     if (hydrated || !expense) return;
@@ -562,6 +695,145 @@ export default function EditExpenseScreen() {
                 );
               })}
             </View>
+
+            {isNonGroup && (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                <Input
+                  value={personSearch}
+                  onChangeText={setPersonSearch}
+                  placeholder="Add a friend or search by email…"
+                  autoCapitalize="none"
+                />
+                {(filteredFriends.length > 0 || newPeople.length > 0) && (
+                  <View
+                    style={{
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 8,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {filteredFriends.map((f) => (
+                      <Pressable
+                        key={String(f.id)}
+                        onPress={() =>
+                          addParticipantLocal({
+                            userId: String(f.id),
+                            name: f.name,
+                            avatarUrl: f.avatarUrl ?? null,
+                          })
+                        }
+                        style={({ pressed }) => ({
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: 10,
+                          opacity: pressed ? 0.7 : 1,
+                        })}
+                      >
+                        <Avatar
+                          name={f.name}
+                          url={f.avatarUrl ?? null}
+                          size={28}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              color: colors.foreground,
+                              fontFamily: "Inter_500Medium",
+                              fontSize: 14,
+                            }}
+                          >
+                            {f.name}
+                          </Text>
+                          <Text
+                            style={{
+                              color: colors.mutedForeground,
+                              fontSize: 12,
+                            }}
+                          >
+                            {f.email}
+                          </Text>
+                        </View>
+                        <Text
+                          style={{
+                            color: colors.primary,
+                            fontFamily: "Inter_600SemiBold",
+                            fontSize: 12,
+                          }}
+                        >
+                          Add
+                        </Text>
+                      </Pressable>
+                    ))}
+                    {newPeople.map((u) => (
+                      <View
+                        key={String(u.id)}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: 10,
+                        }}
+                      >
+                        <Avatar name={u.name} url={u.avatarUrl} size={28} />
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={{
+                              color: colors.foreground,
+                              fontFamily: "Inter_500Medium",
+                              fontSize: 14,
+                            }}
+                          >
+                            {u.name}
+                          </Text>
+                          <Text
+                            style={{
+                              color: colors.mutedForeground,
+                              fontSize: 12,
+                            }}
+                          >
+                            Not your friend yet · {u.email}
+                          </Text>
+                        </View>
+                        <Pressable
+                          onPress={() => addFriend.mutate(u)}
+                          disabled={addFriend.isPending}
+                          style={({ pressed }) => ({
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            opacity: pressed || addFriend.isPending ? 0.6 : 1,
+                          })}
+                        >
+                          <Text
+                            style={{
+                              color: colors.foreground,
+                              fontSize: 12,
+                              fontFamily: "Inter_600SemiBold",
+                            }}
+                          >
+                            + Add
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {personSearch.trim().length >= 2 &&
+                  filteredFriends.length === 0 &&
+                  newPeople.length === 0 &&
+                  !userSearch.isFetching && (
+                    <Text
+                      style={{ color: colors.mutedForeground, fontSize: 12 }}
+                    >
+                      No matches.
+                    </Text>
+                  )}
+              </View>
+            )}
           </Card>
 
           <Card>
