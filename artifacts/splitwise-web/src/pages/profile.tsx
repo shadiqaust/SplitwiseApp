@@ -328,7 +328,11 @@ export function ProfilePage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Default currency</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    key={currencies?.length ?? 0}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a currency" />

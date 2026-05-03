@@ -269,7 +269,11 @@ function EditGroupDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-group-currency">Currency</Label>
-            <Select value={currency} onValueChange={setCurrency}>
+            <Select
+              key={currencies?.length ?? 0}
+              value={currency}
+              onValueChange={setCurrency}
+            >
               <SelectTrigger id="edit-group-currency">
                 <SelectValue placeholder="Select a currency" />
               </SelectTrigger>

@@ -172,7 +172,11 @@ export function AuthPage({ initialMode }: { initialMode: "sign-in" | "sign-up" }
               </div>
               <div className="space-y-2">
                 <Label htmlFor="signup-currency">Default currency</Label>
-                <Select value={defaultCurrency} onValueChange={setDefaultCurrency}>
+                <Select
+                  key={currencies.length}
+                  value={defaultCurrency}
+                  onValueChange={setDefaultCurrency}
+                >
                   <SelectTrigger id="signup-currency">
                     <SelectValue placeholder="Select a currency" />
                   </SelectTrigger>

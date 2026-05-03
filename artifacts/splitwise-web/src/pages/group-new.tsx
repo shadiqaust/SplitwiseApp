@@ -96,7 +96,11 @@ export function NewGroupPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Currency</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    key={currencies?.length ?? 0}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a currency" />
