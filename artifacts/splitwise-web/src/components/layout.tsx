@@ -181,7 +181,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <ul className="grid grid-cols-4">
+        <ul
+          className={cn(
+            "grid",
+            authUser?.role === "superadmin" ? "grid-cols-5" : "grid-cols-4",
+          )}
+        >
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = location === href;
             return (
@@ -202,6 +207,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </li>
             );
           })}
+          {authUser?.role === "superadmin" && (
+            <li>
+              <Link
+                href="/admin"
+                className={cn(
+                  "flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium transition-colors",
+                  location.startsWith("/admin")
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                aria-current={location.startsWith("/admin") ? "page" : undefined}
+              >
+                <Shield className="w-5 h-5" aria-hidden="true" />
+                <span>Admin</span>
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
     </div>
