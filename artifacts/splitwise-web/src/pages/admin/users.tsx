@@ -1,17 +1,44 @@
 import { useEffect, useState } from "react";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { adminApi } from "@/lib/admin-api";
+import { useAuth } from "@/lib/auth";
 import { AdminLayout } from "./layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Shield, ChevronLeft, ChevronRight, Mail, MailCheck, MailWarning } from "lucide-react";
+import { Search, Shield, ChevronLeft, ChevronRight, Mail, MailCheck, MailWarning, LogOut, Loader2 } from "lucide-react";
 
 const PAGE_SIZE = 25;
 
 export function AdminUsersPage() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
+  const [flash, setFlash] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
+
+  const forceLogout = useMutation({
+    mutationFn: (id: string) => adminApi.forceLogoutUser(id),
+    onSuccess: (_res, id) => {
+      const target = data?.users.find((u) => u.id === id);
+      setFlash({
+        kind: "success",
+        text: `${target?.name ?? "User"} has been signed out of all devices.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin", "user", id] });
+    },
+    onError: (err: Error) => setFlash({ kind: "error", text: err.message }),
+  });
+
+  const onForceLogout = (id: string, name: string) => {
+    if (
+      !window.confirm(
+        `Force ${name} to sign out of every device? Their existing sessions will stop working immediately and they'll have to sign in again.`,
+      )
+    )
+      return;
+    forceLogout.mutate(id);
+  };
 
   // Reset to page 1 whenever the search query changes — otherwise a search
   // that returns fewer pages would leave the user stuck on an empty page.
@@ -38,6 +65,19 @@ export function AdminUsersPage() {
       <h1 className="text-2xl font-bold mb-1">Users</h1>
       <p className="text-muted-foreground mb-6">All registered users on Splitix, sorted by name.</p>
 
+      {flash && (
+        <div
+          className="mb-4 text-sm border rounded p-2"
+          style={
+            flash.kind === "success"
+              ? { backgroundColor: "#10b98122", borderColor: "#10b98155", color: "#059669" }
+              : { backgroundColor: "hsl(var(--destructive) / 0.1)", borderColor: "hsl(var(--destructive) / 0.3)", color: "hsl(var(--destructive))" }
+          }
+        >
+          {flash.text}
+        </div>
+      )}
+
       <div className="relative mb-4 max-w-sm">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -58,19 +98,20 @@ export function AdminUsersPage() {
               <th className="p-3 font-medium">Role</th>
               <th className="p-3 font-medium">Email status</th>
               <th className="p-3 font-medium hidden lg:table-cell">Joined</th>
+              <th className="p-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                <td colSpan={7} className="p-4 text-center text-muted-foreground">
                   Loading…
                 </td>
               </tr>
             )}
             {!isLoading && (data?.users.length ?? 0) === 0 && (
               <tr>
-                <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                <td colSpan={7} className="p-4 text-center text-muted-foreground">
                   No users found.
                 </td>
               </tr>
@@ -145,6 +186,29 @@ export function AdminUsersPage() {
                 </td>
                 <td className="p-3 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
                   {new Date(u.createdAt).toLocaleDateString()}
+                </td>
+                <td className="p-3 text-right">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onForceLogout(u.id, u.name)}
+                    disabled={
+                      currentUser?.id === u.id ||
+                      (forceLogout.isPending && forceLogout.variables === u.id)
+                    }
+                    title={
+                      currentUser?.id === u.id
+                        ? "You can't force-logout yourself"
+                        : "Sign this user out of every device"
+                    }
+                  >
+                    {forceLogout.isPending && forceLogout.variables === u.id ? (
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <LogOut className="w-3 h-3 mr-1" />
+                    )}
+                    Force logout
+                  </Button>
                 </td>
               </tr>
             ))}

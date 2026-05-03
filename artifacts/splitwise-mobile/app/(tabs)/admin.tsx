@@ -404,8 +404,37 @@ const USERS_PAGE_SIZE = 25;
 
 function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
   const colors = useColors();
+  const { user: me } = useAuth();
+  const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
+  const [pendingLogoutId, setPendingLogoutId] = useState<string | null>(null);
+
+  const forceLogout = useMutation({
+    mutationFn: (id: string) => adminApi.forceLogoutUser(id),
+    onMutate: (id: string) => setPendingLogoutId(id),
+    onSettled: () => setPendingLogoutId(null),
+    onSuccess: (_res, id) => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "user", id] });
+      Alert.alert("Signed out", "User has been signed out of all devices.");
+    },
+    onError: (err: Error) => Alert.alert("Couldn't force logout", err.message),
+  });
+
+  const confirmForceLogout = (id: string, name: string) => {
+    Alert.alert(
+      "Force logout?",
+      `${name} will be signed out of every device immediately and will need to sign in again.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Force logout",
+          style: "destructive",
+          onPress: () => forceLogout.mutate(id),
+        },
+      ],
+    );
+  };
 
   // Reset to page 1 whenever the query changes — otherwise a search that
   // returns fewer pages would leave the user stuck on an empty page.
@@ -483,6 +512,35 @@ function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
             <View style={[styles.badge, { backgroundColor: "#f59e0b22" }]}>
               <Text style={{ color: "#d97706", fontSize: 10 }}>unverified</Text>
             </View>
+          )}
+          {u.id !== me?.id && (
+            <Pressable
+              onPress={(e) => {
+                // Stop the row Pressable from also firing — we don't want to
+                // navigate into the user detail when the admin is just
+                // tapping the inline force-logout action.
+                e.stopPropagation();
+                confirmForceLogout(u.id, u.name);
+              }}
+              disabled={pendingLogoutId === u.id}
+              hitSlop={6}
+              style={{
+                marginLeft: 6,
+                padding: 8,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.background,
+                opacity: pendingLogoutId === u.id ? 0.5 : 1,
+              }}
+              accessibilityLabel={`Force logout ${u.name}`}
+            >
+              {pendingLogoutId === u.id ? (
+                <ActivityIndicator size="small" color={colors.foreground} />
+              ) : (
+                <Feather name="log-out" size={14} color={colors.foreground} />
+              )}
+            </Pressable>
           )}
         </Pressable>
       ))}
