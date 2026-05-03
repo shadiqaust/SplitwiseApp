@@ -10,6 +10,7 @@ import dashboardRouter from "./dashboard";
 import friendsRouter from "./friends";
 import storageRouter from "./storage";
 import notificationsRouter from "./notifications";
+import devicesRouter from "./devices";
 import adminRouter from "./admin";
 
 const router: IRouter = Router();
@@ -25,6 +26,7 @@ router.use(dashboardRouter);
 router.use(friendsRouter);
 router.use(storageRouter);
 router.use(notificationsRouter);
+router.use(devicesRouter);
 router.use(adminRouter);
 
 export default router;

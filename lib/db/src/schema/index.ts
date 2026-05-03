@@ -5,3 +5,4 @@ export * from "./expenses";
 export * from "./payments";
 export * from "./friendships";
 export * from "./notifications";
+export * from "./deviceTokens";

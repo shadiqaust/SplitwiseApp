@@ -1,6 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import {
+  attachNotificationResponseListener,
+  registerForPushNotificationsAsync,
+  unregisterPushNotificationsAsync,
+} from "./push";
 
 const TOKEN_KEY = "sw_auth_token";
 const USER_KEY = "sw_auth_user";
@@ -67,6 +72,7 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
   });
 
   useEffect(() => {
+    attachNotificationResponseListener();
     (async () => {
       const token = await getItem(TOKEN_KEY);
       const userStr = await getItem(USER_KEY);
@@ -74,6 +80,9 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
         try {
           const user = JSON.parse(userStr) as AuthUser;
           setState({ isLoaded: true, isSignedIn: true, user, token });
+          // Re-register on every cold start so the device's Expo token stays
+          // bound to the current account.
+          void registerForPushNotificationsAsync(apiBaseUrl);
         } catch {
           await removeItem(TOKEN_KEY);
           await removeItem(USER_KEY);
@@ -83,7 +92,7 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
         setState({ isLoaded: true, isSignedIn: false, user: null, token: null });
       }
     })();
-  }, []);
+  }, [apiBaseUrl]);
 
   const callApi = useCallback(async (path: string, body: unknown, token?: string | null): Promise<AuthResponse> => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -103,20 +112,24 @@ export function AuthProvider({ children, apiBaseUrl }: { children: React.ReactNo
     await storeItem(TOKEN_KEY, token);
     await storeItem(USER_KEY, JSON.stringify(user));
     setState({ isLoaded: true, isSignedIn: true, user, token });
-  }, [callApi]);
+    void registerForPushNotificationsAsync(apiBaseUrl);
+  }, [callApi, apiBaseUrl]);
 
   const signUp = useCallback(async (name: string, email: string, password: string, defaultCurrency?: string) => {
     const { token, user } = await callApi("/api/auth/register", { name, email, password, defaultCurrency });
     await storeItem(TOKEN_KEY, token);
     await storeItem(USER_KEY, JSON.stringify(user));
     setState({ isLoaded: true, isSignedIn: true, user, token });
-  }, [callApi]);
+    void registerForPushNotificationsAsync(apiBaseUrl);
+  }, [callApi, apiBaseUrl]);
 
   const signOut = useCallback(async () => {
+    // Unregister BEFORE clearing the token — we need the auth header.
+    await unregisterPushNotificationsAsync(apiBaseUrl);
     await removeItem(TOKEN_KEY);
     await removeItem(USER_KEY);
     setState({ isLoaded: true, isSignedIn: false, user: null, token: null });
-  }, []);
+  }, [apiBaseUrl]);
 
   const updateUser = useCallback((patch: Partial<AuthUser>) => {
     setState((prev) => {

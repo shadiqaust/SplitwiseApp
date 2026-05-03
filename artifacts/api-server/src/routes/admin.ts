@@ -12,6 +12,7 @@ import {
   currenciesTable,
 } from "@workspace/db";
 import { requireSuperadmin } from "../middlewares/requireSuperadmin";
+import { createNotifications } from "../lib/notifications";
 
 const router: IRouter = Router();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -301,7 +302,9 @@ router.post("/admin/notifications", requireSuperadmin, async (req, res): Promise
     return;
   }
 
-  await db.insert(notificationsTable).values(
+  // Route through createNotifications so the same code path also fires the
+  // OS-level Expo push for every recipient's registered devices.
+  await createNotifications(
     recipients.map((r) => ({
       userId: r.id,
       type: target === "all" ? "admin_broadcast" : "admin_direct",
