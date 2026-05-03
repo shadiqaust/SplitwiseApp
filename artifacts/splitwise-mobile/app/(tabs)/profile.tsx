@@ -31,29 +31,10 @@ import {
   getBiometricCapability,
   type BiometricCapability,
 } from "@/lib/biometrics";
+import { AVATAR_PRESETS, presetIdToAvatarUrl } from "@/lib/avatarPresets";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { Switch } from "react-native";
-
-// ─── Predefined avatar presets ────────────────────────────────────────────────
-const PRESETS = [
-  { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Alice&size=200", label: "Alice" },
-  { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Bob&size=200", label: "Bob" },
-  { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Charlie&size=200", label: "Charlie" },
-  { url: "https://api.dicebear.com/9.x/avataaars/png?seed=Diana&size=200", label: "Diana" },
-  { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Alex&size=200", label: "Alex" },
-  { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Sam&size=200", label: "Sam" },
-  { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Jordan&size=200", label: "Jordan" },
-  { url: "https://api.dicebear.com/9.x/fun-emoji/png?seed=Casey&size=200", label: "Casey" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Felix&size=200", label: "Felix" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Luna&size=200", label: "Luna" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Rider&size=200", label: "Rider" },
-  { url: "https://api.dicebear.com/9.x/adventurer/png?seed=Max&size=200", label: "Max" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=River&size=200", label: "River" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=Sage&size=200", label: "Sage" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=Sky&size=200", label: "Sky" },
-  { url: "https://api.dicebear.com/9.x/pixel-art/png?seed=Storm&size=200", label: "Storm" },
-];
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -586,18 +567,19 @@ export default function ProfileScreen() {
 
               <Text style={[styles.sheetSectionLabel, { color: colors.foreground }]}>Cartoon avatars</Text>
               <FlatList
-                data={PRESETS}
-                keyExtractor={(item) => item.url}
+                data={AVATAR_PRESETS}
+                keyExtractor={(item) => item.id}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.presetRow}
                 renderItem={({ item }) => {
+                  const presetUrl = presetIdToAvatarUrl(item.id);
                   const isSelected =
-                    selectedUrl === item.url || (!selectedUrl && me.avatarUrl === item.url);
+                    selectedUrl === presetUrl || (!selectedUrl && me.avatarUrl === presetUrl);
                   return (
-                    <Pressable onPress={() => setSelectedUrl(item.url)} style={styles.presetItem}>
+                    <Pressable onPress={() => setSelectedUrl(presetUrl)} style={styles.presetItem}>
                       <Image
-                        source={{ uri: item.url }}
+                        source={item.source}
                         style={[
                           styles.presetImg,
                           { borderColor: isSelected ? colors.primary : colors.border },

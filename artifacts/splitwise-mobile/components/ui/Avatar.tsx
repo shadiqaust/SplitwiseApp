@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useColors } from "@/hooks/useColors";
 import { getInitials } from "@/lib/format";
+import { resolvePresetSource } from "@/lib/avatarPresets";
 
 interface Props {
   name: string;
@@ -12,9 +13,13 @@ interface Props {
 export function Avatar({ name, url, size = 40 }: Props) {
   const colors = useColors();
   if (url) {
+    // `preset:<id>` markers resolve to a locally-bundled image so we don't
+    // hit any external host. Anything else (http(s), data:, file:) flows
+    // through expo-image's URI source.
+    const presetSource = resolvePresetSource(url);
     return (
       <Image
-        source={{ uri: url }}
+        source={presetSource ?? { uri: url }}
         style={{ width: size, height: size, borderRadius: size / 2 }}
       />
     );
