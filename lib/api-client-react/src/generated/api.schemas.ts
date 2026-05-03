@@ -276,6 +276,17 @@ export interface GroupBalanceSummary {
   myNetBalance: number;
 }
 
+export interface CurrencyTotal {
+  /** ISO 4217 currency code */
+  currency: string;
+  /** Amount others owe me in this currency */
+  owed: number;
+  /** Amount I owe others in this currency */
+  iOwe: number;
+  /** owed - iOwe in this currency */
+  net: number;
+}
+
 export interface DashboardSummary {
   /** Total amount others owe me across all groups */
   totalOwed: number;
@@ -289,6 +300,8 @@ export interface DashboardSummary {
   nonGroupNetBalance: number;
   /** Number of non-group expenses involving the current user. */
   nonGroupExpenseCount: number;
+  /** Per-currency breakdown of balances. Each currency is reported separately so amounts in different currencies are never summed. */
+  totalsByCurrency: CurrencyTotal[];
 }
 
 export type ActivityItemType =

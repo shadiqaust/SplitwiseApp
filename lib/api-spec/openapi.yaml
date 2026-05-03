@@ -1551,8 +1551,30 @@ components:
         nonGroupExpenseCount:
           type: integer
           description: Number of non-group expenses involving the current user.
+        totalsByCurrency:
+          type: array
+          description: Per-currency breakdown of balances. Each currency is reported separately so amounts in different currencies are never summed.
+          items:
+            $ref: "#/components/schemas/CurrencyTotal"
       required:
-        [totalOwed, totalIOwe, netBalance, groupCount, groupSummaries, nonGroupNetBalance, nonGroupExpenseCount]
+        [totalOwed, totalIOwe, netBalance, groupCount, groupSummaries, nonGroupNetBalance, nonGroupExpenseCount, totalsByCurrency]
+
+    CurrencyTotal:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: ISO 4217 currency code
+        owed:
+          type: number
+          description: Amount others owe me in this currency
+        iOwe:
+          type: number
+          description: Amount I owe others in this currency
+        net:
+          type: number
+          description: owed - iOwe in this currency
+      required: [currency, owed, iOwe, net]
 
     GroupBalanceSummary:
       type: object

@@ -18,6 +18,7 @@ export * from "./createGroupBody";
 export * from "./createNonGroupPaymentBody";
 export * from "./createPaymentBody";
 export * from "./currency";
+export * from "./currencyTotal";
 export * from "./dashboardSummary";
 export * from "./errorEnvelope";
 export * from "./errorResponse";

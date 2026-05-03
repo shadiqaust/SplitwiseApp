@@ -55,6 +55,7 @@ export default function DashboardScreen() {
   const net = data?.netBalance ?? 0;
   const owed = data?.totalOwed ?? 0;
   const iOwe = data?.totalIOwe ?? 0;
+  const totals = data?.totalsByCurrency ?? [];
 
   return (
     <ScrollView
@@ -87,28 +88,45 @@ export default function DashboardScreen() {
         <Text style={[styles.heroLabel, { color: colors.mutedForeground }]}>
           Your overall balance
         </Text>
-        <Text
-          style={[
-            styles.heroAmount,
-            {
-              color:
-                net > 0
-                  ? colors.positive
-                  : net < 0
-                    ? colors.negative
-                    : colors.foreground,
-            },
-          ]}
-        >
-          {net > 0 ? "+" : ""}
-          {formatCurrency(net)}
-        </Text>
+        {totals.length === 0 ? (
+          <Text
+            style={[styles.heroAmount, { color: colors.foreground }]}
+          >
+            {formatCurrency(0, myCurrency)}
+          </Text>
+        ) : (
+          <View style={{ gap: 2 }}>
+            {totals.map((t) => (
+              <Text
+                key={t.currency}
+                style={[
+                  styles.heroAmount,
+                  {
+                    color:
+                      t.net > 0
+                        ? colors.positive
+                        : t.net < 0
+                          ? colors.negative
+                          : colors.foreground,
+                  },
+                ]}
+              >
+                {t.net > 0 ? "+" : ""}
+                {formatCurrency(t.net, t.currency)}
+              </Text>
+            ))}
+          </View>
+        )}
         <Text style={[styles.heroHint, { color: colors.mutedForeground }]}>
-          {net > 0
-            ? "you are owed overall"
-            : net < 0
-              ? "you owe overall"
-              : "you are all settled up"}
+          {totals.length === 0
+            ? "you are all settled up"
+            : totals.length > 1
+              ? "across multiple currencies"
+              : (totals[0]?.net ?? 0) > 0
+                ? "you are owed overall"
+                : (totals[0]?.net ?? 0) < 0
+                  ? "you owe overall"
+                  : "you are all settled up"}
         </Text>
 
         <View style={styles.heroRow}>
@@ -116,18 +134,44 @@ export default function DashboardScreen() {
             <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>
               You're owed
             </Text>
-            <Text style={[styles.heroStatValue, { color: colors.positive }]}>
-              {formatCurrency(owed)}
-            </Text>
+            {totals.filter((t) => t.owed > 0).length === 0 ? (
+              <Text style={[styles.heroStatValue, { color: colors.positive }]}>
+                {formatCurrency(0, myCurrency)}
+              </Text>
+            ) : (
+              totals
+                .filter((t) => t.owed > 0)
+                .map((t) => (
+                  <Text
+                    key={t.currency}
+                    style={[styles.heroStatValue, { color: colors.positive }]}
+                  >
+                    {formatCurrency(t.owed, t.currency)}
+                  </Text>
+                ))
+            )}
           </View>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.heroStat}>
             <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>
               You owe
             </Text>
-            <Text style={[styles.heroStatValue, { color: colors.negative }]}>
-              {formatCurrency(iOwe)}
-            </Text>
+            {totals.filter((t) => t.iOwe > 0).length === 0 ? (
+              <Text style={[styles.heroStatValue, { color: colors.negative }]}>
+                {formatCurrency(0, myCurrency)}
+              </Text>
+            ) : (
+              totals
+                .filter((t) => t.iOwe > 0)
+                .map((t) => (
+                  <Text
+                    key={t.currency}
+                    style={[styles.heroStatValue, { color: colors.negative }]}
+                  >
+                    {formatCurrency(t.iOwe, t.currency)}
+                  </Text>
+                ))
+            )}
           </View>
         </View>
       </Card>

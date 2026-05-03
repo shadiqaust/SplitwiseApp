@@ -976,6 +976,18 @@ export const GetDashboardSummaryResponse = zod.object({
   nonGroupExpenseCount: zod
     .number()
     .describe("Number of non-group expenses involving the current user."),
+  totalsByCurrency: zod
+    .array(
+      zod.object({
+        currency: zod.string().describe("ISO 4217 currency code"),
+        owed: zod.number().describe("Amount others owe me in this currency"),
+        iOwe: zod.number().describe("Amount I owe others in this currency"),
+        net: zod.number().describe("owed - iOwe in this currency"),
+      }),
+    )
+    .describe(
+      "Per-currency breakdown of balances. Each currency is reported separately so amounts in different currencies are never summed.",
+    ),
 });
 
 /**

@@ -5,6 +5,7 @@
  * Splitix API
  * OpenAPI spec version: 0.1.0
  */
+import type { CurrencyTotal } from "./currencyTotal";
 import type { GroupBalanceSummary } from "./groupBalanceSummary";
 
 export interface DashboardSummary {
@@ -20,4 +21,6 @@ export interface DashboardSummary {
   nonGroupNetBalance: number;
   /** Number of non-group expenses involving the current user. */
   nonGroupExpenseCount: number;
+  /** Per-currency breakdown of balances. Each currency is reported separately so amounts in different currencies are never summed. */
+  totalsByCurrency: CurrencyTotal[];
 }

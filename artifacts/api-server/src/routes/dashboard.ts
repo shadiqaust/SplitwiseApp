@@ -25,6 +25,15 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
 
   let totalOwed = 0;
   let totalIOwe = 0;
+  // Per-currency accumulator. Each currency has its own owed/iOwe so we never
+  // add unrelated currencies together.
+  const byCurrency = new Map<string, { owed: number; iOwe: number }>();
+  const bumpCurrency = (ccy: string, owed: number, iOwe: number) => {
+    const cur = byCurrency.get(ccy) ?? { owed: 0, iOwe: 0 };
+    cur.owed += owed;
+    cur.iOwe += iOwe;
+    byCurrency.set(ccy, cur);
+  };
 
   const groupSummaries = await Promise.all(groups.map(async (group) => {
     const expenses = await db.select().from(expensesTable).where(and(eq(expensesTable.groupId, group.id), isNull(expensesTable.deletedAt)));
@@ -60,6 +69,8 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     const groupNet = groupOwed - groupIOwe;
     if (groupNet > 0) totalOwed += groupNet;
     else if (groupNet < 0) totalIOwe += -groupNet;
+    if (groupNet > 0) bumpCurrency(group.currency, groupNet, 0);
+    else if (groupNet < 0) bumpCurrency(group.currency, 0, -groupNet);
 
     return {
       groupId: group.id,
@@ -151,14 +162,38 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
   totalOwed += Math.max(0, nonGroupOwed);
   totalIOwe += Math.max(0, nonGroupIOwe);
 
+  // Non-group balances are bucketed under the user's default currency since
+  // friend-only expenses/payments aren't tied to a group currency. Mirror the
+  // legacy scalar semantics (clamp each side at 0 so overpayments don't flip a
+  // bucket negative, and keep owed/iOwe as independent positive buckets rather
+  // than netting them).
+  const [me] = await db
+    .select({ defaultCurrency: usersTable.defaultCurrency })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  const defaultCcy = me?.defaultCurrency ?? "USD";
+  bumpCurrency(defaultCcy, Math.max(0, nonGroupOwed), Math.max(0, nonGroupIOwe));
+
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const totalsByCurrency = Array.from(byCurrency.entries())
+    .map(([currency, v]) => ({
+      currency,
+      owed: round2(v.owed),
+      iOwe: round2(v.iOwe),
+      net: round2(v.owed - v.iOwe),
+    }))
+    .filter((t) => t.owed !== 0 || t.iOwe !== 0)
+    .sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
+
   res.json({
-    totalOwed: Math.round(totalOwed * 100) / 100,
-    totalIOwe: Math.round(totalIOwe * 100) / 100,
-    netBalance: Math.round((totalOwed - totalIOwe) * 100) / 100,
+    totalOwed: round2(totalOwed),
+    totalIOwe: round2(totalIOwe),
+    netBalance: round2(totalOwed - totalIOwe),
     groupCount: groups.length,
     groupSummaries,
-    nonGroupNetBalance: Math.round((nonGroupOwed - nonGroupIOwe) * 100) / 100,
+    nonGroupNetBalance: round2(nonGroupOwed - nonGroupIOwe),
     nonGroupExpenseCount: nonGroupExpenseIds.length,
+    totalsByCurrency,
   });
 });
 
