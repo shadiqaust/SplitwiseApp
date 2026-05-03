@@ -103,10 +103,19 @@ export const adminApi = {
       months: MonthlyAnalyticsItem[];
     }>(`/admin/analytics/monthly${suffix}`);
   },
-  listUsers: (q?: string) =>
-    adminGet<{ users: AdminUser[] }>(
-      `/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`,
-    ),
+  listUsers: (params?: { q?: string; page?: number; pageSize?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return adminGet<{
+      users: AdminUser[];
+      total: number;
+      page: number;
+      pageSize: number;
+    }>(`/admin/users${suffix}`);
+  },
   getUser: (id: string) => adminGet<AdminUserDetail>(`/admin/users/${id}`),
   listCurrencies: () => adminGet<{ currencies: AdminCurrency[] }>("/admin/currencies"),
   createCurrency: (input: AdminCurrency) =>

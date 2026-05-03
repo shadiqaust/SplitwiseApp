@@ -10,7 +10,8 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
@@ -374,13 +375,32 @@ function tableCell(colors: ReturnType<typeof useColors>) {
   return { color: colors.foreground, fontSize: 12 };
 }
 
+const USERS_PAGE_SIZE = 25;
+
 function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
   const colors = useColors();
   const [q, setQ] = useState("");
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin", "users", q],
-    queryFn: () => adminApi.listUsers(q || undefined),
+  const [page, setPage] = useState(1);
+
+  // Reset to page 1 whenever the query changes — otherwise a search that
+  // returns fewer pages would leave the user stuck on an empty page.
+  useEffect(() => {
+    setPage(1);
+  }, [q]);
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["admin", "users", q, page],
+    queryFn: () => adminApi.listUsers({ q: q || undefined, page, pageSize: USERS_PAGE_SIZE }),
+    placeholderData: keepPreviousData,
   });
+
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / USERS_PAGE_SIZE));
+  // Clamp displayed page in case totals shrink while we're sitting on a high
+  // page (e.g. another admin deletes users).
+  const displayPage = Math.min(page, totalPages);
+  const rangeFrom = total === 0 ? 0 : (displayPage - 1) * USERS_PAGE_SIZE + 1;
+  const rangeTo = Math.min(displayPage * USERS_PAGE_SIZE, total);
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -395,6 +415,11 @@ function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
         ]}
       />
       {isLoading && <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />}
+      {!isLoading && data?.users.length === 0 && (
+        <Text style={{ color: colors.mutedForeground, textAlign: "center", marginTop: 24 }}>
+          No users found.
+        </Text>
+      )}
       {data?.users.map((u) => (
         <Pressable
           key={u.id}
@@ -421,6 +446,49 @@ function UsersTab({ onOpen }: { onOpen: (id: string) => void }) {
           )}
         </Pressable>
       ))}
+
+      {/* Pagination footer */}
+      {total > 0 && (
+        <View style={{ marginTop: 16, gap: 8 }}>
+          <Text style={{ color: colors.mutedForeground, fontSize: 12, textAlign: "center" }}>
+            Showing {rangeFrom}–{rangeTo} of {total}
+            {isFetching && !isLoading ? "  ·  updating…" : ""}
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <Pressable
+              onPress={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || isLoading}
+              style={[
+                styles.pagerBtn,
+                {
+                  borderColor: colors.border,
+                  opacity: page <= 1 || isLoading ? 0.4 : 1,
+                },
+              ]}
+            >
+              <Feather name="chevron-left" size={16} color={colors.foreground} />
+              <Text style={{ color: colors.foreground, marginLeft: 4 }}>Prev</Text>
+            </Pressable>
+            <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>
+              Page {displayPage} / {totalPages}
+            </Text>
+            <Pressable
+              onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || isLoading}
+              style={[
+                styles.pagerBtn,
+                {
+                  borderColor: colors.border,
+                  opacity: page >= totalPages || isLoading ? 0.4 : 1,
+                },
+              ]}
+            >
+              <Text style={{ color: colors.foreground, marginRight: 4 }}>Next</Text>
+              <Feather name="chevron-right" size={16} color={colors.foreground} />
+            </Pressable>
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -522,7 +590,7 @@ function NotificationsTab() {
 
   const usersQ = useQuery({
     queryKey: ["admin", "users", "for-notif", userQ],
-    queryFn: () => adminApi.listUsers(userQ || undefined),
+    queryFn: () => adminApi.listUsers({ q: userQ || undefined, pageSize: 30 }),
     enabled: mode === "user",
   });
   const sentQ = useQuery({
@@ -688,4 +756,12 @@ const styles = StyleSheet.create({
   btn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 8 },
   modeBtn: { flex: 1, padding: 10, borderWidth: 1, borderRadius: 8, alignItems: "center" },
   notifCard: { padding: 12, borderWidth: 1, borderRadius: 8, marginBottom: 8 },
+  pagerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 6,
+  },
 });
