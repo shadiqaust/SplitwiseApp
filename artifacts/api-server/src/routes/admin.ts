@@ -383,4 +383,132 @@ router.get("/admin/stats", requireSuperadmin, async (_req, res) => {
 // avoid unused import warning when sql isn't used
 void sql;
 
+// ─── Monthly analytics ─────────────────────────────────────────────────────
+//
+// Returns a 12-month rolling window (oldest first) of:
+//   - newUsers      — accounts created that month
+//   - expenses      — expenses created that month
+//   - payments      — payments created that month
+//   - activeUsers   — distinct user IDs that paid an expense OR sent/received
+//                     a payment that month (rough engagement proxy)
+router.get("/admin/analytics/monthly", requireSuperadmin, async (_req, res) => {
+  // Build a series of the last 12 months (current month inclusive) so the
+  // response always has 12 buckets even when nothing happened.
+  const monthsSeries = sql<string>`
+    to_char(
+      generate_series(
+        date_trunc('month', now()) - interval '11 months',
+        date_trunc('month', now()),
+        interval '1 month'
+      ),
+      'YYYY-MM'
+    )
+  `;
+
+  const usersAgg = db
+    .select({
+      m: sql<string>`to_char(date_trunc('month', ${usersTable.createdAt}), 'YYYY-MM')`.as("m"),
+      c: count().as("c"),
+    })
+    .from(usersTable)
+    .where(sql`${usersTable.createdAt} >= date_trunc('month', now()) - interval '11 months'`)
+    .groupBy(sql`1`)
+    .as("u");
+
+  const expensesAgg = db
+    .select({
+      m: sql<string>`to_char(date_trunc('month', ${expensesTable.createdAt}), 'YYYY-MM')`.as("m"),
+      c: count().as("c"),
+      a: sql<string>`count(distinct ${expensesTable.paidByUserId})`.as("a"),
+    })
+    .from(expensesTable)
+    .where(sql`${expensesTable.createdAt} >= date_trunc('month', now()) - interval '11 months'`)
+    .groupBy(sql`1`)
+    .as("e");
+
+  const paymentsAgg = db
+    .select({
+      m: sql<string>`to_char(date_trunc('month', ${paymentsTable.createdAt}), 'YYYY-MM')`.as("m"),
+      c: count().as("c"),
+      af: sql<string>`count(distinct ${paymentsTable.fromUserId})`.as("af"),
+      at: sql<string>`count(distinct ${paymentsTable.toUserId})`.as("at"),
+    })
+    .from(paymentsTable)
+    .where(sql`${paymentsTable.createdAt} >= date_trunc('month', now()) - interval '11 months'`)
+    .groupBy(sql`1`)
+    .as("p");
+
+  const rows = await db.execute(sql`
+    with
+      months as (select ${monthsSeries} as m),
+      u as (
+        select to_char(date_trunc('month', ${usersTable.createdAt}), 'YYYY-MM') as m,
+               count(*)::int as c
+        from ${usersTable}
+        where ${usersTable.createdAt} >= date_trunc('month', now()) - interval '11 months'
+        group by 1
+      ),
+      e as (
+        select to_char(date_trunc('month', ${expensesTable.createdAt}), 'YYYY-MM') as m,
+               count(*)::int as c,
+               array_agg(distinct ${expensesTable.paidByUserId}::text) as actors
+        from ${expensesTable}
+        where ${expensesTable.createdAt} >= date_trunc('month', now()) - interval '11 months'
+        group by 1
+      ),
+      p as (
+        select to_char(date_trunc('month', ${paymentsTable.createdAt}), 'YYYY-MM') as m,
+               count(*)::int as c,
+               array_agg(distinct ${paymentsTable.fromUserId}::text) as senders,
+               array_agg(distinct ${paymentsTable.toUserId}::text) as receivers
+        from ${paymentsTable}
+        where ${paymentsTable.createdAt} >= date_trunc('month', now()) - interval '11 months'
+        group by 1
+      )
+    select
+      months.m as month,
+      coalesce(u.c, 0) as new_users,
+      coalesce(e.c, 0) as expenses,
+      coalesce(p.c, 0) as payments,
+      coalesce(
+        cardinality(
+          (
+            select array(
+              select distinct unnest(
+                coalesce(e.actors, ARRAY[]::text[]) ||
+                coalesce(p.senders, ARRAY[]::text[]) ||
+                coalesce(p.receivers, ARRAY[]::text[])
+              )
+            )
+          )
+        ),
+        0
+      ) as active_users
+    from months
+    left join u on u.m = months.m
+    left join e on e.m = months.m
+    left join p on p.m = months.m
+    order by months.m asc;
+  `);
+
+  // suppress unused warnings (these helpers are kept for potential reuse)
+  void usersAgg; void expensesAgg; void paymentsAgg;
+
+  const items = (rows.rows as Array<{
+    month: string;
+    new_users: number | string;
+    expenses: number | string;
+    payments: number | string;
+    active_users: number | string;
+  }>).map((r) => ({
+    month: r.month,
+    newUsers: Number(r.new_users),
+    expenses: Number(r.expenses),
+    payments: Number(r.payments),
+    activeUsers: Number(r.active_users),
+  }));
+
+  res.json({ months: items });
+});
+
 export default router;

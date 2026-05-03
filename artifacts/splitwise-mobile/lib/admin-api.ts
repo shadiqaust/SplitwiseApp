@@ -83,8 +83,18 @@ export interface AdminUserDetail {
   }>;
 }
 
+export interface MonthlyAnalyticsItem {
+  month: string;
+  newUsers: number;
+  expenses: number;
+  payments: number;
+  activeUsers: number;
+}
+
 export const adminApi = {
   stats: () => adminGet<AdminStats>("/admin/stats"),
+  monthly: () =>
+    adminGet<{ months: MonthlyAnalyticsItem[] }>("/admin/analytics/monthly"),
   listUsers: (q?: string) =>
     adminGet<{ users: AdminUser[] }>(
       `/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`,

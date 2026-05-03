@@ -86,8 +86,18 @@ export interface AdminUserDetail {
   }>;
 }
 
+export interface MonthlyAnalyticsItem {
+  month: string; // "YYYY-MM"
+  newUsers: number;
+  expenses: number;
+  payments: number;
+  activeUsers: number;
+}
+
 export const adminApi = {
   stats: () => adminFetch<AdminStats>("/admin/stats"),
+  monthly: () =>
+    adminFetch<{ months: MonthlyAnalyticsItem[] }>("/admin/analytics/monthly"),
   listUsers: (q?: string) =>
     adminFetch<{ users: AdminUser[] }>(
       `/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`,
