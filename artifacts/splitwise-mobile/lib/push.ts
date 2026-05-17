@@ -4,7 +4,7 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 
-import { getToken } from "./auth";
+import { getToken } from "./token";
 
 // ─── Public status surface ────────────────────────────────────────────────
 // Components can subscribe to know exactly what happened on the last

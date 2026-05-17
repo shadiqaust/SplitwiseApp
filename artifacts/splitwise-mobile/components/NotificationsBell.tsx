@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, View, Text, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useListNotifications } from "@workspace/api-client-react";
+import { getListNotificationsQueryKey, useListNotifications } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 
 export function NotificationsBell() {
@@ -10,7 +10,7 @@ export function NotificationsBell() {
   const router = useRouter();
   const { data } = useListNotifications(
     { limit: 30 },
-    { query: { refetchInterval: 20000, refetchOnWindowFocus: true } },
+    { query: { queryKey: getListNotificationsQueryKey({ limit: 30 }), refetchInterval: 20000, refetchOnWindowFocus: true } },
   );
   const unread = data?.unreadCount ?? 0;
 

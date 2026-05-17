@@ -352,7 +352,7 @@ export default function GroupDetailScreen() {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - days);
       items = items.filter((item) => {
-        const d = item.date instanceof Date ? item.date : new Date(item.date as string);
+        const d = new Date(item.date as string);
         return d >= cutoff;
       });
     }
@@ -589,7 +589,7 @@ export default function GroupDetailScreen() {
               );
               if (isMe) return inner;
               return (
-                <Pressable key={m.id} onPress={() => setProfileMember(m)}>
+                <Pressable key={m.id} onPress={() => setProfileMember({ ...m, user: { ...m.user, avatarUrl: m.user.avatarUrl ?? null } })}>
                   {inner}
                 </Pressable>
               );
@@ -664,7 +664,7 @@ export default function GroupDetailScreen() {
             {/* Member filter */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ flexDirection: "row", gap: 8, paddingVertical: 2 }}>
-                {(["all", ...group.data.members.map((m) => m.userId)] as (number | "all")[]).map((uid) => {
+                {(["all", ...group.data.members.map((m) => m.userId)] as (string | "all")[]).map((uid) => {
                   const m = uid === "all" ? null : group.data.members.find((mm) => mm.userId === uid);
                   const label = uid === "all" ? "All" : (m ? (m.userId === myUserId ? "You" : m.user.name.split(" ")[0]) : "");
                   const active = filterMemberId === uid;

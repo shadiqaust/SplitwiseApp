@@ -36,7 +36,7 @@ export default function GroupJoinScreen() {
   const code = (params.code ?? "").toUpperCase();
 
   const preview = useGetGroupByInvite(code, {
-    query: { enabled: Boolean(code), retry: false },
+    query: { queryKey: getGetGroupByInviteQueryKey(code), enabled: Boolean(code), retry: false },
   });
 
   const me = useGetMe();

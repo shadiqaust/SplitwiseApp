@@ -37,8 +37,8 @@ export function PaymentDetailModal({
   const deleteMutation = useDeletePayment();
   const [error, setError] = useState<string | null>(null);
 
-  const fromMe = currentUserId && payment.fromUserId === currentUserId;
-  const toMe = currentUserId && payment.toUserId === currentUserId;
+  const fromMe = currentUserId && String(payment.fromUserId) === currentUserId;
+  const toMe = currentUserId && String(payment.toUserId) === currentUserId;
   const fromName = fromMe ? "You" : payment.fromUser?.name ?? "Someone";
   const toName = toMe ? "you" : payment.toUser?.name ?? "someone";
   const amount = Number(payment.amount);

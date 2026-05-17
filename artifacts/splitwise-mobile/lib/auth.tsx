@@ -1,6 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { Platform } from "react-native";
-import * as SecureStore from "expo-secure-store";
+import {
+  TOKEN_KEY,
+  USER_KEY,
+  storeItem,
+  getItem,
+  removeItem,
+  getToken,
+} from "./token";
 import {
   attachNotificationResponseListener,
   registerForPushNotificationsAsync,
@@ -14,8 +20,7 @@ import {
   unlockBiometricSession,
 } from "./biometrics";
 
-const TOKEN_KEY = "sw_auth_token";
-const USER_KEY = "sw_auth_user";
+export { getToken };
 
 export interface AuthUser {
   id: string;
@@ -51,29 +56,6 @@ interface AuthContextValue extends AuthState {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-async function storeItem(key: string, value: string): Promise<void> {
-  if (Platform.OS === "web") {
-    if (typeof window !== "undefined") window.localStorage.setItem(key, value);
-  } else {
-    await SecureStore.setItemAsync(key, value);
-  }
-}
-
-async function getItem(key: string): Promise<string | null> {
-  if (Platform.OS === "web") {
-    return typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
-  }
-  return SecureStore.getItemAsync(key);
-}
-
-async function removeItem(key: string): Promise<void> {
-  if (Platform.OS === "web") {
-    if (typeof window !== "undefined") window.localStorage.removeItem(key);
-  } else {
-    await SecureStore.deleteItemAsync(key);
-  }
-}
 
 interface AuthResponse {
   token: string;
@@ -237,6 +219,3 @@ export function useAuth(): AuthContextValue {
   return ctx;
 }
 
-export function getToken(): Promise<string | null> {
-  return getItem(TOKEN_KEY);
-}

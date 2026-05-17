@@ -192,7 +192,7 @@ export default function NotificationsScreen() {
                 {
                   backgroundColor: item.readAt
                     ? colors.background
-                    : (colors.primaryMuted ?? colors.muted ?? colors.background),
+                    : (colors.muted ?? colors.background),
                   borderBottomColor: colors.border,
                   opacity: pressed ? 0.7 : 1,
                 },
