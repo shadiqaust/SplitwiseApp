@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, inArray, or, ne, isNull } from "drizzle-orm";
+import { eq, and, inArray, or, ne, isNull, desc } from "drizzle-orm";
 import {
   db,
   groupMembersTable,
@@ -381,12 +381,13 @@ router.get(
       ]),
     );
 
-    // Load full expenses + their splits.
+    // Load full expenses + their splits — newest first.
     const allExpenses = candidateIds.length
       ? await db
           .select()
           .from(expensesTable)
           .where(and(inArray(expensesTable.id, candidateIds), isNull(expensesTable.deletedAt)))
+          .orderBy(desc(expensesTable.date), desc(expensesTable.createdAt))
       : [];
     const allSplits = candidateIds.length
       ? await db
@@ -417,7 +418,7 @@ router.get(
       return b.createdAt.getTime() - a.createdAt.getTime();
     });
 
-    // Payments directly between us.
+    // Payments directly between us — newest first.
     const payments = await db
       .select()
       .from(paymentsTable)
@@ -429,12 +430,8 @@ router.get(
             and(eq(paymentsTable.fromUserId, friendId), eq(paymentsTable.toUserId, me)),
           ),
         ),
-      );
-    payments.sort((a, b) => {
-      const d = b.date.localeCompare(a.date);
-      if (d !== 0) return d;
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    });
+      )
+      .orderBy(desc(paymentsTable.date), desc(paymentsTable.createdAt));
 
     // Compute per-currency net balances: positive = friend owes me.
     // For payments, currency is inherited from the linked group (or "USD" if non-group).

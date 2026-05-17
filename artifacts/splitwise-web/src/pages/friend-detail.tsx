@@ -37,6 +37,7 @@ type Bucket = { key: string; label: string; amount: number };
 type ActivityRow = {
   key: string;
   date: Date;
+  createdAt: Date;
   monthKey: string;
   monthLabel: string;
   dayMonth: string;
@@ -222,6 +223,7 @@ export function FriendDetailPage() {
       rows.push({
         key: `e:${e.id}`,
         date: d,
+        createdAt: new Date(e.createdAt as unknown as string),
         monthKey: `${d.getFullYear()}-${d.getMonth()}`,
         monthLabel: monthLong.format(d),
         dayMonth: monthShort.format(d),
@@ -241,6 +243,7 @@ export function FriendDetailPage() {
       rows.push({
         key: `g:${gid}`,
         date: d,
+        createdAt: d,
         monthKey: `${d.getFullYear()}-${d.getMonth()}`,
         monthLabel: monthLong.format(d),
         dayMonth: monthShort.format(d),
@@ -270,6 +273,7 @@ export function FriendDetailPage() {
       rows.push({
         key: `p:${p.id}`,
         date: d,
+        createdAt: new Date(p.createdAt as unknown as string),
         monthKey: `${d.getFullYear()}-${d.getMonth()}`,
         monthLabel: monthLong.format(d),
         dayMonth: monthShort.format(d),
@@ -284,7 +288,11 @@ export function FriendDetailPage() {
         href: p.groupId ? `/groups/${p.groupId}` : null,
       });
     }
-    rows.sort((a, b) => b.date.getTime() - a.date.getTime());
+    rows.sort((a, b) => {
+      const byDate = b.date.getTime() - a.date.getTime();
+      if (byDate !== 0) return byDate;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
     return rows;
   }, [data, myId, friendId, groupAvatarById, groupNameById]);
 
