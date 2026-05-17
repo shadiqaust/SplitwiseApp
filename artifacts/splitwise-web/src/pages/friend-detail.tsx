@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   CreditCard,
   FileText,
+  HandCoins,
   Plus,
   Users,
 } from "lucide-react";
@@ -504,6 +505,10 @@ function TimelineRow({ row }: { row: ActivityRow }) {
       ) : row.iconAvatarUrl === null && row.icon === "users" ? (
         <div className="w-10 h-10 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-primary text-xs font-semibold">
           {avatarInitials}
+        </div>
+      ) : isPayment ? (
+        <div className="w-10 h-10 rounded-md bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center shrink-0">
+          <HandCoins className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
         </div>
       ) : (
         <div className="w-10 h-10 rounded-md bg-muted border flex items-center justify-center shrink-0">

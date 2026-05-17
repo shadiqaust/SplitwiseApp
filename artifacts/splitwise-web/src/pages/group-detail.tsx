@@ -1827,8 +1827,8 @@ export function GroupDetailPage() {
                   >
                     <CardContent className="py-4 flex items-center gap-4">
                       <div className="relative shrink-0">
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                          <HandCoins className="w-5 h-5 text-muted-foreground" />
+                        <div className="w-10 h-10 rounded-full bg-cyan-50 dark:bg-cyan-950/30 flex items-center justify-center">
+                          <HandCoins className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                         </div>
                         {p.fromUser && (
                           <div className="absolute -bottom-1 -right-1 ring-2 ring-background rounded-full">

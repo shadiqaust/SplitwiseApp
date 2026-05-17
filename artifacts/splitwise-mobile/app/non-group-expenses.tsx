@@ -674,8 +674,8 @@ function PaymentRow({
       style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
     >
       <Card style={styles.row}>
-        <View style={[styles.bubble, { backgroundColor: colors.muted }]}>
-          <MaterialCommunityIcons name="cash-fast" size={18} color={colors.mutedForeground} />
+        <View style={[styles.bubble, { backgroundColor: "#ecfeff" }]}>
+          <MaterialCommunityIcons name="cash-fast" size={18} color="#0891b2" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.desc, { color: colors.foreground }]} numberOfLines={1}>

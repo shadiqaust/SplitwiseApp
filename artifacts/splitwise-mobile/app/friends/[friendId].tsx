@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
@@ -538,6 +538,10 @@ function ActivityRowView({
             url={row.iconAvatarUrl}
             size={40}
           />
+        </View>
+      ) : isPayment ? (
+        <View style={[styles.activityIcon, { backgroundColor: "#ecfeff", borderColor: "#a5f3fc" }]}>
+          <MaterialCommunityIcons name="cash-fast" size={18} color="#0891b2" />
         </View>
       ) : (
         <View

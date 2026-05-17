@@ -786,8 +786,8 @@ export default function GroupDetailScreen() {
                   >
                   <Card style={styles.activityRow}>
                     <View style={{ position: "relative" }}>
-                      <View style={[styles.bubble, { backgroundColor: colors.muted, borderRadius: 100 }]}>
-                        <MaterialCommunityIcons name="cash-fast" size={18} color={colors.mutedForeground} />
+                      <View style={[styles.bubble, { backgroundColor: "#ecfeff", borderRadius: 100 }]}>
+                        <MaterialCommunityIcons name="cash-fast" size={18} color="#0891b2" />
                       </View>
                       {p.fromUser && (
                         <View style={{ position: "absolute", right: -4, bottom: -4, borderWidth: 2, borderColor: colors.background, borderRadius: 999 }}>
