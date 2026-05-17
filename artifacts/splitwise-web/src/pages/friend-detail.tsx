@@ -453,9 +453,25 @@ function Timeline({ rows }: { rows: ActivityRow[] }) {
       );
       lastMonth = row.monthKey;
     }
-    out.push(<TimelineRow key={row.key} row={row} />);
+    if (row.kind === "payment") {
+      out.push(<PaymentTile key={row.key} row={row} />);
+    } else {
+      out.push(<TimelineRow key={row.key} row={row} />);
+    }
   }
   return <div>{out}</div>;
+}
+
+function PaymentTile({ row }: { row: ActivityRow }) {
+  return (
+    <div className="flex items-center gap-2.5 px-3 py-2.5 my-1 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/40">
+      <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0" />
+      <span className="flex-1 text-sm font-medium text-foreground truncate">{row.title}</span>
+      <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+        {row.dayMonth} {row.dayNum}
+      </span>
+    </div>
+  );
 }
 
 function TimelineRow({ row }: { row: ActivityRow }) {
