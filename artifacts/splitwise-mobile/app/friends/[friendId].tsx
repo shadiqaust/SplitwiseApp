@@ -480,43 +480,11 @@ function renderTimeline(
       );
       lastMonth = row.monthKey;
     }
-    if (row.kind === "payment") {
-      out.push(<PaymentTileView key={row.key} row={row} colors={colors} />);
-    } else {
-      out.push(
-        <ActivityRowView key={row.key} row={row} colors={colors} router={router} />,
-      );
-    }
+    out.push(
+      <ActivityRowView key={row.key} row={row} colors={colors} router={router} />,
+    );
   }
   return out;
-}
-
-function PaymentTileView({
-  row,
-  colors,
-}: {
-  row: ActivityRow;
-  colors: ReturnType<typeof useColors>;
-}) {
-  return (
-    <View
-      style={[
-        styles.paymentTile,
-        { backgroundColor: colors.positive + "18", borderColor: colors.positive + "40" },
-      ]}
-    >
-      <Feather name="check-circle" size={15} color={colors.positive} style={{ marginTop: 1 }} />
-      <Text
-        style={[styles.paymentTileText, { color: colors.foreground }]}
-        numberOfLines={1}
-      >
-        {row.title}
-      </Text>
-      <Text style={[styles.paymentTileDate, { color: colors.mutedForeground }]}>
-        {row.dayMonth} {row.dayNum}
-      </Text>
-    </View>
-  );
 }
 
 function ActivityRowView({
@@ -539,7 +507,7 @@ function ActivityRowView({
       ? colors.positive
       : colors.negative;
   const label = isPayment
-    ? "settled up"
+    ? "paid"
     : settled
       ? "settled up"
       : positive
@@ -591,7 +559,7 @@ function ActivityRowView({
       </View>
       <View style={{ alignItems: "flex-end" }}>
         <Text style={[styles.activityHint, { color: tone }]}>{label}</Text>
-        {!settled && !isPayment && (
+        {!settled && (
           <Text style={[styles.activityAmount, { color: tone }]}>
             {formatCurrency(Math.abs(row.delta))}
           </Text>
@@ -726,24 +694,4 @@ const styles = StyleSheet.create({
   activitySub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
   activityHint: { fontFamily: "Inter_500Medium", fontSize: 11 },
   activityAmount: { fontFamily: "Inter_700Bold", fontSize: 14, marginTop: 1 },
-  paymentTile: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginVertical: 3,
-  },
-  paymentTileText: {
-    flex: 1,
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-  },
-  paymentTileDate: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 11,
-    flexShrink: 0,
-  },
 });
