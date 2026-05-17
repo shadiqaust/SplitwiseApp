@@ -564,7 +564,7 @@ router.post("/friends", requireVerifiedEmail, async (req, res): Promise<void> =>
 // DELETE /friends/:friendId
 router.delete("/friends/:friendId", requireVerifiedEmail, async (req, res): Promise<void> => {
   const me = req.dbUserId!;
-  const friendId = req.params.friendId;
+  const friendId = String(req.params.friendId);
   if (!UUID_RE.test(friendId)) {
     res.status(400).json({ error: "Invalid friendId" });
     return;
