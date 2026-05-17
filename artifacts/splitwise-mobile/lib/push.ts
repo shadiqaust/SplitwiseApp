@@ -59,15 +59,23 @@ export function subscribePushStatus(fn: (s: PushStatus) => void): () => void {
   };
 }
 
+// Detect Expo Go early — used to skip APIs that crash on Android SDK 53+.
+const _inExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient ||
+  (Constants.appOwnership as string) === "expo";
+
 // Foreground behaviour: still show banners + play sound when the app is open.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Guard required: expo-notifications throws at module level on Android Expo Go SDK 53+.
+if (!_inExpoGo) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 // Mirrors the targetPath() helper on the notifications screen so a tapped
 // notification deep-links to the right place.
@@ -277,6 +285,7 @@ function navigateFromData(data: Record<string, unknown> | undefined | null): voi
 // drains the pending response from a cold-launch tap so the deep link works
 // when the app was fully terminated.
 export function attachNotificationResponseListener(): void {
+  if (_inExpoGo) return; // not supported in Expo Go on Android SDK 53+
   if (responseSubscription) return;
   responseSubscription = Notifications.addNotificationResponseReceivedListener((resp) => {
     const data = resp.notification.request.content.data as
