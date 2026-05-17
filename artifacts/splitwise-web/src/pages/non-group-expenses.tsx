@@ -614,12 +614,12 @@ function PaymentRow({
       className="cursor-pointer hover:bg-accent/40 transition-colors"
     >
       <CardContent className="py-4 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-          <HandCoins className="w-5 h-5 text-green-700" />
+        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+          <HandCoins className="w-5 h-5 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">
-            {fromYou ? "You" : payment.fromUser.name} settled with{" "}
+            {fromYou ? "You" : payment.fromUser.name} paid{" "}
             {toYou ? "you" : payment.toUser.name}
           </p>
           <p className="text-xs text-muted-foreground">
@@ -627,7 +627,7 @@ function PaymentRow({
             {payment.note ? ` · ${payment.note}` : ""}
           </p>
         </div>
-        <div className="font-medium text-sm whitespace-nowrap text-green-700">
+        <div className="font-medium text-sm whitespace-nowrap text-muted-foreground">
           {formatCurrency(payment.amount, currency)}
         </div>
       </CardContent>

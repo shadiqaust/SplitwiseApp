@@ -674,12 +674,12 @@ function PaymentRow({
       style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
     >
       <Card style={styles.row}>
-        <View style={[styles.bubble, { backgroundColor: "#dcfce7" }]}>
-          <Feather name="check-circle" size={18} color="#16a34a" />
+        <View style={[styles.bubble, { backgroundColor: colors.muted }]}>
+          <MaterialCommunityIcons name="cash-fast" size={18} color={colors.mutedForeground} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.desc, { color: colors.foreground }]} numberOfLines={1}>
-            {fromYou ? "You" : payment.fromUser.name} settled with{" "}
+            {fromYou ? "You" : payment.fromUser.name} paid{" "}
             {toYou ? "you" : payment.toUser.name}
           </Text>
           <Text style={[styles.meta, { color: colors.mutedForeground }]}>
@@ -687,7 +687,7 @@ function PaymentRow({
             {payment.note ? ` · ${payment.note}` : ""}
           </Text>
         </View>
-        <Text style={[styles.balance, { color: "#16a34a" }]}>
+        <Text style={[styles.balance, { color: colors.mutedForeground }]}>
           {formatCurrency(payment.amount)}
         </Text>
       </Card>

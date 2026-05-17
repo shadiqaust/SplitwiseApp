@@ -1827,8 +1827,8 @@ export function GroupDetailPage() {
                   >
                     <CardContent className="py-4 flex items-center gap-4">
                       <div className="relative shrink-0">
-                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                          <HandCoins className="w-5 h-5 text-green-700" />
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          <HandCoins className="w-5 h-5 text-muted-foreground" />
                         </div>
                         {p.fromUser && (
                           <div className="absolute -bottom-1 -right-1 ring-2 ring-background rounded-full">
@@ -1842,7 +1842,7 @@ export function GroupDetailPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">
-                          {fromYou ? "You" : p.fromUser.name} settled with{" "}
+                          {fromYou ? "You" : p.fromUser.name} paid{" "}
                           {toYou ? "you" : p.toUser.name}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -1850,7 +1850,7 @@ export function GroupDetailPage() {
                           {p.note ? ` · ${p.note}` : ""}
                         </p>
                       </div>
-                      <div className="font-medium text-sm whitespace-nowrap text-green-700">
+                      <div className="font-medium text-sm whitespace-nowrap text-muted-foreground">
                         {formatCurrency(p.amount, groupCurrency)}
                       </div>
                     </CardContent>

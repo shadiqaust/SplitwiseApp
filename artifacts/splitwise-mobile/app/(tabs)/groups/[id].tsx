@@ -786,8 +786,8 @@ export default function GroupDetailScreen() {
                   >
                   <Card style={styles.activityRow}>
                     <View style={{ position: "relative" }}>
-                      <View style={[styles.bubble, { backgroundColor: "#dcfce7", borderRadius: 100 }]}>
-                        <Feather name="check-circle" size={18} color="#16a34a" />
+                      <View style={[styles.bubble, { backgroundColor: colors.muted, borderRadius: 100 }]}>
+                        <MaterialCommunityIcons name="cash-fast" size={18} color={colors.mutedForeground} />
                       </View>
                       {p.fromUser && (
                         <View style={{ position: "absolute", right: -4, bottom: -4, borderWidth: 2, borderColor: colors.background, borderRadius: 999 }}>
@@ -796,16 +796,14 @@ export default function GroupDetailScreen() {
                       )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Text style={[styles.activityTitle, { color: colors.foreground }]} numberOfLines={1}>
-                          {fromYou ? "You" : p.fromUser.name} settled with {toYou ? "you" : p.toUser.name}
-                        </Text>
-                      </View>
+                      <Text style={[styles.activityTitle, { color: colors.foreground }]} numberOfLines={1}>
+                        {fromYou ? "You" : p.fromUser.name} paid {toYou ? "you" : p.toUser.name}
+                      </Text>
                       <Text style={[styles.activitySub, { color: colors.mutedForeground }]}>
                         {formatDate(p.date)}{p.note ? ` · ${p.note}` : ""}
                       </Text>
                     </View>
-                    <Text style={[styles.activityAmount, { color: "#16a34a" }]}>
+                    <Text style={[styles.activityAmount, { color: colors.mutedForeground }]}>
                       {formatCurrency(p.amount, groupCurrency)}
                     </Text>
                   </Card>
