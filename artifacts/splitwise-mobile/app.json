@@ -15,9 +15,17 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.splitix.app"
+      "bundleIdentifier": "com.splitix.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
-    "android": {},
+    "android": {
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -51,9 +59,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "44a84915-b55d-4de2-8005-e6c114e49301"
       }
     },
-    "owner": ""
+    "owner": "shadiq.cse"
   }
 }
