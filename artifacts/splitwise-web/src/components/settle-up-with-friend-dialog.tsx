@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -67,37 +67,40 @@ export function SettleUpWithFriendDialog({
   const queryClient = useQueryClient();
   const createPayment = useCreateNonGroupPayment();
   const { data: me } = useGetMe();
-  // Currency is a per-viewer display symbol — collapse all stored balances
-  // to a single signed amount so the user can settle in one shot.
-  const collapsedNet = (balances ?? []).reduce((acc, b) => acc + b.amount, 0);
-  const currency = me?.defaultCurrency ?? "USD";
-  const effectiveNet = Math.abs(collapsedNet) > 0.005
-    ? collapsedNet
-    : (netBalance ?? 0);
   void useLocation;
 
-  // direction: "youPaid" → I paid friend (clears me-owes-friend balance)
-  //            "friendPaid" → friend paid me (clears friend-owes-me balance)
-  const defaultDirection: "youPaid" | "friendPaid" =
-    effectiveNet > 0 ? "friendPaid" : "youPaid";
-  const [direction, setDirection] = useState<"youPaid" | "friendPaid">(
-    defaultDirection,
+  // Sort non-zero balances by absolute amount descending — largest first
+  const nonZeroBalances = useMemo(
+    () =>
+      (balances ?? [])
+        .filter((b) => Math.abs(b.amount) >= 0.01)
+        .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)),
+    [balances],
   );
+
+  const [selectedCurrency, setSelectedCurrency] = useState<string>("");
+  const [direction, setDirection] = useState<"youPaid" | "friendPaid">("youPaid");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
 
+  const selectedBalance = nonZeroBalances.find((b) => b.currency === selectedCurrency);
+  const effectiveNet = selectedBalance?.amount ?? (netBalance ?? 0);
+  const currency = selectedCurrency || (me?.defaultCurrency ?? "USD");
+
   useEffect(() => {
     if (isOpen) {
-      const dir: "youPaid" | "friendPaid" =
-        effectiveNet > 0 ? "friendPaid" : "youPaid";
-      setDirection(dir);
-      setAmount(
-        Math.abs(effectiveNet) > 0.005 ? Math.abs(effectiveNet).toFixed(2) : "",
-      );
+      const defaultCur =
+        nonZeroBalances.length > 0
+          ? nonZeroBalances[0].currency
+          : (me?.defaultCurrency ?? "USD");
+      const net = nonZeroBalances.find((b) => b.currency === defaultCur)?.amount ?? (netBalance ?? 0);
+      setSelectedCurrency(defaultCur);
+      setDirection(net > 0 ? "friendPaid" : "youPaid");
+      setAmount(Math.abs(net) > 0.005 ? Math.abs(net).toFixed(2) : "");
       setNote("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, effectiveNet]);
+  }, [isOpen]);
 
   const fromUserId = direction === "youPaid" ? currentUserId : friendId;
   const toUserId = direction === "youPaid" ? friendId : currentUserId;
@@ -122,6 +125,7 @@ export function SettleUpWithFriendDialog({
           fromUserId,
           toUserId,
           amount: value,
+          currency,
           note: note.trim() || null,
           date: new Date().toISOString().slice(0, 10),
         },
@@ -164,6 +168,29 @@ export function SettleUpWithFriendDialog({
           <DialogTitle>Settle up with {friend.name}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
+          {nonZeroBalances.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              {nonZeroBalances.map((b) => (
+                <button
+                  key={b.currency}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCurrency(b.currency);
+                    setDirection(b.amount > 0 ? "friendPaid" : "youPaid");
+                    setAmount(Math.abs(b.amount) > 0.005 ? Math.abs(b.amount).toFixed(2) : "");
+                  }}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-semibold border transition-colors",
+                    selectedCurrency === b.currency
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted border-border text-muted-foreground hover:bg-accent",
+                  )}
+                >
+                  {b.currency}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
             {hint}
           </div>

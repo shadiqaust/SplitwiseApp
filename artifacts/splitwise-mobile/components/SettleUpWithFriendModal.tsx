@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -50,26 +50,39 @@ export function SettleUpWithFriendModal({
   const { data: me } = useGetMe();
   const friendId = String(friend.id);
 
-  // Currency is a per-viewer display symbol — collapse all stored balances
-  // to a single signed amount so the user can settle in one shot.
-  const collapsedNet = (balances ?? []).reduce((acc, b) => acc + b.amount, 0);
-  const currency = me?.defaultCurrency ?? "USD";
-  const effectiveNet = Math.abs(collapsedNet) > 0.005
-    ? collapsedNet
-    : (netBalance ?? 0);
-
-  const [direction, setDirection] = useState<"youPaid" | "friendPaid">(
-    effectiveNet > 0 ? "friendPaid" : "youPaid",
+  // Sort non-zero balances by absolute amount descending — largest first
+  const nonZeroBalances = useMemo(
+    () =>
+      (balances ?? [])
+        .filter((b) => Math.abs(b.amount) >= 0.01)
+        .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)),
+    [balances],
   );
+
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(
+    nonZeroBalances[0]?.currency ?? me?.defaultCurrency ?? "USD",
+  );
+  const [direction, setDirection] = useState<"youPaid" | "friendPaid">("youPaid");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const selectedBalance = nonZeroBalances.find((b) => b.currency === selectedCurrency);
+  const effectiveNet = selectedBalance?.amount ?? (netBalance ?? 0);
+  const currency = selectedCurrency || (me?.defaultCurrency ?? "USD");
+
+  // Initialize on mount
   useEffect(() => {
-    if (Math.abs(effectiveNet) > 0.005) {
-      setAmount(Math.abs(effectiveNet).toFixed(2));
-    }
-  }, [effectiveNet]);
+    const defaultCur =
+      nonZeroBalances.length > 0
+        ? nonZeroBalances[0].currency
+        : (me?.defaultCurrency ?? "USD");
+    const net = nonZeroBalances.find((b) => b.currency === defaultCur)?.amount ?? (netBalance ?? 0);
+    setSelectedCurrency(defaultCur);
+    setDirection(net > 0 ? "friendPaid" : "youPaid");
+    setAmount(Math.abs(net) > 0.005 ? Math.abs(net).toFixed(2) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fromUserId = direction === "youPaid" ? currentUserId : friendId;
   const toUserId = direction === "youPaid" ? friendId : currentUserId;
@@ -91,6 +104,7 @@ export function SettleUpWithFriendModal({
           fromUserId,
           toUserId,
           amount: value,
+          currency,
           note: note.trim() || null,
           date: new Date().toISOString().slice(0, 10),
         },
@@ -144,6 +158,41 @@ export function SettleUpWithFriendModal({
             contentContainerStyle={styles.body}
             keyboardShouldPersistTaps="handled"
           >
+            {nonZeroBalances.length > 1 && (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+                {nonZeroBalances.map((b) => (
+                  <Pressable
+                    key={b.currency}
+                    onPress={() => {
+                      setSelectedCurrency(b.currency);
+                      setDirection(b.amount > 0 ? "friendPaid" : "youPaid");
+                      setAmount(Math.abs(b.amount) > 0.005 ? Math.abs(b.amount).toFixed(2) : "");
+                    }}
+                    style={[
+                      {
+                        paddingHorizontal: 14,
+                        paddingVertical: 6,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                      },
+                      selectedCurrency === b.currency
+                        ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                        : { backgroundColor: colors.muted, borderColor: colors.border },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontFamily: "Inter_600SemiBold",
+                        color: selectedCurrency === b.currency ? colors.primaryForeground : colors.mutedForeground,
+                      }}
+                    >
+                      {b.currency}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
             <View
               style={[
                 styles.hint,

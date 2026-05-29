@@ -298,10 +298,8 @@ export function FriendDetailPage() {
   }, [data, myId, friendId, groupAvatarById, groupNameById]);
 
   const friend = data?.friend;
-  const net = data?.netBalance ?? 0;
-  const settled = Math.abs(net) < 0.01;
-  const owedOverall = net > 0;
   const friendShort = friend ? shortName(friend.name) : "";
+  const nonZeroBalances = (data?.balances ?? []).filter((b) => Math.abs(b.amount) >= 0.01);
 
   return (
     <Layout>
@@ -344,40 +342,26 @@ export function FriendDetailPage() {
           ) : friend ? (
             <>
               <h1 className="text-2xl font-bold truncate">{friend.name}</h1>
-              {settled ? (
+              {nonZeroBalances.length === 0 ? (
                 <p className="text-base text-muted-foreground">
                   you are all settled up
                 </p>
               ) : (
-                <p
-                  className={cn(
-                    "text-base font-medium",
-                    owedOverall ? "text-green-600" : "text-red-500",
-                  )}
-                >
-                  {owedOverall ? "You are owed" : "You owe"}{" "}
-                  <span className="font-bold">{formatCurrency(Math.abs(net))}</span>{" "}
-                  overall
-                </p>
-              )}
-              {buckets.length > 0 && (
                 <div className="space-y-0.5 pt-1">
-                  {buckets.map((b) => {
+                  {nonZeroBalances.map((b) => {
                     const friendOwes = b.amount > 0;
-                    const tone = friendOwes ? "text-green-600" : "text-red-500";
-                    const subj = friendOwes
-                      ? `${friendShort} owes you`
-                      : `You owe ${friendShort}`;
                     return (
                       <p
-                        key={b.key}
-                        className="text-sm text-muted-foreground"
+                        key={b.currency}
+                        className={cn(
+                          "text-base font-medium",
+                          friendOwes ? "text-green-600" : "text-red-500",
+                        )}
                       >
-                        {subj}{" "}
-                        <span className={cn("font-semibold", tone)}>
-                          {formatCurrency(Math.abs(b.amount))}
-                        </span>{" "}
-                        in {b.label}
+                        {friendOwes ? "You are owed" : "You owe"}{" "}
+                        <span className="font-bold">
+                          {formatCurrency(Math.abs(b.amount), b.currency)}
+                        </span>
                       </p>
                     );
                   })}
@@ -413,7 +397,7 @@ export function FriendDetailPage() {
           <SettleUpWithFriendDialog
             friend={{ id: friend.id, name: friend.name }}
             currentUserId={myId}
-            netBalance={net}
+            netBalance={data?.netBalance ?? 0}
             balances={data?.balances}
             open={settleOpen}
             onOpenChange={setSettleOpen}

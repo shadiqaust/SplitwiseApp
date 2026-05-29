@@ -294,20 +294,8 @@ export default function FriendDetailScreen() {
   }
 
   const friend = query.data?.friend;
-  const net = query.data?.netBalance ?? 0;
-  const settled = Math.abs(net) < 0.01;
-  const owedOverall = net > 0;
-  const balanceTone = settled
-    ? colors.mutedForeground
-    : owedOverall
-      ? colors.positive
-      : colors.negative;
-  const balanceVerb = settled
-    ? "you are settled up overall"
-    : owedOverall
-      ? "You are owed"
-      : "You owe";
   const friendShort = friend ? shortName(friend.name) : "";
+  const nonZeroBalances = (query.data?.balances ?? []).filter((b) => Math.abs(b.amount) >= 0.01);
 
   return (
     <>
@@ -370,32 +358,21 @@ export default function FriendDetailScreen() {
           <Text style={[styles.friendName, { color: colors.foreground }]} numberOfLines={1}>
             {friend?.name ?? ""}
           </Text>
-          {settled ? (
+          {nonZeroBalances.length === 0 ? (
             <Text style={[styles.balanceLine, { color: colors.mutedForeground }]}>
               you are all settled up
             </Text>
           ) : (
-            <Text style={[styles.balanceLine, { color: balanceTone }]}>
-              {balanceVerb} <Text style={styles.balanceAmount}>{formatCurrency(Math.abs(net))}</Text> overall
-            </Text>
-          )}
-
-          {buckets.length > 0 && (
-            <View style={{ gap: 4, marginTop: 10 }}>
-              {buckets.map((b) => {
+            <View style={{ gap: 4, marginTop: 6 }}>
+              {nonZeroBalances.map((b) => {
                 const friendOwes = b.amount > 0;
                 const tone = friendOwes ? colors.positive : colors.negative;
-                const subj = friendOwes ? `${friendShort} owes you` : `You owe ${friendShort}`;
                 return (
-                  <Text
-                    key={b.key}
-                    style={[styles.breakdownLine, { color: colors.mutedForeground }]}
-                  >
-                    {subj}{" "}
-                    <Text style={{ color: tone, fontFamily: "Inter_600SemiBold" }}>
-                      {formatCurrency(Math.abs(b.amount))}
-                    </Text>{" "}
-                    in {b.label}
+                  <Text key={b.currency} style={[styles.balanceLine, { color: tone }]}>
+                    {friendOwes ? "You are owed" : "You owe"}{" "}
+                    <Text style={styles.balanceAmount}>
+                      {formatCurrency(Math.abs(b.amount), b.currency)}
+                    </Text>
                   </Text>
                 );
               })}
@@ -452,7 +429,7 @@ export default function FriendDetailScreen() {
         <SettleUpWithFriendModal
           friend={{ id: friend.id, name: friend.name }}
           currentUserId={myId}
-          netBalance={net}
+          netBalance={query.data?.netBalance ?? 0}
           balances={query.data?.balances}
           onClose={() => setShowSettle(false)}
         />
