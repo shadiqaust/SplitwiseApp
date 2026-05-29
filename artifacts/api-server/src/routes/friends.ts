@@ -128,7 +128,7 @@ async function buildFriendList(me: string) {
 
     const payments = await db.select().from(paymentsTable).where(and(inArray(paymentsTable.groupId, myGroupIds), isNull(paymentsTable.deletedAt)));
     for (const p of payments) {
-      const cur = (p.groupId && groupCurrencyMap.get(p.groupId)) || "USD";
+      const cur = p.currency || (p.groupId && groupCurrencyMap.get(p.groupId)) || "USD";
       if (p.fromUserId === me && friendIdSet.has(p.toUserId)) {
         bump(p.toUserId, cur, parseFloat(p.amount));
       } else if (p.toUserId === me && friendIdSet.has(p.fromUserId)) {

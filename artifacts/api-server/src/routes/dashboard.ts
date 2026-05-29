@@ -82,8 +82,7 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
   }));
 
   // ── Non-group (friend-only) expenses ────────────────────────────────────
-  // Aggregate balances from expenses with groupId = NULL where the user is the
-  // payer or appears in a split.
+  // Aggregate per-currency balances from expenses with groupId = NULL.
   const nonGroupAsPayer = await db
     .select()
     .from(expensesTable)
@@ -102,8 +101,14 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     ]),
   );
 
-  let nonGroupOwed = 0;
-  let nonGroupIOwe = 0;
+  // Per-currency non-group accumulators (owed = others owe me, iOwe = I owe others).
+  const nonGroupByCurrency = new Map<string, { owed: number; iOwe: number }>();
+  const bumpNonGroup = (ccy: string, owed: number, iOwe: number) => {
+    const cur = nonGroupByCurrency.get(ccy) ?? { owed: 0, iOwe: 0 };
+    cur.owed += owed;
+    cur.iOwe += iOwe;
+    nonGroupByCurrency.set(ccy, cur);
+  };
 
   if (nonGroupExpenseIds.length > 0) {
     const expenses = await db
@@ -122,14 +127,15 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     }
 
     for (const expense of expenses) {
+      const ccy = expense.currency || "USD";
       const expSplits = splitsByExpense.get(expense.id) ?? [];
       if (expense.paidByUserId === userId) {
         for (const s of expSplits) {
-          if (s.userId !== userId) nonGroupOwed += parseFloat(s.amount);
+          if (s.userId !== userId) bumpNonGroup(ccy, parseFloat(s.amount), 0);
         }
       } else {
         const mine = expSplits.find((s) => s.userId === userId);
-        if (mine) nonGroupIOwe += parseFloat(mine.amount);
+        if (mine) bumpNonGroup(ccy, 0, parseFloat(mine.amount));
       }
     }
   }
@@ -155,24 +161,17 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
         eq(paymentsTable.fromUserId, userId),
       ),
     );
-  for (const p of nonGroupReceived) nonGroupOwed -= parseFloat(p.amount);
-  for (const p of nonGroupSent) nonGroupIOwe -= parseFloat(p.amount);
+  for (const p of nonGroupReceived) bumpNonGroup(p.currency || "USD", -parseFloat(p.amount), 0);
+  for (const p of nonGroupSent) bumpNonGroup(p.currency || "USD", 0, -parseFloat(p.amount));
 
-  // Clamp so overpayments don't drive a bucket below zero.
-  totalOwed += Math.max(0, nonGroupOwed);
-  totalIOwe += Math.max(0, nonGroupIOwe);
-
-  // Non-group balances are bucketed under the user's default currency since
-  // friend-only expenses/payments aren't tied to a group currency. Mirror the
-  // legacy scalar semantics (clamp each side at 0 so overpayments don't flip a
-  // bucket negative, and keep owed/iOwe as independent positive buckets rather
-  // than netting them).
-  const [me] = await db
-    .select({ defaultCurrency: usersTable.defaultCurrency })
-    .from(usersTable)
-    .where(eq(usersTable.id, userId));
-  const defaultCcy = me?.defaultCurrency ?? "USD";
-  bumpCurrency(defaultCcy, Math.max(0, nonGroupOwed), Math.max(0, nonGroupIOwe));
+  // Accumulate per-currency non-group totals into byCurrency and scalar totals.
+  for (const [ccy, { owed, iOwe }] of nonGroupByCurrency) {
+    const clampedOwed = Math.max(0, owed);
+    const clampedIOwe = Math.max(0, iOwe);
+    totalOwed += clampedOwed;
+    totalIOwe += clampedIOwe;
+    bumpCurrency(ccy, clampedOwed, clampedIOwe);
+  }
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const totalsByCurrency = Array.from(byCurrency.entries())
@@ -185,13 +184,18 @@ router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> =>
     .filter((t) => t.owed !== 0 || t.iOwe !== 0)
     .sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
 
+  let nonGroupNetBalance = 0;
+  for (const { owed, iOwe } of nonGroupByCurrency.values()) {
+    nonGroupNetBalance += owed - iOwe;
+  }
+
   res.json({
     totalOwed: round2(totalOwed),
     totalIOwe: round2(totalIOwe),
     netBalance: round2(totalOwed - totalIOwe),
     groupCount: groups.length,
     groupSummaries,
-    nonGroupNetBalance: round2(nonGroupOwed - nonGroupIOwe),
+    nonGroupNetBalance: round2(nonGroupNetBalance),
     nonGroupExpenseCount: nonGroupExpenseIds.length,
     totalsByCurrency,
   });
