@@ -50,6 +50,11 @@ interface FriendRow {
   net: number;
 }
 
+interface FriendWithBalances {
+  id: string;
+  balances: { currency: string; amount: number }[];
+}
+
 type Tab = "activity" | "balances";
 type FilterPeriod = "all" | "7d" | "30d";
 
@@ -61,6 +66,7 @@ export default function NonGroupExpensesScreen() {
   const [settleTarget, setSettleTarget] = useState<{
     friend: SettleFriend;
     impact: number;
+    balances: { currency: string; amount: number }[];
   } | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [filterFriendId, setFilterFriendId] = useState<string | "all">("all");
@@ -73,6 +79,16 @@ export default function NonGroupExpensesScreen() {
       if (!res.ok) throw new Error("Failed to load non-group expenses");
       return res.json();
     },
+  });
+
+  const { data: friendsData } = useQuery<FriendWithBalances[]>({
+    queryKey: ["friends-mobile"],
+    queryFn: async () => {
+      const res = await authFetch("/api/friends");
+      if (!res.ok) throw new Error("Failed to load friends");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   const onRefresh = useCallback(async () => {
@@ -411,6 +427,7 @@ export default function NonGroupExpensesScreen() {
                         setSettleTarget({
                           friend: { id: f.id, name: f.name },
                           impact,
+                          balances: friendsData?.find((fr) => fr.id === f.id)?.balances ?? [],
                         })
                       }
                     />
@@ -426,6 +443,7 @@ export default function NonGroupExpensesScreen() {
           friend={settleTarget.friend}
           currentUserId={myId}
           netBalance={settleTarget.impact}
+          balances={settleTarget.balances}
           onClose={() => setSettleTarget(null)}
         />
       )}
