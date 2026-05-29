@@ -107,61 +107,93 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        {loadingSummary ? (
+          <div className="grid gap-4 md:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
+                <CardContent><Skeleton className="h-8 w-24" /></CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (summary?.totalsByCurrency ?? []).length === 0 ? (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingSummary ? (
-                <Skeleton className="h-8 w-24" />
-              ) : (
-                <div
-                  className={cn(
-                    "text-2xl font-bold leading-tight",
-                    (summary?.netBalance ?? 0) > 0
-                      ? "text-primary"
-                      : (summary?.netBalance ?? 0) < 0
-                        ? "text-destructive"
-                        : "",
-                  )}
-                >
-                  {formatCurrency(summary?.netBalance ?? 0)}
-                </div>
-              )}
+            <CardContent className="py-6 text-center text-muted-foreground">
+              All settled up — no outstanding balances.
             </CardContent>
           </Card>
+        ) : (summary?.totalsByCurrency ?? []).length === 1 ? (
+          <div className="grid gap-4 md:grid-cols-3">
+            {(() => {
+              const t = summary!.totalsByCurrency![0];
+              return (
+                <>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Net Balance</CardTitle>
+                      <span className="text-xs font-semibold text-muted-foreground bg-muted rounded px-1.5 py-0.5">{t.currency}</span>
+                    </CardHeader>
+                    <CardContent>
+                      <div className={cn("text-2xl font-bold leading-tight", t.net > 0 ? "text-primary" : t.net < 0 ? "text-destructive" : "")}>
+                        {t.net > 0 ? "+" : ""}{formatCurrency(t.net, t.currency)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">You Owe</CardTitle>
+                      <ArrowUpRight className="h-4 w-4 text-destructive" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-destructive leading-tight">
+                        {formatCurrency(t.iOwe, t.currency)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">You Are Owed</CardTitle>
+                      <ArrowDownRight className="h-4 w-4 text-primary" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-primary leading-tight">
+                        {formatCurrency(t.owed, t.currency)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              );
+            })()}
+          </div>
+        ) : (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">You Owe</CardTitle>
-              <ArrowUpRight className="h-4 w-4 text-destructive" />
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Balances by Currency</CardTitle>
             </CardHeader>
-            <CardContent>
-              {loadingSummary ? (
-                <Skeleton className="h-8 w-24" />
-              ) : (
-                <div className="text-2xl font-bold text-destructive leading-tight">
-                  {formatCurrency(summary?.totalIOwe ?? 0)}
-                </div>
-              )}
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {(summary?.totalsByCurrency ?? []).map((t) => (
+                  <div key={t.currency} className="flex items-center gap-4 px-6 py-3">
+                    <span className="text-sm font-semibold text-muted-foreground bg-muted rounded px-2 py-0.5 w-14 text-center">{t.currency}</span>
+                    <div className="flex flex-1 items-center gap-6 flex-wrap">
+                      <div>
+                        <div className="text-xs text-muted-foreground">You are owed</div>
+                        <div className="text-sm font-semibold text-primary">{formatCurrency(t.owed, t.currency)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">You owe</div>
+                        <div className="text-sm font-semibold text-destructive">{formatCurrency(t.iOwe, t.currency)}</div>
+                      </div>
+                    </div>
+                    <div className={cn("text-base font-bold", t.net > 0 ? "text-primary" : t.net < 0 ? "text-destructive" : "text-muted-foreground")}>
+                      {t.net > 0 ? "+" : ""}{formatCurrency(t.net, t.currency)}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">You Are Owed</CardTitle>
-              <ArrowDownRight className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              {loadingSummary ? (
-                <Skeleton className="h-8 w-24" />
-              ) : (
-                <div className="text-2xl font-bold text-primary leading-tight">
-                  {formatCurrency(summary?.totalOwed ?? 0)}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        )}
 
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="flex flex-col">

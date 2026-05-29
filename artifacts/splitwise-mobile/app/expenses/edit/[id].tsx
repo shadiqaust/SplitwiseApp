@@ -14,6 +14,7 @@ import {
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
 import { getCurrencySymbol } from "@/lib/format";
+import { CurrencyDropdown } from "@/components/CurrencyDropdown";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,6 +30,7 @@ import {
   useGetGroup,
   useGetMe,
   useUpdateExpense,
+  useListCurrencies,
   SplitType,
 } from "@workspace/api-client-react";
 
@@ -103,8 +105,10 @@ export default function EditExpenseScreen() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [currency, setCurrency] = useState<string>("");
   const [extraParticipants, setExtraParticipants] = useState<Participant[]>([]);
   const [personSearch, setPersonSearch] = useState("");
+  const { data: currenciesData } = useListCurrencies();
 
   const participants = useMemo<Participant[]>(() => {
     if (!expense) return [];
@@ -275,6 +279,7 @@ export default function EditExpenseScreen() {
     );
     setDate(expense.date);
     setPhotoUrl(expense.photoUrl ?? null);
+    setCurrency(expense.currency || "USD");
     setHydrated(true);
   }, [expense, groupQ.data, hydrated]);
 
@@ -396,6 +401,7 @@ export default function EditExpenseScreen() {
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
+          currency,
           splitType,
           paidByUserId,
           date,
@@ -485,13 +491,20 @@ export default function EditExpenseScreen() {
             />
 
             <Text style={[styles.label, { color: colors.foreground }]}>
-              Amount ({getCurrencySymbol()})
+              Amount ({getCurrencySymbol(currency)})
             </Text>
             <Input
               value={amount}
               onChangeText={setAmount}
               placeholder="0.00"
               keyboardType="decimal-pad"
+            />
+
+            <CurrencyDropdown
+              label="Currency"
+              options={currenciesData ?? []}
+              value={currency}
+              onChange={setCurrency}
             />
 
             <Text style={[styles.label, { color: colors.foreground }]}>

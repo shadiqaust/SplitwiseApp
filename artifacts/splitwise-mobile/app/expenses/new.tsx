@@ -13,6 +13,7 @@ import {
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
 import { getCurrencySymbol } from "@/lib/format";
+import { CurrencyDropdown } from "@/components/CurrencyDropdown";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -25,6 +26,7 @@ import {
   useCreateExpense,
   useGetGroup,
   useGetMe,
+  useListCurrencies,
 } from "@workspace/api-client-react";
 
 import { Avatar } from "@/components/ui/Avatar";
@@ -67,16 +69,25 @@ export default function NewExpenseScreen() {
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
   const [percentages, setPercentages] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<string>(group.data?.currency ?? "USD");
 
   const members = group.data?.members ?? [];
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
 
-  // Default: paidBy = me, all members are participants
+  // Default: paidBy = me, all members are participants, currency from group
   useEffect(() => {
     if (paidByUserId === null && me.data) setPaidByUserId(me.data.id);
     if (participantIds.size === 0 && members.length > 0) {
       setParticipantIds(new Set(members.map((m) => m.userId)));
     }
   }, [me.data, members, paidByUserId, participantIds.size]);
+  // Initialize currency only once when group data arrives
+  useEffect(() => {
+    if (group.data) {
+      setCurrency(group.data.currency ?? "USD");
+    }
+  }, [group.data?.currency]);
 
   const toggleParticipant = (userId: string) => {
     const next = new Set(participantIds);
@@ -150,6 +161,7 @@ export default function NewExpenseScreen() {
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
+          currency,
           splitType,
           paidByUserId,
           date: new Date().toISOString().slice(0, 10),
@@ -224,11 +236,18 @@ export default function NewExpenseScreen() {
             }}
           />
           <Input
-            label={`Amount (${getCurrencySymbol(group.data?.currency ?? "USD")})`}
+            label={`Amount (${getCurrencySymbol(currency)})`}
             placeholder="0.00"
             value={amount}
             onChangeText={setAmount}
             keyboardType="decimal-pad"
+          />
+
+          <CurrencyDropdown
+            label="Currency"
+            options={currencies}
+            value={currency}
+            onChange={setCurrency}
           />
 
           <View style={{ gap: 8 }}>

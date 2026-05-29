@@ -128,7 +128,7 @@ async function buildFriendList(me: string) {
 
     const payments = await db.select().from(paymentsTable).where(and(inArray(paymentsTable.groupId, myGroupIds), isNull(paymentsTable.deletedAt)));
     for (const p of payments) {
-      const cur = (p.groupId && groupCurrencyMap.get(p.groupId)) || "USD";
+      const cur = p.currency || (p.groupId && groupCurrencyMap.get(p.groupId)) || "USD";
       if (p.fromUserId === me && friendIdSet.has(p.toUserId)) {
         bump(p.toUserId, cur, parseFloat(p.amount));
       } else if (p.toUserId === me && friendIdSet.has(p.fromUserId)) {
@@ -175,7 +175,6 @@ async function buildFriendList(me: string) {
   }
 
   // ── 4c. Non-group payments (groupId IS NULL) involving me ─────────────────
-  // Payments table has no currency column; non-group payments default to USD.
   const nonGroupPayments = await db
     .select()
     .from(paymentsTable)
@@ -187,7 +186,7 @@ async function buildFriendList(me: string) {
       ),
     );
   for (const p of nonGroupPayments) {
-    const cur = "USD";
+    const cur = p.currency || "USD";
     if (p.fromUserId === me && friendIdSet.has(p.toUserId)) {
       bump(p.toUserId, cur, parseFloat(p.amount));
     } else if (p.toUserId === me && friendIdSet.has(p.fromUserId)) {
@@ -463,7 +462,7 @@ router.get(
       }
     }
     for (const p of payments) {
-      const cur = (p.groupId && paymentGroupCurrency.get(p.groupId)) || "USD";
+      const cur = p.currency || (p.groupId && paymentGroupCurrency.get(p.groupId)) || "USD";
       if (p.fromUserId === me) bumpCur(cur, parseFloat(p.amount));
       else bumpCur(cur, -parseFloat(p.amount));
     }
@@ -486,7 +485,7 @@ router.get(
       payments.map(async (p) => {
         const fromUser = await getUserById(p.fromUserId);
         const toUser = await getUserById(p.toUserId);
-        const currency = (p.groupId && paymentGroupCurrency.get(p.groupId)) || "USD";
+        const currency = p.currency || (p.groupId && paymentGroupCurrency.get(p.groupId)) || "USD";
         return {
           ...p,
           amount: parseFloat(p.amount),

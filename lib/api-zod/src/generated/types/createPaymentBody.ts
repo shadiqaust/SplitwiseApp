@@ -10,6 +10,8 @@ export interface CreatePaymentBody {
   fromUserId: string;
   toUserId: string;
   amount: number;
+  /** Currency code (e.g. USD, EUR). Defaults to group's default currency. */
+  currency?: string;
   note?: string | null;
   date: Date;
 }

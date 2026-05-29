@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/lib/error";
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,21 +14,36 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   getListGroupsQueryKey,
   useCreateGroup,
+  useListCurrencies,
+  useGetMe,
 } from "@workspace/api-client-react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
+import { CurrencyDropdown } from "@/components/CurrencyDropdown";
 
 export default function NewGroupScreen() {
   const colors = useColors();
   const router = useRouter();
   const queryClient = useQueryClient();
   const createGroup = useCreateGroup();
+  const { data: me } = useGetMe();
+  const defaultCurrency = me?.defaultCurrency ?? "USD";
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [currency, setCurrency] = useState<string>(defaultCurrency);
+  const [hasManuallyChangedCurrency, setHasManuallyChangedCurrency] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!hasManuallyChangedCurrency) {
+      setCurrency(defaultCurrency);
+    }
+  }, [defaultCurrency, hasManuallyChangedCurrency]);
 
   const onSubmit = () => {
     if (!name.trim()) {
@@ -40,6 +56,7 @@ export default function NewGroupScreen() {
         data: {
           name: name.trim(),
           description: description.trim() || null,
+          currency,
         },
       },
       {
@@ -79,6 +96,15 @@ export default function NewGroupScreen() {
               numberOfLines={3}
               style={{ minHeight: 90, textAlignVertical: "top" }}
             />
+            <CurrencyDropdown
+              label="Currency"
+              options={currencies}
+              value={currency}
+              onChange={(code) => {
+                setCurrency(code);
+                setHasManuallyChangedCurrency(true);
+              }}
+            />
             {error ? (
               <Text style={{ color: colors.destructive }}>{error}</Text>
             ) : null}
@@ -107,4 +133,10 @@ export default function NewGroupScreen() {
 
 const styles = StyleSheet.create({
   scroll: { padding: 16 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
 });

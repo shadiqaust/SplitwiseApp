@@ -22,6 +22,8 @@ import {
   useGetGroup,
   useGetGroupBalances,
   useGetMe,
+  useListCurrencies,
+  type BalanceGroup,
 } from "@workspace/api-client-react";
 
 import { Avatar } from "@/components/ui/Avatar";
@@ -30,6 +32,7 @@ import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
 import { resolvePresetSource } from "@/lib/avatarPresets";
 import { formatCurrency, getCurrencySymbol } from "@/lib/format";
+import { CurrencyDropdown } from "@/components/CurrencyDropdown";
 
 export default function NewPaymentScreen() {
   const colors = useColors();
@@ -42,32 +45,42 @@ export default function NewPaymentScreen() {
   const me = useGetMe();
   const group = useGetGroup(groupId);
   const balances = useGetGroupBalances(groupId);
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
   const createPayment = useCreatePayment();
 
   const [fromUserId, setFromUserId] = useState<string | null>(null);
   const [toUserId, setToUserId] = useState<string | null>(initialToUserId);
+  const [currency, setCurrency] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const members = group.data?.members ?? [];
+  const bgs = (balances.data ?? []) as BalanceGroup[];
+
+  useEffect(() => {
+    const defaultCcy = bgs[0]?.currency ?? group.data?.currency ?? "USD";
+    setCurrency(defaultCcy);
+  }, [bgs, group.data?.currency]);
 
   const balanceHint = useMemo(() => {
     if (!fromUserId || !toUserId || fromUserId === toUserId || !balances.data) return null;
     const myId = me.data?.id;
-    const owes = balances.data.find((b) => b.fromUserId === fromUserId && b.toUserId === toUserId);
-    const owed = balances.data.find((b) => b.fromUserId === toUserId && b.toUserId === fromUserId);
+    const group = bgs.find((g) => g.currency === currency);
+    const owes = group?.balances.find((b) => b.fromUserId === fromUserId && b.toUserId === toUserId);
+    const owed = group?.balances.find((b) => b.fromUserId === toUserId && b.toUserId === fromUserId);
     const fromName = fromUserId === myId ? "You" : members.find((m) => m.userId === fromUserId)?.user.name ?? "Payer";
     const toName = toUserId === myId ? "you" : members.find((m) => m.userId === toUserId)?.user.name ?? "Recipient";
-    const groupCurrency = group.data?.currency ?? "USD";
-    if (owes) return { text: `${fromName} owe${fromUserId !== myId ? "s" : ""} ${toName} ${formatCurrency(owes.amount, groupCurrency)}`, amount: owes.amount, positive: true };
+    const ccy = currency || "USD";
+    if (owes) return { text: `${fromName} owe${fromUserId !== myId ? "s" : ""} ${toName} ${formatCurrency(owes.amount, ccy)}`, amount: owes.amount, positive: true };
     if (owed) {
       const oweeName = owed.fromUserId === myId ? "You" : members.find((m) => m.userId === owed.fromUserId)?.user.name ?? "";
       const owedToName = owed.toUserId === myId ? "you" : members.find((m) => m.userId === owed.toUserId)?.user.name ?? "";
-      return { text: `${oweeName} owe${owed.fromUserId !== myId ? "s" : ""} ${owedToName} ${formatCurrency(owed.amount, groupCurrency)} — no payment needed`, amount: null, positive: false };
+      return { text: `${oweeName} owe${owed.fromUserId !== myId ? "s" : ""} ${owedToName} ${formatCurrency(owed.amount, ccy)} — no payment needed`, amount: null, positive: false };
     }
-    return { text: "All settled up between these two", amount: null, positive: false };
-  }, [fromUserId, toUserId, balances.data, me.data?.id, members, group.data?.currency]);
+    return { text: "All settled up between these two in this currency", amount: null, positive: false };
+  }, [fromUserId, toUserId, currency, bgs, me.data?.id, members]);
 
   useEffect(() => {
     if (fromUserId === null && me.data) setFromUserId(me.data.id);
@@ -88,6 +101,7 @@ export default function NewPaymentScreen() {
           fromUserId,
           toUserId,
           amount: value,
+          currency: currency || undefined,
           note: note.trim() || null,
           date: new Date().toISOString().slice(0, 10),
         },
@@ -212,8 +226,15 @@ export default function NewPaymentScreen() {
             </View>
           )}
 
+          <CurrencyDropdown
+            label="Currency"
+            options={currencies}
+            value={currency}
+            onChange={setCurrency}
+          />
+
           <Input
-            label={`Amount (${getCurrencySymbol(group.data?.currency ?? "USD")})`}
+            label={`Amount (${getCurrencySymbol(currency || "USD")})`}
             placeholder="0.00"
             value={amount}
             onChangeText={setAmount}

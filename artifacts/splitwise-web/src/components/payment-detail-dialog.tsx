@@ -100,7 +100,7 @@ export function PaymentDetailDialog({
               <HandCoins className="w-6 h-6 text-green-700" />
             </div>
             <p className="text-3xl font-semibold text-green-700">
-              {formatCurrency(amount)}
+              {formatCurrency(amount, payment.currency || "USD")}
             </p>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{fromName}</span>

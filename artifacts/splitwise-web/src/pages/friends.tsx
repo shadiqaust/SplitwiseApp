@@ -56,23 +56,25 @@ function FriendAvatar({ name, avatarUrl }: { name: string; avatarUrl: string | n
 }
 
 function BalanceBadge({ balances }: { balances: { currency: string; amount: number }[] }) {
-  // Currency is now a per-viewer display preference. Collapse all per-currency
-  // rows into a single signed sum and render it with the viewer's symbol.
-  const net = balances.reduce((acc, b) => acc + b.amount, 0);
-  if (Math.abs(net) < 0.01) {
+  const nonZero = (balances ?? []).filter((b) => Math.abs(b.amount) >= 0.01);
+  if (nonZero.length === 0) {
     return <span className="text-sm text-muted-foreground whitespace-nowrap">settled up</span>;
   }
-  const isOwed = net > 0;
   return (
-    <div className="text-right space-y-0.5">
-      <div className={cn(isOwed ? "text-green-600" : "text-red-500")}>
-        <p className="text-[10px] font-medium uppercase tracking-wide">
-          {isOwed ? "owes you" : "you owe"}
-        </p>
-        <p className="text-sm font-bold whitespace-nowrap">
-          {formatCurrency(Math.abs(net))}
-        </p>
-      </div>
+    <div className="text-right space-y-1.5">
+      {nonZero.map((b) => {
+        const isOwed = b.amount > 0;
+        return (
+          <div key={b.currency} className={cn(isOwed ? "text-green-600" : "text-red-500")}>
+            <p className="text-[10px] font-medium uppercase tracking-wide leading-tight">
+              {isOwed ? "owes you" : "you owe"}
+            </p>
+            <p className="text-sm font-bold whitespace-nowrap">
+              {formatCurrency(Math.abs(b.amount), b.currency)}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }

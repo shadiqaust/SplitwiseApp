@@ -292,39 +292,44 @@ export const IncludeMemberInPastExpensesResponse = zod.object({
 });
 
 /**
- * @summary Get simplified debt balances for the group
+ * @summary Get simplified debt balances per currency for the group
  */
 export const GetGroupBalancesParams = zod.object({
   groupId: zod.coerce.string().uuid(),
 });
 
-export const GetGroupBalancesResponseItem = zod
-  .object({
-    fromUserId: zod.string().uuid(),
-    fromUser: zod.object({
-      id: zod.string().uuid(),
-      name: zod.string(),
-      email: zod.string(),
-      avatarUrl: zod.string().nullish(),
-      country: zod.string().nullish(),
-      defaultCurrency: zod.string(),
-      role: zod.enum(["user", "superadmin"]).optional(),
-      createdAt: zod.coerce.date(),
-    }),
-    toUserId: zod.string().uuid(),
-    toUser: zod.object({
-      id: zod.string().uuid(),
-      name: zod.string(),
-      email: zod.string(),
-      avatarUrl: zod.string().nullish(),
-      country: zod.string().nullish(),
-      defaultCurrency: zod.string(),
-      role: zod.enum(["user", "superadmin"]).optional(),
-      createdAt: zod.coerce.date(),
-    }),
-    amount: zod.number(),
-  })
-  .describe("fromUser owes toUser the given amount");
+export const GetGroupBalancesResponseItem = zod.object({
+  currency: zod.string(),
+  balances: zod.array(
+    zod
+      .object({
+        fromUserId: zod.string().uuid(),
+        fromUser: zod.object({
+          id: zod.string().uuid(),
+          name: zod.string(),
+          email: zod.string(),
+          avatarUrl: zod.string().nullish(),
+          country: zod.string().nullish(),
+          defaultCurrency: zod.string(),
+          role: zod.enum(["user", "superadmin"]).optional(),
+          createdAt: zod.coerce.date(),
+        }),
+        toUserId: zod.string().uuid(),
+        toUser: zod.object({
+          id: zod.string().uuid(),
+          name: zod.string(),
+          email: zod.string(),
+          avatarUrl: zod.string().nullish(),
+          country: zod.string().nullish(),
+          defaultCurrency: zod.string(),
+          role: zod.enum(["user", "superadmin"]).optional(),
+          createdAt: zod.coerce.date(),
+        }),
+        amount: zod.number(),
+      })
+      .describe("fromUser owes toUser the given amount"),
+  ),
+});
 export const GetGroupBalancesResponse = zod.array(GetGroupBalancesResponseItem);
 
 /**
@@ -456,6 +461,7 @@ export const GetFriendActivityResponse = zod.object({
         createdAt: zod.coerce.date(),
       }),
       amount: zod.number(),
+      currency: zod.string(),
       note: zod.string().nullish(),
       date: zod.coerce.date(),
       createdAt: zod.coerce.date(),
@@ -997,6 +1003,7 @@ export const ListPaymentsResponseItem = zod.object({
     createdAt: zod.coerce.date(),
   }),
   amount: zod.number(),
+  currency: zod.string(),
   note: zod.string().nullish(),
   date: zod.coerce.date(),
   createdAt: zod.coerce.date(),
@@ -1014,6 +1021,12 @@ export const CreatePaymentBody = zod.object({
   fromUserId: zod.string().uuid(),
   toUserId: zod.string().uuid(),
   amount: zod.number(),
+  currency: zod
+    .string()
+    .optional()
+    .describe(
+      "Currency code (e.g. USD, EUR). Defaults to group's default currency.",
+    ),
   note: zod.string().nullish(),
   date: zod.coerce.date(),
 });
@@ -1025,6 +1038,12 @@ export const CreateNonGroupPaymentBody = zod.object({
   fromUserId: zod.string().uuid(),
   toUserId: zod.string().uuid(),
   amount: zod.number(),
+  currency: zod
+    .string()
+    .optional()
+    .describe(
+      "Currency code (e.g. USD, EUR). Defaults to user's default currency.",
+    ),
   note: zod.string().nullish(),
   date: zod.coerce.date(),
 });

@@ -50,6 +50,11 @@ interface FriendRow {
   net: number;
 }
 
+interface FriendWithBalances {
+  id: string;
+  balances: { currency: string; amount: number }[];
+}
+
 type Tab = "activity" | "balances";
 type FilterPeriod = "all" | "7d" | "30d";
 
@@ -61,6 +66,7 @@ export default function NonGroupExpensesScreen() {
   const [settleTarget, setSettleTarget] = useState<{
     friend: SettleFriend;
     impact: number;
+    balances: { currency: string; amount: number }[];
   } | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [filterFriendId, setFilterFriendId] = useState<string | "all">("all");
@@ -73,6 +79,16 @@ export default function NonGroupExpensesScreen() {
       if (!res.ok) throw new Error("Failed to load non-group expenses");
       return res.json();
     },
+  });
+
+  const { data: friendsData } = useQuery<FriendWithBalances[]>({
+    queryKey: ["friends-mobile"],
+    queryFn: async () => {
+      const res = await authFetch("/api/friends");
+      if (!res.ok) throw new Error("Failed to load friends");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   const onRefresh = useCallback(async () => {
@@ -411,6 +427,7 @@ export default function NonGroupExpensesScreen() {
                         setSettleTarget({
                           friend: { id: f.id, name: f.name },
                           impact,
+                          balances: friendsData?.find((fr) => fr.id === f.id)?.balances ?? [],
                         })
                       }
                     />
@@ -426,6 +443,7 @@ export default function NonGroupExpensesScreen() {
           friend={settleTarget.friend}
           currentUserId={myId}
           netBalance={settleTarget.impact}
+          balances={settleTarget.balances}
           onClose={() => setSettleTarget(null)}
         />
       )}
@@ -606,8 +624,8 @@ function ExpenseRow({
         </Text>
         <Text style={[styles.meta, { color: colors.mutedForeground }]} numberOfLines={1}>
           {iPaid
-            ? `You paid ${formatCurrency(total)}`
-            : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total)}`}
+            ? `You paid ${formatCurrency(total, expense.currency)}`
+            : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total, expense.currency)}`}
           {peopleLine ? ` · ${peopleLine}` : ""}
         </Text>
         <Text style={[styles.date, { color: colors.mutedForeground }]}>
@@ -619,8 +637,8 @@ function ExpenseRow({
           <>
             <Text style={[styles.balance, { color: colors.mutedForeground }]}>
               {iPaid
-                ? `+${formatCurrency(owedToMe)}`
-                : `-${formatCurrency(iOwe)}`}
+                ? `+${formatCurrency(owedToMe, expense.currency)}`
+                : `-${formatCurrency(iOwe, expense.currency)}`}
             </Text>
             <Text style={[styles.balanceSub, { color: colors.primary }]}>
               settled up
@@ -629,7 +647,7 @@ function ExpenseRow({
         ) : owedToMe > 0 ? (
           <>
             <Text style={[styles.balance, { color: colors.positive }]}>
-              +{formatCurrency(owedToMe)}
+              +{formatCurrency(owedToMe, expense.currency)}
             </Text>
             <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
               you lent
@@ -638,7 +656,7 @@ function ExpenseRow({
         ) : iOwe > 0 ? (
           <>
             <Text style={[styles.balance, { color: colors.negative }]}>
-              -{formatCurrency(iOwe)}
+              -{formatCurrency(iOwe, expense.currency)}
             </Text>
             <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
               you owe
@@ -688,7 +706,7 @@ function PaymentRow({
           </Text>
         </View>
         <Text style={[styles.balance, { color: colors.mutedForeground }]}>
-          {formatCurrency(payment.amount)}
+          {formatCurrency(payment.amount, payment.currency)}
         </Text>
       </Card>
     </Pressable>

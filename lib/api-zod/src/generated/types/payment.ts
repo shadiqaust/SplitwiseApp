@@ -15,6 +15,7 @@ export interface Payment {
   toUserId: string;
   toUser: User;
   amount: number;
+  currency: string;
   note?: string | null;
   date: Date;
   createdAt: Date;

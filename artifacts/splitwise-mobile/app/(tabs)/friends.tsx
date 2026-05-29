@@ -230,8 +230,8 @@ export default function FriendsScreen() {
 
         {/* List */}
         {filtered.map((friend) => {
-          const netBalance = (friend.balances ?? []).reduce((acc, b) => acc + b.amount, 0);
-          const isEven = Math.abs(netBalance) < 0.01;
+          const nonZero = (friend.balances ?? []).filter((b) => Math.abs(b.amount) >= 0.01);
+          const isEven = nonZero.length === 0;
           return (
             <Pressable
               key={friend.id}
@@ -283,20 +283,22 @@ export default function FriendsScreen() {
                 <View style={{ alignItems: "flex-end", gap: 4 }}>
                   {isEven ? (
                     <Text style={[styles.evenText, { color: colors.mutedForeground }]}>settled</Text>
-                  ) : (() => {
-                    const owed = netBalance > 0;
-                    const tone = owed ? colors.positive : colors.negative;
-                    return (
-                      <View style={{ alignItems: "flex-end" }}>
-                        <Text style={[styles.balanceLabel, { color: tone }]}>
-                          {owed ? "owes you" : "you owe"}
-                        </Text>
-                        <Text style={[styles.balanceAmount, { color: tone }]}>
-                          {formatCurrency(Math.abs(netBalance))}
-                        </Text>
-                      </View>
-                    );
-                  })()}
+                  ) : (
+                    nonZero.map((b) => {
+                      const owed = b.amount > 0;
+                      const tone = owed ? colors.positive : colors.negative;
+                      return (
+                        <View key={b.currency} style={{ alignItems: "flex-end" }}>
+                          <Text style={[styles.balanceLabel, { color: tone }]}>
+                            {owed ? "owes you" : "you owe"}
+                          </Text>
+                          <Text style={[styles.balanceAmount, { color: tone }]}>
+                            {formatCurrency(Math.abs(b.amount), b.currency)}
+                          </Text>
+                        </View>
+                      );
+                    })
+                  )}
                 </View>
               </Card>
             </Pressable>

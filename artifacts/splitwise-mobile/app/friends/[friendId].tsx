@@ -58,6 +58,7 @@ type ActivityRow = {
   subtitle: string;
   kind: "expense" | "payment";
   delta: number;
+  currency?: string;
   /** Where tapping the row navigates. null = not tappable. */
   href: string | null;
 };
@@ -184,11 +185,11 @@ export default function FriendDetailScreen() {
       if (e.paidByUserId === myId) {
         const fs = e.splits.find((s) => s.userId === friendId);
         delta = fs ? parseFloat(String(fs.amount)) : 0;
-        subtitle = `You paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+        subtitle = `You paid ${formatCurrency(parseFloat(String(e.totalAmount)), e.currency)}`;
       } else if (e.paidByUserId === friendId) {
         const ms = e.splits.find((s) => s.userId === myId);
         delta = ms ? -parseFloat(String(ms.amount)) : 0;
-        subtitle = `${friendShort} paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+        subtitle = `${friendShort} paid ${formatCurrency(parseFloat(String(e.totalAmount)), e.currency)}`;
       }
       const d = expenseDate(e);
       if (e.groupId) {
@@ -216,6 +217,7 @@ export default function FriendDetailScreen() {
         subtitle,
         kind: "expense",
         delta,
+        currency: e.currency,
         href: `/expenses/${e.id}`,
       });
     }
@@ -249,10 +251,10 @@ export default function FriendDetailScreen() {
       let title = "Payment";
       if (p.fromUserId === myId) {
         delta = amt;
-        title = `You paid ${friendShort} ${formatCurrency(amt)}`;
+        title = `You paid ${friendShort} ${formatCurrency(amt, p.currency)}`;
       } else {
         delta = -amt;
-        title = `${friendShort} paid you ${formatCurrency(amt)}`;
+        title = `${friendShort} paid you ${formatCurrency(amt, p.currency)}`;
       }
       const d = paymentDate(p);
       rows.push({
@@ -271,6 +273,7 @@ export default function FriendDetailScreen() {
           : "Settle-up payment",
         kind: "payment",
         delta,
+        currency: p.currency,
         href: p.groupId
           ? `/(tabs)/groups/${p.groupId}?from=${encodeURIComponent(`/friends/${friendId}`)}`
           : null,
@@ -294,20 +297,8 @@ export default function FriendDetailScreen() {
   }
 
   const friend = query.data?.friend;
-  const net = query.data?.netBalance ?? 0;
-  const settled = Math.abs(net) < 0.01;
-  const owedOverall = net > 0;
-  const balanceTone = settled
-    ? colors.mutedForeground
-    : owedOverall
-      ? colors.positive
-      : colors.negative;
-  const balanceVerb = settled
-    ? "you are settled up overall"
-    : owedOverall
-      ? "You are owed"
-      : "You owe";
   const friendShort = friend ? shortName(friend.name) : "";
+  const nonZeroBalances = (query.data?.balances ?? []).filter((b) => Math.abs(b.amount) >= 0.01);
 
   return (
     <>
@@ -370,32 +361,21 @@ export default function FriendDetailScreen() {
           <Text style={[styles.friendName, { color: colors.foreground }]} numberOfLines={1}>
             {friend?.name ?? ""}
           </Text>
-          {settled ? (
+          {nonZeroBalances.length === 0 ? (
             <Text style={[styles.balanceLine, { color: colors.mutedForeground }]}>
               you are all settled up
             </Text>
           ) : (
-            <Text style={[styles.balanceLine, { color: balanceTone }]}>
-              {balanceVerb} <Text style={styles.balanceAmount}>{formatCurrency(Math.abs(net))}</Text> overall
-            </Text>
-          )}
-
-          {buckets.length > 0 && (
-            <View style={{ gap: 4, marginTop: 10 }}>
-              {buckets.map((b) => {
+            <View style={{ gap: 4, marginTop: 6 }}>
+              {nonZeroBalances.map((b) => {
                 const friendOwes = b.amount > 0;
                 const tone = friendOwes ? colors.positive : colors.negative;
-                const subj = friendOwes ? `${friendShort} owes you` : `You owe ${friendShort}`;
                 return (
-                  <Text
-                    key={b.key}
-                    style={[styles.breakdownLine, { color: colors.mutedForeground }]}
-                  >
-                    {subj}{" "}
-                    <Text style={{ color: tone, fontFamily: "Inter_600SemiBold" }}>
-                      {formatCurrency(Math.abs(b.amount))}
-                    </Text>{" "}
-                    in {b.label}
+                  <Text key={b.currency} style={[styles.balanceLine, { color: tone }]}>
+                    {friendOwes ? "You are owed" : "You owe"}{" "}
+                    <Text style={styles.balanceAmount}>
+                      {formatCurrency(Math.abs(b.amount), b.currency)}
+                    </Text>
                   </Text>
                 );
               })}
@@ -452,7 +432,7 @@ export default function FriendDetailScreen() {
         <SettleUpWithFriendModal
           friend={{ id: friend.id, name: friend.name }}
           currentUserId={myId}
-          netBalance={net}
+          netBalance={query.data?.netBalance ?? 0}
           balances={query.data?.balances}
           onClose={() => setShowSettle(false)}
         />
@@ -565,7 +545,7 @@ function ActivityRowView({
         <Text style={[styles.activityHint, { color: tone }]}>{label}</Text>
         {!settled && (
           <Text style={[styles.activityAmount, { color: tone }]}>
-            {formatCurrency(Math.abs(row.delta))}
+            {formatCurrency(Math.abs(row.delta), row.currency)}
           </Text>
         )}
       </View>

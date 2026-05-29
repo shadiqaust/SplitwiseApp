@@ -10,6 +10,8 @@ export interface CreateNonGroupPaymentBody {
   fromUserId: string;
   toUserId: string;
   amount: number;
+  /** Currency code (e.g. USD, EUR). Defaults to user's default currency. */
+  currency?: string;
   note?: string | null;
   date: Date;
 }

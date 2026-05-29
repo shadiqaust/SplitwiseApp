@@ -115,7 +115,7 @@ export function PaymentDetailModal({
               <Feather name="check-circle" size={26} color="#16a34a" />
             </View>
             <Text style={[styles.amount, { color: "#16a34a" }]}>
-              {formatCurrency(amount)}
+              {formatCurrency(amount, payment.currency || "USD")}
             </Text>
             <View style={styles.partiesRow}>
               <Text style={[styles.partyName, { color: colors.foreground }]}>

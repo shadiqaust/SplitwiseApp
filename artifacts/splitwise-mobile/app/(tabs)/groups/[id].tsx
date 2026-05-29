@@ -33,10 +33,12 @@ import {
   useGetGroupBalances,
   useGetMe,
   useIncludeMemberInPastExpenses,
+  useListCurrencies,
   useListExpenses,
   useListPayments,
   useUpdateGroup,
   type Payment,
+  type BalanceGroup,
 } from "@workspace/api-client-react";
 import { authFetch } from "@/lib/api";
 import { getCategoryIcon } from "@/lib/expenseCategories";
@@ -92,7 +94,10 @@ export default function GroupDetailScreen() {
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editCurrency, setEditCurrency] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [filterMemberId, setFilterMemberId] = useState<string | "all">("all");
@@ -236,6 +241,7 @@ export default function GroupDetailScreen() {
     if (!group.data) return;
     setEditName(group.data.name);
     setEditDescription(group.data.description ?? "");
+    setEditCurrency(group.data.currency ?? "USD");
     setShowEditSheet(true);
   };
 
@@ -252,6 +258,7 @@ export default function GroupDetailScreen() {
         data: {
           name: trimmedName,
           description: editDescription.trim() ? editDescription.trim() : null,
+          currency: editCurrency,
         },
       },
       {
@@ -804,7 +811,7 @@ export default function GroupDetailScreen() {
                       </Text>
                     </View>
                     <Text style={[styles.activityAmount, { color: colors.mutedForeground }]}>
-                      {formatCurrency(p.amount, groupCurrency)}
+                      {formatCurrency(p.amount, p.currency || groupCurrency)}
                     </Text>
                   </Card>
                   </Pressable>
@@ -821,22 +828,31 @@ export default function GroupDetailScreen() {
           </View>
         ) : balances.data && balances.data.length > 0 ? (
           <View style={{ gap: 8 }}>
-            {balances.data.map((b, i) => (
-              <Card key={`${b.fromUserId}-${b.toUserId}-${i}`} style={styles.balanceRow}>
-                <Avatar name={b.fromUser.name} url={b.fromUser.avatarUrl} size={32} />
-                <Text style={[styles.balanceText, { color: colors.foreground }]}>
-                  <Text style={{ fontFamily: "Inter_600SemiBold" }}>
-                    {b.fromUserId === myUserId ? "You" : b.fromUser.name}
-                  </Text>{" "}
-                  owe{b.fromUserId === myUserId ? "" : "s"}{" "}
-                  <Text style={{ fontFamily: "Inter_600SemiBold" }}>
-                    {b.toUserId === myUserId ? "you" : b.toUser.name}
+            {(balances.data as BalanceGroup[]).map((bg) => (
+              <View key={bg.currency} style={{ gap: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.mutedForeground, backgroundColor: colors.muted, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                    {getCurrencySymbol(bg.currency)} {bg.currency}
                   </Text>
-                </Text>
-                <Text style={[styles.balanceAmount, { color: colors.negative }]}>
-                  {formatCurrency(b.amount, groupCurrency)}
-                </Text>
-              </Card>
+                </View>
+                {(bg.balances ?? []).map((b, i) => (
+                  <Card key={`${b.fromUserId}-${b.toUserId}-${i}`} style={styles.balanceRow}>
+                    <Avatar name={b.fromUser.name} url={b.fromUser.avatarUrl} size={32} />
+                    <Text style={[styles.balanceText, { color: colors.foreground }]}>
+                      <Text style={{ fontFamily: "Inter_600SemiBold" }}>
+                        {b.fromUserId === myUserId ? "You" : b.fromUser.name}
+                      </Text>{" "}
+                      owe{b.fromUserId === myUserId ? "" : "s"}{" "}
+                      <Text style={{ fontFamily: "Inter_600SemiBold" }}>
+                        {b.toUserId === myUserId ? "you" : b.toUser.name}
+                      </Text>
+                    </Text>
+                    <Text style={[styles.balanceAmount, { color: colors.negative }]}>
+                      {formatCurrency(b.amount, bg.currency)}
+                    </Text>
+                  </Card>
+                ))}
+              </View>
             ))}
           </View>
         ) : (
@@ -858,9 +874,15 @@ export default function GroupDetailScreen() {
             {profileMember && (() => {
               const pm = profileMember;
               const isCreator = group.data?.createdByUserId === pm.userId;
-              const owesMe = balances.data?.find(b => b.fromUserId === pm.userId && b.toUserId === myUserId);
-              const iOwe = balances.data?.find(b => b.fromUserId === myUserId && b.toUserId === pm.userId);
-              const netAmount = owesMe ? owesMe.amount : iOwe ? -iOwe.amount : 0;
+              const bgs = (balances.data ?? []) as BalanceGroup[];
+              const perCurrency = bgs.map((g) => {
+                const o = g.balances.find(b => b.fromUserId === pm.userId && b.toUserId === myUserId);
+                const i = g.balances.find(b => b.fromUserId === myUserId && b.toUserId === pm.userId);
+                const net = o ? o.amount : i ? -i.amount : 0;
+                return { currency: g.currency, net };
+              }).filter(c => c.net !== 0);
+              const firstCcy = perCurrency[0]?.currency ?? "USD";
+              const netAmount = perCurrency.find(c => c.currency === firstCcy)?.net ?? 0;
               return (
                 <>
                   <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
@@ -903,14 +925,23 @@ export default function GroupDetailScreen() {
                       </>
                     ) : netAmount > 0 ? (
                       <>
-                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 22, color: "#16a34a" }}>{formatCurrency(netAmount, groupCurrency)}</Text>
+                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 22, color: "#16a34a" }}>{formatCurrency(netAmount, firstCcy)}</Text>
                         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>{pm.user.name.split(" ")[0]} owes you</Text>
                       </>
                     ) : (
                       <>
-                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 22, color: "#dc2626" }}>{formatCurrency(Math.abs(netAmount), groupCurrency)}</Text>
+                        <Text style={{ fontFamily: "Inter_700Bold", fontSize: 22, color: "#dc2626" }}>{formatCurrency(Math.abs(netAmount), firstCcy)}</Text>
                         <Text style={{ fontFamily: "Inter_400Regular", fontSize: 13, color: colors.mutedForeground }}>You owe {pm.user.name.split(" ")[0]}</Text>
                       </>
+                    )}
+                    {perCurrency.length > 1 && (
+                      <View style={{ marginTop: 4, gap: 2 }}>
+                        {perCurrency.map((c) => (
+                          <Text key={c.currency} style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: colors.mutedForeground }}>
+                            {formatCurrency(Math.abs(c.net), c.currency)} {c.currency} {c.net > 0 ? `owed by ${pm.user.name.split(" ")[0]}` : "you owe"}
+                          </Text>
+                        ))}
+                      </View>
                     )}
                   </View>
                   <View style={{ padding: 20, gap: 10 }}>
@@ -991,6 +1022,31 @@ export default function GroupDetailScreen() {
                     },
                   ]}
                 />
+              </View>
+              <View style={{ gap: 6 }}>
+                <Text style={[{ fontFamily: "Inter_500Medium", fontSize: 13 }, { color: colors.foreground }]}>Currency</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {currencies.map((c) => {
+                    const active = c.code === editCurrency;
+                    return (
+                      <Pressable
+                        key={c.code}
+                        onPress={() => setEditCurrency(c.code)}
+                        style={[
+                          styles.editChip,
+                          {
+                            borderColor: active ? colors.primary : colors.border,
+                            backgroundColor: active ? colors.primary : colors.card,
+                          },
+                        ]}
+                      >
+                        <Text style={{ color: active ? "#fff" : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                          {c.symbol} {c.code}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
               </View>
             </ScrollView>
             {group.data?.createdByUserId === myUserId ? (
@@ -1259,6 +1315,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  editChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   activityAmount: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   settledBanner: {

@@ -16,6 +16,7 @@ import {
 } from "../middlewares/requireGroupAccess";
 import { CreatePaymentBody, CreateNonGroupPaymentBody } from "@workspace/api-zod";
 import { createNotifications, getActorName, getGroupName } from "../lib/notifications";
+import { isSupportedCurrency } from "../lib/currencies.js";
 
 const router: IRouter = Router();
 
@@ -72,7 +73,7 @@ router.post(
       return;
     }
 
-    const { fromUserId, toUserId, amount, note, date } = parsed.data;
+    const { fromUserId, toUserId, amount, currency, note, date } = parsed.data;
 
     if (amount <= 0) {
       res.status(400).json({ error: "Amount must be positive" });
@@ -90,6 +91,13 @@ router.post(
 
     const dateStr = (date instanceof Date ? date.toISOString() : String(date)).slice(0, 10);
 
+    const [gc] = await db
+      .select({ currency: groupsTable.currency })
+      .from(groupsTable)
+      .where(eq(groupsTable.id, groupId));
+    const groupCurrency = gc?.currency ?? "USD";
+    const ccy = currency && (await isSupportedCurrency(currency)) ? currency : groupCurrency;
+
     const [payment] = await db
       .insert(paymentsTable)
       .values({
@@ -97,6 +105,7 @@ router.post(
         fromUserId,
         toUserId,
         amount: amount.toFixed(2),
+        currency: ccy,
         note: note ?? null,
         date: dateStr,
       })
@@ -105,11 +114,6 @@ router.post(
     const me = req.dbUserId!;
     const actorName = await getActorName(me);
     const groupName = await getGroupName(groupId);
-    const [gc] = await db
-      .select({ currency: groupsTable.currency })
-      .from(groupsTable)
-      .where(eq(groupsTable.id, groupId));
-    const ccy = gc?.currency ?? "USD";
     const recipients = [fromUserId, toUserId].filter((id) => id !== me);
     await createNotifications(
       recipients.map((uid) => ({
@@ -137,7 +141,7 @@ router.post(
       return;
     }
 
-    const { fromUserId, toUserId, amount, note, date } = parsed.data;
+    const { fromUserId, toUserId, amount, currency, note, date } = parsed.data;
 
     if (amount <= 0) {
       res.status(400).json({ error: "Amount must be positive" });
@@ -209,6 +213,13 @@ router.post(
 
     const dateStr = (date instanceof Date ? date.toISOString() : String(date)).slice(0, 10);
 
+    const [actor] = await db
+      .select({ defaultCurrency: usersTable.defaultCurrency })
+      .from(usersTable)
+      .where(eq(usersTable.id, me));
+    const defaultCurrency = actor?.defaultCurrency ?? "USD";
+    const ccy = currency && (await isSupportedCurrency(currency)) ? currency : defaultCurrency;
+
     const [payment] = await db
       .insert(paymentsTable)
       .values({
@@ -216,23 +227,19 @@ router.post(
         fromUserId,
         toUserId,
         amount: amount.toFixed(2),
+        currency: ccy,
         note: note ?? null,
         date: dateStr,
       })
       .returning();
 
     const actorName = await getActorName(me);
-    const [actor] = await db
-      .select({ defaultCurrency: usersTable.defaultCurrency })
-      .from(usersTable)
-      .where(eq(usersTable.id, me));
-    const ccy = actor?.defaultCurrency ?? "USD";
     await createNotifications([
       {
         userId: friendId,
         type: "payment_added",
         title: `${actorName} recorded a payment`,
-        body: `${ccy} ${amount.toFixed(2)}${note ? ` · ${note}` : ""}`,
+        body: `${ccy} ${amount.toFixed(2)}${note ? ` \u00b7 ${note}` : ""}`,
         data: { paymentId: payment.id, groupId: null, actorUserId: me },
       },
     ]);

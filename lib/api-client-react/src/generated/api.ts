@@ -20,7 +20,7 @@ import type {
   ActivityItem,
   AddMemberBody,
   BadRequestResponse,
-  Balance,
+  BalanceGroup,
   CreateExpenseBody,
   CreateExpenseCommentBody,
   CreateFriendExpenseBody,
@@ -1245,7 +1245,7 @@ export const useIncludeMemberInPastExpenses = <
 };
 
 /**
- * @summary Get simplified debt balances for the group
+ * @summary Get simplified debt balances per currency for the group
  */
 export const getGetGroupBalancesUrl = (groupId: string) => {
   return `/api/groups/${groupId}/balances`;
@@ -1254,8 +1254,8 @@ export const getGetGroupBalancesUrl = (groupId: string) => {
 export const getGroupBalances = async (
   groupId: string,
   options?: RequestInit,
-): Promise<Balance[]> => {
-  return customFetch<Balance[]>(getGetGroupBalancesUrl(groupId), {
+): Promise<BalanceGroup[]> => {
+  return customFetch<BalanceGroup[]>(getGetGroupBalancesUrl(groupId), {
     ...options,
     method: "GET",
   });
@@ -1308,7 +1308,7 @@ export type GetGroupBalancesQueryError = ErrorType<
 >;
 
 /**
- * @summary Get simplified debt balances for the group
+ * @summary Get simplified debt balances per currency for the group
  */
 
 export function useGetGroupBalances<

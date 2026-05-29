@@ -319,19 +319,19 @@ paths:
     get:
       operationId: getGroupBalances
       tags: [groups]
-      summary: Get simplified debt balances for the group
+      summary: Get simplified debt balances per currency for the group
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: "#/components/parameters/GroupId"
       responses:
         "200":
-          description: Simplified balances
+          description: Simplified balances grouped by currency
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Balance"
+                  $ref: "#/components/schemas/BalanceGroup"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1231,6 +1231,17 @@ components:
           type: number
       required: [fromUserId, fromUser, toUserId, toUser, amount]
 
+    BalanceGroup:
+      type: object
+      properties:
+        currency:
+          type: string
+        balances:
+          type: array
+          items:
+            $ref: "#/components/schemas/Balance"
+      required: [currency, balances]
+
     # ─── Expense ──────────────────────────────────────────────────────────
     SplitType:
       type: string
@@ -1484,6 +1495,8 @@ components:
           $ref: "#/components/schemas/User"
         amount:
           type: number
+        currency:
+          type: string
         note:
           type: string
           nullable: true
@@ -1493,7 +1506,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, fromUserId, fromUser, toUserId, toUser, amount, date, createdAt]
+      required: [id, fromUserId, fromUser, toUserId, toUser, amount, currency, date, createdAt]
 
     CreateNonGroupPaymentBody:
       type: object
@@ -1506,6 +1519,9 @@ components:
           format: uuid
         amount:
           type: number
+        currency:
+          type: string
+          description: Currency code (e.g. USD, EUR). Defaults to user's default currency.
         note:
           type: string
           nullable: true
@@ -1525,6 +1541,9 @@ components:
           format: uuid
         amount:
           type: number
+        currency:
+          type: string
+          description: Currency code (e.g. USD, EUR). Defaults to group's default currency.
         note:
           type: string
           nullable: true
