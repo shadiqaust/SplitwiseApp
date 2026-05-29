@@ -93,49 +93,108 @@ export default function DashboardScreen() {
         <Text style={[styles.heroLabel, { color: colors.mutedForeground }]}>
           Your overall balance
         </Text>
-        <Text
-          style={[
-            styles.heroAmount,
-            {
-              color:
-                net > 0
-                  ? colors.positive
-                  : net < 0
-                    ? colors.negative
-                    : colors.foreground,
-            },
-          ]}
-        >
-          {net > 0 ? "+" : ""}
-          {formatCurrency(net)}
-        </Text>
-        <Text style={[styles.heroHint, { color: colors.mutedForeground }]}>
-          {Math.abs(net) < 0.01
-            ? "you are all settled up"
-            : net > 0
-              ? "you are owed overall"
-              : "you owe overall"}
-        </Text>
 
-        <View style={styles.heroRow}>
-          <View style={styles.heroStat}>
-            <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>
-              You're owed
+        {totals.length === 0 ? (
+          <Text style={[styles.heroAmount, { color: colors.foreground }]}>
+            All settled up
+          </Text>
+        ) : totals.length === 1 ? (
+          <>
+            <Text
+              style={[
+                styles.heroAmount,
+                {
+                  color:
+                    totals[0].net > 0
+                      ? colors.positive
+                      : totals[0].net < 0
+                        ? colors.negative
+                        : colors.foreground,
+                },
+              ]}
+            >
+              {totals[0].net > 0 ? "+" : ""}
+              {formatCurrency(totals[0].net, totals[0].currency)}
             </Text>
-            <Text style={[styles.heroStatValue, { color: colors.positive }]}>
-              {formatCurrency(owed)}
+            <Text style={[styles.heroHint, { color: colors.mutedForeground }]}>
+              {Math.abs(totals[0].net) < 0.01
+                ? "you are all settled up"
+                : totals[0].net > 0
+                  ? "you are owed overall"
+                  : "you owe overall"}
             </Text>
+            <View style={styles.heroRow}>
+              <View style={styles.heroStat}>
+                <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>
+                  You're owed
+                </Text>
+                <Text style={[styles.heroStatValue, { color: colors.positive }]}>
+                  {formatCurrency(totals[0].owed, totals[0].currency)}
+                </Text>
+              </View>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <View style={styles.heroStat}>
+                <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>
+                  You owe
+                </Text>
+                <Text style={[styles.heroStatValue, { color: colors.negative }]}>
+                  {formatCurrency(totals[0].iOwe, totals[0].currency)}
+                </Text>
+              </View>
+            </View>
+          </>
+        ) : (
+          <View style={{ gap: 12, marginTop: 8 }}>
+            {totals.map((t, idx) => (
+              <View key={t.currency}>
+                {idx > 0 && (
+                  <View style={[styles.dividerH, { backgroundColor: colors.border, marginBottom: 12 }]} />
+                )}
+                <View style={styles.currencyRow}>
+                  <View style={[styles.currencyBadge, { backgroundColor: colors.accent }]}>
+                    <Text style={[styles.currencyBadgeText, { color: colors.accentForeground }]}>
+                      {t.currency}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.currencyNet,
+                      {
+                        color:
+                          t.net > 0
+                            ? colors.positive
+                            : t.net < 0
+                              ? colors.negative
+                              : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {t.net > 0 ? "+" : ""}{formatCurrency(t.net, t.currency)}
+                  </Text>
+                </View>
+                <View style={styles.heroRow}>
+                  <View style={styles.heroStat}>
+                    <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>
+                      You're owed
+                    </Text>
+                    <Text style={[styles.heroStatValue, { color: colors.positive }]}>
+                      {formatCurrency(t.owed, t.currency)}
+                    </Text>
+                  </View>
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <View style={styles.heroStat}>
+                    <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>
+                      You owe
+                    </Text>
+                    <Text style={[styles.heroStatValue, { color: colors.negative }]}>
+                      {formatCurrency(t.iOwe, t.currency)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))}
           </View>
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <View style={styles.heroStat}>
-            <Text style={[styles.heroStatLabel, { color: colors.mutedForeground }]}>
-              You owe
-            </Text>
-            <Text style={[styles.heroStatValue, { color: colors.negative }]}>
-              {formatCurrency(iOwe)}
-            </Text>
-          </View>
-        </View>
+        )}
       </Card>
 
       <View>
@@ -348,6 +407,11 @@ const styles = StyleSheet.create({
   heroStatLabel: { fontFamily: "Inter_400Regular", fontSize: 12 },
   heroStatValue: { fontFamily: "Inter_600SemiBold", fontSize: 18 },
   divider: { width: 1, marginHorizontal: 16 },
+  dividerH: { height: 1 },
+  currencyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  currencyBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  currencyBadgeText: { fontFamily: "Inter_700Bold", fontSize: 13 },
+  currencyNet: { fontFamily: "Inter_700Bold", fontSize: 20 },
   sectionTitle: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 18,
