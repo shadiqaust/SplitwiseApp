@@ -1984,7 +1984,7 @@ export function GroupDetailPage() {
                       {getCurrencySymbol(bg.currency)} {bg.currency}
                     </span>
                   </div>
-                  {bg.balances.map((b, i) => (
+                  {(bg.balances ?? []).map((b, i) => (
                     <Card key={`${b.fromUserId}-${b.toUserId}-${i}`}>
                       <CardContent className="py-4 flex items-center gap-3">
                         <MemberAvatar name={b.fromUser.name} />

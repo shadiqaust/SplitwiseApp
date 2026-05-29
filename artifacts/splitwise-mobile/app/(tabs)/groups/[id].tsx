@@ -835,7 +835,7 @@ export default function GroupDetailScreen() {
                     {getCurrencySymbol(bg.currency)} {bg.currency}
                   </Text>
                 </View>
-                {bg.balances.map((b, i) => (
+                {(bg.balances ?? []).map((b, i) => (
                   <Card key={`${b.fromUserId}-${b.toUserId}-${i}`} style={styles.balanceRow}>
                     <Avatar name={b.fromUser.name} url={b.fromUser.avatarUrl} size={32} />
                     <Text style={[styles.balanceText, { color: colors.foreground }]}>
