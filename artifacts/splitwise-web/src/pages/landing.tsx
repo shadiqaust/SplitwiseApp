@@ -336,9 +336,9 @@ export function LandingPage() {
                   Group Balance
                 </div>
                 {[
-                  { name: "Alex", avatar: "A", balance: "+ $42.00", positive: true },
-                  { name: "Priya", avatar: "P", balance: "- $28.50", positive: false },
-                  { name: "Sam", avatar: "S", balance: "- $13.50", positive: false },
+                  { name: "Alex", avatar: "A", balance: "+ 42.00", positive: true },
+                  { name: "Priya", avatar: "P", balance: "- 28.50", positive: false },
+                  { name: "Sam", avatar: "S", balance: "- 13.50", positive: false },
                 ].map((person) => (
                   <div
                     key={person.name}

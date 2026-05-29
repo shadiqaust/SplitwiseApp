@@ -14,6 +14,7 @@ import {
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
 import { getCurrencySymbol } from "@/lib/format";
+import { CurrencyDropdown } from "@/components/CurrencyDropdown";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -499,37 +500,12 @@ export default function EditExpenseScreen() {
               keyboardType="decimal-pad"
             />
 
-            <Text style={[styles.label, { color: colors.foreground }]}>
-              Currency
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {(currenciesData ?? []).map((c) => {
-                const active = c.code === currency;
-                return (
-                  <Pressable
-                    key={c.code}
-                    onPress={() => setCurrency(c.code)}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active ? colors.primary : colors.muted,
-                        opacity: 1,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={{
-                        color: active ? colors.primaryForeground : colors.foreground,
-                        fontFamily: "Inter_500Medium",
-                        fontSize: 12,
-                      }}
-                    >
-                      {c.symbol} {c.code}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            <CurrencyDropdown
+              label="Currency"
+              options={currenciesData ?? []}
+              value={currency}
+              onChange={setCurrency}
+            />
 
             <Text style={[styles.label, { color: colors.foreground }]}>
               Date

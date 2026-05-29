@@ -27,6 +27,7 @@ import { formatCurrency, getCurrencySymbol } from "@/lib/format";
 import { getErrorMessage } from "@/lib/error";
 import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
 import { Avatar } from "@/components/ui/Avatar";
+import { CurrencyDropdown } from "@/components/CurrencyDropdown";
 
 const EXPENSE_CATEGORIES = [
   "General",
@@ -339,37 +340,12 @@ export function AddExpenseWithFriendModal({
             />
           </View>
 
-          <View style={{ gap: 6 }}>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Currency</Text>
-            <View style={styles.chipsWrap}>
-              {currencies.map((c) => {
-                const selected = currency === c.code;
-                return (
-                  <Pressable
-                    key={c.code}
-                    onPress={() => setCurrency(c.code)}
-                    style={[
-                      styles.chip,
-                      {
-                        borderColor: selected ? colors.primary : colors.border,
-                        backgroundColor: selected ? colors.primary : "transparent",
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: selected ? "#fff" : colors.foreground },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {c.symbol} {c.code}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+          <CurrencyDropdown
+            label="Currency"
+            options={currencies}
+            value={currency}
+            onChange={setCurrency}
+          />
 
           <View style={{ gap: 6 }}>
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Paid by</Text>

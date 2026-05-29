@@ -13,6 +13,7 @@ import {
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { getCategoryIcon, guessCategory } from "@/lib/expenseCategories";
 import { getCurrencySymbol } from "@/lib/format";
+import { CurrencyDropdown } from "@/components/CurrencyDropdown";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -242,34 +243,12 @@ export default function NewExpenseScreen() {
             keyboardType="decimal-pad"
           />
 
-          <View style={{ gap: 8 }}>
-            <Text style={[styles.label, { color: colors.foreground }]}>
-              Currency
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {currencies.map((c) => {
-                const active = c.code === currency;
-                return (
-                  <Pressable
-                    key={c.code}
-                    onPress={() => setCurrency(c.code)}
-                    style={[
-                      styles.chip,
-                      {
-                        borderColor: active ? colors.primary : colors.border,
-                        backgroundColor: active ? colors.primary : colors.card,
-                        borderRadius: colors.radius,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.chipText, { color: active ? "#fff" : colors.foreground }]}>
-                      {c.symbol} {c.code}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+          <CurrencyDropdown
+            label="Currency"
+            options={currencies}
+            value={currency}
+            onChange={setCurrency}
+          />
 
           <View style={{ gap: 8 }}>
             <Text style={[styles.label, { color: colors.foreground }]}>

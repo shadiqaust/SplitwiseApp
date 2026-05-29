@@ -24,6 +24,7 @@ import {
   useUpdateGroup,
   type GroupMember,
   type Payment,
+  type BalanceGroup,
 } from "@workspace/api-client-react";
 import { Plus, UserPlus, HandCoins, Receipt, Search, Check, Camera, Upload, Crown, ArrowLeftRight, Pencil, QrCode, Copy, Trash2 } from "lucide-react";
 import { getCategoryIcon, guessCategory } from "@/lib/expense-categories";
@@ -1145,28 +1146,28 @@ function AddExpenseDialog({
   );
 }
 
-type Balance = { fromUserId: string; toUserId: string; amount: number; fromUser: { name: string }; toUser: { name: string } };
 
 function SettleUpDialog({
   groupId,
   members,
   currentUserId,
-  balances,
-  groupCurrency,
+  balanceGroups,
 }: {
   groupId: string;
   members: GroupMember[];
   currentUserId: string;
-  balances: Balance[];
-  groupCurrency: string;
+  balanceGroups: BalanceGroup[];
 }) {
   const [open, setOpen] = useState(false);
   const [fromUserId, setFromUserId] = useState<string>(currentUserId);
   const [toUserId, setToUserId] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const { toast } = useToast();
   const createPayment = useCreatePayment();
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
 
   useEffect(() => {
     if (open) {
@@ -1175,19 +1176,24 @@ function SettleUpDialog({
       setToUserId(other?.userId ?? null);
       setAmount("");
       setNote("");
+      const defaultCcy = balanceGroups[0]?.currency ?? "";
+      setCurrency(defaultCcy);
     }
-  }, [open, currentUserId, members]);
+  }, [open, currentUserId, members, balanceGroups]);
 
   const balanceHint = useMemo(() => {
     if (!toUserId || fromUserId === toUserId) return null;
+    const group = balanceGroups.find((g) => g.currency === currency);
+    const balances = group?.balances ?? [];
     const owes = balances.find((b) => b.fromUserId === fromUserId && b.toUserId === toUserId);
     const owed = balances.find((b) => b.fromUserId === toUserId && b.toUserId === fromUserId);
     const fromName = fromUserId === currentUserId ? "You" : members.find((m) => m.userId === fromUserId)?.user.name ?? "Payer";
     const toName = toUserId === currentUserId ? "you" : members.find((m) => m.userId === toUserId)?.user.name ?? "Recipient";
-    if (owes) return { text: `${fromName} owe${fromUserId !== currentUserId ? "s" : ""} ${toName} ${formatCurrency(owes.amount, groupCurrency)}`, amount: owes.amount, positive: true };
-    if (owed) return { text: `${toUserId === currentUserId ? "You owe" : `${owed.fromUser.name} owes`} ${fromUserId === currentUserId ? "you" : owed.toUser.name} ${formatCurrency(owed.amount, groupCurrency)} — no payment needed`, amount: null, positive: false };
-    return { text: "All settled up between these two", amount: null, positive: false };
-  }, [fromUserId, toUserId, balances, currentUserId, members]);
+    const ccy = currency || "USD";
+    if (owes) return { text: `${fromName} owe${fromUserId !== currentUserId ? "s" : ""} ${toName} ${formatCurrency(owes.amount, ccy)}`, amount: owes.amount, positive: true };
+    if (owed) return { text: `${toUserId === currentUserId ? "You owe" : `${owed.fromUser.name} owes`} ${fromUserId === currentUserId ? "you" : owed.toUser.name} ${formatCurrency(owed.amount, ccy)} — no payment needed`, amount: null, positive: false };
+    return { text: "All settled up between these two in this currency", amount: null, positive: false };
+  }, [fromUserId, toUserId, currency, balanceGroups, currentUserId, members]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1212,6 +1218,7 @@ function SettleUpDialog({
           fromUserId,
           toUserId,
           amount: value,
+          currency: currency || undefined,
           note: note.trim() || null,
           date: new Date().toISOString().slice(0, 10),
         },
@@ -1292,6 +1299,27 @@ function SettleUpDialog({
             </div>
           </div>
 
+          <div className="space-y-2">
+            <Label>Currency</Label>
+            <Select value={currency} onValueChange={setCurrency}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {balanceGroups.map((g) => (
+                  <SelectItem key={g.currency} value={g.currency}>
+                    {getCurrencySymbol(g.currency)} {g.currency}
+                  </SelectItem>
+                ))}
+                {currencies.filter((c) => !balanceGroups.some((g) => g.currency === c.code)).map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.symbol} {c.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {balanceHint && (
             <div className={cn(
               "flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm",
@@ -1315,7 +1343,7 @@ function SettleUpDialog({
           )}
 
           <div className="space-y-2">
-            <Label>Amount ({getCurrencySymbol(groupCurrency)})</Label>
+            <Label>Amount ({getCurrencySymbol(currency || "USD")})</Label>
             <Input
               type="number"
               step="0.01"
@@ -1351,41 +1379,49 @@ function MemberProfileDialog({
   onOpenChange,
   groupId,
   myUserId,
-  balances,
+  balanceGroups,
   members,
-  groupCurrency,
 }: {
   member: ProfileMember;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   groupId: string;
   myUserId: string;
-  balances: Balance[];
+  balanceGroups: BalanceGroup[];
   members: GroupMember[];
-  groupCurrency: string;
 }) {
-  const owesMe = balances.find(b => b.fromUserId === member.userId && b.toUserId === myUserId);
-  const iOwe = balances.find(b => b.fromUserId === myUserId && b.toUserId === member.userId);
-  const netAmount = owesMe ? owesMe.amount : iOwe ? -iOwe.amount : 0;
-
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [currency, setCurrency] = useState<string>("");
   const [settling, setSettling] = useState(false);
   const { toast } = useToast();
   const createPayment = useCreatePayment();
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
+
+  const perCurrency = useMemo(() => {
+    return balanceGroups.map((g) => {
+      const o = g.balances.find(b => b.fromUserId === member.userId && b.toUserId === myUserId);
+      const i = g.balances.find(b => b.fromUserId === myUserId && b.toUserId === member.userId);
+      const net = o ? o.amount : i ? -i.amount : 0;
+      return { currency: g.currency, net };
+    }).filter((c) => c.net !== 0);
+  }, [balanceGroups, member.userId, myUserId]);
+
+  const selectedNet = useMemo(() => perCurrency.find(c => c.currency === (currency || perCurrency[0]?.currency))?.net ?? 0, [perCurrency, currency]);
 
   useEffect(() => {
-    if (open) { setAmount(""); setNote(""); setSettling(false); }
-  }, [open]);
+    if (open) { setAmount(""); setNote(""); setSettling(false); setCurrency(perCurrency[0]?.currency ?? balanceGroups[0]?.currency ?? ""); }
+  }, [open, balanceGroups, perCurrency]);
 
   const onSettle = (e: React.FormEvent) => {
     e.preventDefault();
     const value = parseFloat(amount);
     if (!value || value <= 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
-    const fromUserId = netAmount < 0 ? myUserId : member.userId;
-    const toUserId = netAmount < 0 ? member.userId : myUserId;
+    const fromUserId = selectedNet < 0 ? myUserId : member.userId;
+    const toUserId = selectedNet < 0 ? member.userId : myUserId;
     createPayment.mutate(
-      { groupId, data: { fromUserId, toUserId, amount: value, note: note.trim() || null, date: new Date().toISOString().slice(0, 10) } },
+      { groupId, data: { fromUserId, toUserId, amount: value, currency: currency || undefined, note: note.trim() || null, date: new Date().toISOString().slice(0, 10) } },
       {
         onSuccess: () => {
           invalidateGroupData(groupId);
@@ -1415,23 +1451,34 @@ function MemberProfileDialog({
           </div>
           <div className={cn(
             "w-full rounded-xl p-4 text-center",
-            netAmount === 0 ? "bg-muted" : netAmount > 0 ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"
+            perCurrency.length === 0 ? "bg-muted" : "bg-green-50 dark:bg-green-950"
           )}>
-            {netAmount === 0 ? (
+            {perCurrency.length === 0 ? (
               <>
                 <p className="font-semibold text-base">All settled up</p>
                 <p className="text-sm text-muted-foreground">No balance with {firstName}</p>
               </>
-            ) : netAmount > 0 ? (
-              <>
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(netAmount, groupCurrency)}</p>
-                <p className="text-sm text-muted-foreground">{firstName} owes you</p>
-              </>
             ) : (
               <>
-                <p className="text-2xl font-bold text-red-600">{formatCurrency(Math.abs(netAmount), groupCurrency)}</p>
-                <p className="text-sm text-muted-foreground">You owe {firstName}</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatCurrency(
+                    perCurrency.find(c => c.currency === (currency || perCurrency[0]?.currency))?.net ?? 0,
+                    currency || perCurrency[0]?.currency || "USD"
+                  )}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {(perCurrency.find(c => c.currency === (currency || perCurrency[0]?.currency))?.net ?? 0) > 0
+                    ? `${firstName} owes you`
+                    : "You owe " + firstName}
+                </p>
               </>
+            )}
+            {perCurrency.length > 1 && (
+              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                {perCurrency.map((c) => (
+                  <p key={c.currency}>{formatCurrency(Math.abs(c.net), c.currency)} {c.currency} {c.net > 0 ? `owed by ${firstName}` : "you owe"}</p>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -1444,12 +1491,32 @@ function MemberProfileDialog({
         ) : (
           <form onSubmit={onSettle} className="space-y-3 border-t pt-4">
             <p className="text-sm font-medium">
-              {netAmount >= 0
+              {(perCurrency.find(c => c.currency === (currency || perCurrency[0]?.currency))?.net ?? 0) >= 0
                 ? `Record payment from ${firstName} to you`
                 : `Record payment from you to ${firstName}`}
             </p>
+            <div className="space-y-2">
+              <Label>Currency</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {balanceGroups.map((g) => (
+                    <SelectItem key={g.currency} value={g.currency}>
+                      {getCurrencySymbol(g.currency)} {g.currency}
+                    </SelectItem>
+                  ))}
+                  {currencies.filter((c) => !balanceGroups.some((g) => g.currency === c.code)).map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.symbol} {c.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1">
-              <Label>Amount ({getCurrencySymbol(groupCurrency)})</Label>
+              <Label>Amount ({getCurrencySymbol(currency || "USD")})</Label>
               <Input
                 type="number"
                 min="0.01"
@@ -1459,13 +1526,13 @@ function MemberProfileDialog({
                 onChange={e => setAmount(e.target.value)}
                 autoFocus
               />
-              {netAmount !== 0 && (
+              {selectedNet !== 0 && (
                 <button
                   type="button"
                   className="text-xs text-primary underline"
-                  onClick={() => setAmount(String(Math.abs(netAmount)))}
+                  onClick={() => setAmount(String(Math.abs(selectedNet)))}
                 >
-                  Use balance ({formatCurrency(Math.abs(netAmount), groupCurrency)})
+                  Use balance ({formatCurrency(Math.abs(selectedNet), currency || "USD")})
                 </button>
               )}
             </div>
@@ -1638,8 +1705,7 @@ export function GroupDetailPage() {
                   groupId={groupId}
                   members={members}
                   currentUserId={myUserId}
-                  balances={balances.data ?? []}
-                  groupCurrency={groupCurrency}
+                  balanceGroups={(balances.data ?? []) as BalanceGroup[]}
                 />
                 <AddExpenseDialog
                   groupId={groupId}
@@ -1699,9 +1765,8 @@ export function GroupDetailPage() {
                 onOpenChange={(v) => { if (!v) setProfileMember(null); }}
                 groupId={groupId}
                 myUserId={myUserId}
-                balances={balances.data ?? []}
+                balanceGroups={(balances.data ?? []) as BalanceGroup[]}
                 members={members}
-                groupCurrency={groupCurrency}
               />
             )}
           </CardContent>
@@ -1897,7 +1962,7 @@ export function GroupDetailPage() {
                         </p>
                       </div>
                       <div className="font-medium text-sm whitespace-nowrap text-muted-foreground">
-                        {formatCurrency(p.amount, groupCurrency)}
+                        {formatCurrency(p.amount, p.currency || groupCurrency)}
                       </div>
                     </CardContent>
                   </Card>
@@ -1912,24 +1977,33 @@ export function GroupDetailPage() {
 
           <TabsContent value="balances" className="space-y-2">
             {balances.data && balances.data.length > 0 ? (
-              balances.data.map((b, i) => (
-                <Card key={`${b.fromUserId}-${b.toUserId}-${i}`}>
-                  <CardContent className="py-4 flex items-center gap-3">
-                    <MemberAvatar name={b.fromUser.name} />
-                    <p className="flex-1 text-sm">
-                      <span className="font-semibold">
-                        {b.fromUserId === myUserId ? "You" : b.fromUser.name}
-                      </span>{" "}
-                      owe{b.fromUserId === myUserId ? "" : "s"}{" "}
-                      <span className="font-semibold">
-                        {b.toUserId === myUserId ? "you" : b.toUser.name}
-                      </span>
-                    </p>
-                    <div className="text-destructive font-medium">
-                      {formatCurrency(b.amount, groupCurrency)}
-                    </div>
-                  </CardContent>
-                </Card>
+              (balances.data as BalanceGroup[]).map((bg) => (
+                <div key={bg.currency} className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                    <span className="bg-muted px-2 py-0.5 rounded-md">
+                      {getCurrencySymbol(bg.currency)} {bg.currency}
+                    </span>
+                  </div>
+                  {bg.balances.map((b, i) => (
+                    <Card key={`${b.fromUserId}-${b.toUserId}-${i}`}>
+                      <CardContent className="py-4 flex items-center gap-3">
+                        <MemberAvatar name={b.fromUser.name} />
+                        <p className="flex-1 text-sm">
+                          <span className="font-semibold">
+                            {b.fromUserId === myUserId ? "You" : b.fromUser.name}
+                          </span>{" "}
+                          owe{b.fromUserId === myUserId ? "" : "s"}{" "}
+                          <span className="font-semibold">
+                            {b.toUserId === myUserId ? "you" : b.toUser.name}
+                          </span>
+                        </p>
+                        <div className="text-destructive font-medium">
+                          {formatCurrency(b.amount, bg.currency)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               ))
             ) : (
               <Card>

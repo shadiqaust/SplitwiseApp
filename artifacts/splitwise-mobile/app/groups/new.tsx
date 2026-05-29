@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useColors } from "@/hooks/useColors";
+import { CurrencyDropdown } from "@/components/CurrencyDropdown";
 
 export default function NewGroupScreen() {
   const colors = useColors();
@@ -95,36 +96,15 @@ export default function NewGroupScreen() {
               numberOfLines={3}
               style={{ minHeight: 90, textAlignVertical: "top" }}
             />
-            <View style={{ gap: 8 }}>
-              <Text style={{ color: colors.foreground, fontFamily: "Inter_500Medium", fontSize: 14 }}>
-                Currency
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                {currencies.map((c) => {
-                  const active = c.code === currency;
-                  return (
-                    <Pressable
-                      key={c.code}
-                      onPress={() => {
-                        setCurrency(c.code);
-                        setHasManuallyChangedCurrency(true);
-                      }}
-                      style={[
-                        styles.chip,
-                        {
-                          borderColor: active ? colors.primary : colors.border,
-                          backgroundColor: active ? colors.primary : colors.card,
-                        },
-                      ]}
-                    >
-                      <Text style={{ color: active ? "#fff" : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
-                        {c.symbol} {c.code}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
+            <CurrencyDropdown
+              label="Currency"
+              options={currencies}
+              value={currency}
+              onChange={(code) => {
+                setCurrency(code);
+                setHasManuallyChangedCurrency(true);
+              }}
+            />
             {error ? (
               <Text style={{ color: colors.destructive }}>{error}</Text>
             ) : null}

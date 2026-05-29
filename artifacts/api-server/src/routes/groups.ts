@@ -651,14 +651,24 @@ router.get(
     const users = await db.select().from(usersTable).where(inArray(usersTable.id, userIds));
     const userMap = new Map(users.map((u) => [u.id, u]));
 
-    const net = new Map<string, number>();
-    for (const id of userIds) net.set(id, 0);
+    // netByCurrency: currency -> userId -> net amount
+    const netByCurrency = new Map<string, Map<string, number>>();
+    const ensureCurrency = (ccy: string) => {
+      if (!netByCurrency.has(ccy)) {
+        const m = new Map<string, number>();
+        for (const id of userIds) m.set(id, 0);
+        netByCurrency.set(ccy, m);
+      }
+      return netByCurrency.get(ccy)!;
+    };
 
     const expenses = await db
       .select()
       .from(expensesTable)
       .where(and(eq(expensesTable.groupId, groupId), isNull(expensesTable.deletedAt)));
     for (const expense of expenses) {
+      const ccy = expense.currency || "USD";
+      const net = ensureCurrency(ccy);
       const splits = await db
         .select()
         .from(expenseSplitsTable)
@@ -676,53 +686,64 @@ router.get(
       .from(paymentsTable)
       .where(and(eq(paymentsTable.groupId, groupId), isNull(paymentsTable.deletedAt)));
     for (const payment of payments) {
+      const ccy = payment.currency || "USD";
+      const net = ensureCurrency(ccy);
       const amount = parseFloat(payment.amount);
       net.set(payment.fromUserId, (net.get(payment.fromUserId) ?? 0) + amount);
       net.set(payment.toUserId, (net.get(payment.toUserId) ?? 0) - amount);
     }
 
-    const balances: Array<{
+    type Balance = {
       fromUserId: string;
       fromUser: unknown;
       toUserId: string;
       toUser: unknown;
       amount: number;
-    }> = [];
+    };
 
-    const creditors = [...net.entries()]
-      .filter(([, v]) => v > 0.005)
-      .sort((a, b) => b[1] - a[1]);
-    const debtors = [...net.entries()]
-      .filter(([, v]) => v < -0.005)
-      .sort((a, b) => a[1] - b[1]);
+    const result: Array<{ currency: string; balances: Balance[] }> = [];
 
-    let ci = 0;
-    let di = 0;
-    while (ci < creditors.length && di < debtors.length) {
-      const [creditorId, credit] = creditors[ci];
-      const [debtorId, debtNeg] = debtors[di];
-      const debt = Math.abs(debtNeg);
-      const amount = Math.min(credit, debt);
+    for (const [ccy, net] of netByCurrency.entries()) {
+      const balances: Balance[] = [];
+      const creditors = [...net.entries()]
+        .filter(([, v]) => v > 0.005)
+        .sort((a, b) => b[1] - a[1]);
+      const debtors = [...net.entries()]
+        .filter(([, v]) => v < -0.005)
+        .sort((a, b) => a[1] - b[1]);
 
-      if (amount > 0.005) {
-        const fu = userMap.get(debtorId)!;
-        const tu = userMap.get(creditorId)!;
-        balances.push({
-          fromUserId: debtorId,
-          fromUser: { ...fu, createdAt: fu.createdAt.toISOString() },
-          toUserId: creditorId,
-          toUser: { ...tu, createdAt: tu.createdAt.toISOString() },
-          amount: Math.round(amount * 100) / 100,
-        });
+      let ci = 0;
+      let di = 0;
+      while (ci < creditors.length && di < debtors.length) {
+        const [creditorId, credit] = creditors[ci];
+        const [debtorId, debtNeg] = debtors[di];
+        const debt = Math.abs(debtNeg);
+        const amount = Math.min(credit, debt);
+
+        if (amount > 0.005) {
+          const fu = userMap.get(debtorId)!;
+          const tu = userMap.get(creditorId)!;
+          balances.push({
+            fromUserId: debtorId,
+            fromUser: { ...fu, createdAt: fu.createdAt.toISOString() },
+            toUserId: creditorId,
+            toUser: { ...tu, createdAt: tu.createdAt.toISOString() },
+            amount: Math.round(amount * 100) / 100,
+          });
+        }
+
+        creditors[ci] = [creditorId, credit - amount];
+        debtors[di] = [debtorId, -(debt - amount)];
+        if (creditors[ci][1] < 0.005) ci++;
+        if (Math.abs(debtors[di][1]) < 0.005) di++;
       }
 
-      creditors[ci] = [creditorId, credit - amount];
-      debtors[di] = [debtorId, -(debt - amount)];
-      if (creditors[ci][1] < 0.005) ci++;
-      if (Math.abs(debtors[di][1]) < 0.005) di++;
+      if (balances.length > 0) {
+        result.push({ currency: ccy, balances });
+      }
     }
 
-    res.json(balances);
+    res.json(result);
   },
 );
 

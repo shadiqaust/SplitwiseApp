@@ -16,6 +16,7 @@ export const paymentsTable = pgTable("payments", {
     .notNull()
     .references(() => usersTable.id),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("USD"),
   note: text("note"),
   date: date("date").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),

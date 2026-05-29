@@ -138,6 +138,11 @@ export interface Balance {
   amount: number;
 }
 
+export interface BalanceGroup {
+  currency: string;
+  balances: Balance[];
+}
+
 export type SplitType = (typeof SplitType)[keyof typeof SplitType];
 
 export const SplitType = {
@@ -257,6 +262,7 @@ export interface Payment {
   toUserId: string;
   toUser: User;
   amount: number;
+  currency: string;
   note?: string | null;
   date: string;
   createdAt: string;
@@ -266,6 +272,8 @@ export interface CreateNonGroupPaymentBody {
   fromUserId: string;
   toUserId: string;
   amount: number;
+  /** Currency code (e.g. USD, EUR). Defaults to user's default currency. */
+  currency?: string;
   note?: string | null;
   date: string;
 }
@@ -274,6 +282,8 @@ export interface CreatePaymentBody {
   fromUserId: string;
   toUserId: string;
   amount: number;
+  /** Currency code (e.g. USD, EUR). Defaults to group's default currency. */
+  currency?: string;
   note?: string | null;
   date: string;
 }

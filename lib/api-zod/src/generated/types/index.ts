@@ -11,6 +11,7 @@ export * from "./activityItemType";
 export * from "./addMemberBody";
 export * from "./badRequestResponse";
 export * from "./balance";
+export * from "./balanceGroup";
 export * from "./createExpenseBody";
 export * from "./createExpenseCommentBody";
 export * from "./createFriendExpenseBody";
