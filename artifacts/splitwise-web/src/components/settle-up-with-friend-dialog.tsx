@@ -29,6 +29,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/error";
 import { formatCurrency, getCurrencySymbol } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export interface SettleFriend {
   id: string | number;
