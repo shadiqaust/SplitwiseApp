@@ -624,8 +624,8 @@ function ExpenseRow({
         </Text>
         <Text style={[styles.meta, { color: colors.mutedForeground }]} numberOfLines={1}>
           {iPaid
-            ? `You paid ${formatCurrency(total)}`
-            : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total)}`}
+            ? `You paid ${formatCurrency(total, expense.currency)}`
+            : `${expense.paidByUser?.name ?? "Someone"} paid ${formatCurrency(total, expense.currency)}`}
           {peopleLine ? ` · ${peopleLine}` : ""}
         </Text>
         <Text style={[styles.date, { color: colors.mutedForeground }]}>
@@ -637,8 +637,8 @@ function ExpenseRow({
           <>
             <Text style={[styles.balance, { color: colors.mutedForeground }]}>
               {iPaid
-                ? `+${formatCurrency(owedToMe)}`
-                : `-${formatCurrency(iOwe)}`}
+                ? `+${formatCurrency(owedToMe, expense.currency)}`
+                : `-${formatCurrency(iOwe, expense.currency)}`}
             </Text>
             <Text style={[styles.balanceSub, { color: colors.primary }]}>
               settled up
@@ -647,7 +647,7 @@ function ExpenseRow({
         ) : owedToMe > 0 ? (
           <>
             <Text style={[styles.balance, { color: colors.positive }]}>
-              +{formatCurrency(owedToMe)}
+              +{formatCurrency(owedToMe, expense.currency)}
             </Text>
             <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
               you lent
@@ -656,7 +656,7 @@ function ExpenseRow({
         ) : iOwe > 0 ? (
           <>
             <Text style={[styles.balance, { color: colors.negative }]}>
-              -{formatCurrency(iOwe)}
+              -{formatCurrency(iOwe, expense.currency)}
             </Text>
             <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
               you owe
@@ -706,7 +706,7 @@ function PaymentRow({
           </Text>
         </View>
         <Text style={[styles.balance, { color: colors.mutedForeground }]}>
-          {formatCurrency(payment.amount)}
+          {formatCurrency(payment.amount, payment.currency)}
         </Text>
       </Card>
     </Pressable>

@@ -51,6 +51,7 @@ type ActivityRow = {
   subtitle: string;
   kind: "expense" | "payment";
   delta: number;
+  currency?: string;
   /** Where clicking the row navigates. null = not clickable. */
   href: string | null;
 };
@@ -203,11 +204,11 @@ export function FriendDetailPage() {
       if (e.paidByUserId === myId) {
         const fs = e.splits.find((s) => s.userId === friendId);
         delta = fs ? parseFloat(String(fs.amount)) : 0;
-        subtitle = `You paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+        subtitle = `You paid ${formatCurrency(parseFloat(String(e.totalAmount)), e.currency)}`;
       } else if (e.paidByUserId === friendId) {
         const ms = e.splits.find((s) => s.userId === myId);
         delta = ms ? -parseFloat(String(ms.amount)) : 0;
-        subtitle = `${friendShort} paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+        subtitle = `${friendShort} paid ${formatCurrency(parseFloat(String(e.totalAmount)), e.currency)}`;
       }
       const d = expenseDate(e);
       if (e.groupId) {
@@ -234,6 +235,7 @@ export function FriendDetailPage() {
         subtitle,
         kind: "expense",
         delta,
+        currency: e.currency,
         href: `/expenses/${e.id}?from=${encodeURIComponent(`/friends/${friendId}`)}`,
       });
     }
@@ -265,10 +267,10 @@ export function FriendDetailPage() {
       let title = "Payment";
       if (p.fromUserId === myId) {
         delta = amt;
-        title = `You paid ${friendShort} ${formatCurrency(amt)}`;
+        title = `You paid ${friendShort} ${formatCurrency(amt, p.currency)}`;
       } else {
         delta = -amt;
-        title = `${friendShort} paid you ${formatCurrency(amt)}`;
+        title = `${friendShort} paid you ${formatCurrency(amt, p.currency)}`;
       }
       const d = paymentDate(p);
       rows.push({
@@ -286,6 +288,7 @@ export function FriendDetailPage() {
           : "Settle-up payment",
         kind: "payment",
         delta,
+        currency: p.currency,
         href: p.groupId ? `/groups/${p.groupId}` : null,
       });
     }
@@ -507,7 +510,7 @@ function TimelineRow({ row }: { row: ActivityRow }) {
         <p className={cn("text-[10px] font-medium", tone)}>{label}</p>
         {!settled && (
           <p className={cn("font-bold text-sm", tone)}>
-            {formatCurrency(Math.abs(row.delta))}
+            {formatCurrency(Math.abs(row.delta), row.currency)}
           </p>
         )}
       </div>

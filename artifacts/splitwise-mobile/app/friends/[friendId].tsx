@@ -58,6 +58,7 @@ type ActivityRow = {
   subtitle: string;
   kind: "expense" | "payment";
   delta: number;
+  currency?: string;
   /** Where tapping the row navigates. null = not tappable. */
   href: string | null;
 };
@@ -184,11 +185,11 @@ export default function FriendDetailScreen() {
       if (e.paidByUserId === myId) {
         const fs = e.splits.find((s) => s.userId === friendId);
         delta = fs ? parseFloat(String(fs.amount)) : 0;
-        subtitle = `You paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+        subtitle = `You paid ${formatCurrency(parseFloat(String(e.totalAmount)), e.currency)}`;
       } else if (e.paidByUserId === friendId) {
         const ms = e.splits.find((s) => s.userId === myId);
         delta = ms ? -parseFloat(String(ms.amount)) : 0;
-        subtitle = `${friendShort} paid ${formatCurrency(parseFloat(String(e.totalAmount)))}`;
+        subtitle = `${friendShort} paid ${formatCurrency(parseFloat(String(e.totalAmount)), e.currency)}`;
       }
       const d = expenseDate(e);
       if (e.groupId) {
@@ -216,6 +217,7 @@ export default function FriendDetailScreen() {
         subtitle,
         kind: "expense",
         delta,
+        currency: e.currency,
         href: `/expenses/${e.id}`,
       });
     }
@@ -249,10 +251,10 @@ export default function FriendDetailScreen() {
       let title = "Payment";
       if (p.fromUserId === myId) {
         delta = amt;
-        title = `You paid ${friendShort} ${formatCurrency(amt)}`;
+        title = `You paid ${friendShort} ${formatCurrency(amt, p.currency)}`;
       } else {
         delta = -amt;
-        title = `${friendShort} paid you ${formatCurrency(amt)}`;
+        title = `${friendShort} paid you ${formatCurrency(amt, p.currency)}`;
       }
       const d = paymentDate(p);
       rows.push({
@@ -271,6 +273,7 @@ export default function FriendDetailScreen() {
           : "Settle-up payment",
         kind: "payment",
         delta,
+        currency: p.currency,
         href: p.groupId
           ? `/(tabs)/groups/${p.groupId}?from=${encodeURIComponent(`/friends/${friendId}`)}`
           : null,
@@ -542,7 +545,7 @@ function ActivityRowView({
         <Text style={[styles.activityHint, { color: tone }]}>{label}</Text>
         {!settled && (
           <Text style={[styles.activityAmount, { color: tone }]}>
-            {formatCurrency(Math.abs(row.delta))}
+            {formatCurrency(Math.abs(row.delta), row.currency)}
           </Text>
         )}
       </View>
