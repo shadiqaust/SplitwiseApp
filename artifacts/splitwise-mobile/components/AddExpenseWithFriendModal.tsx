@@ -15,6 +15,7 @@ import {
   SplitType,
   useCreateFriendExpense,
   useGetMe,
+  useListCurrencies,
   getGetDashboardSummaryQueryKey,
   getGetActivityQueryKey,
 } from "@workspace/api-client-react";
@@ -61,6 +62,8 @@ export function AddExpenseWithFriendModal({
   const createExpense = useCreateFriendExpense();
   const { data: me } = useGetMe();
   const defaultCurrency = me?.defaultCurrency ?? "USD";
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
 
   const friendIds = useMemo(() => friends.map((f) => String(f.id)), [friends]);
   const isPair = friends.length === 1;
@@ -88,6 +91,7 @@ export function AddExpenseWithFriendModal({
   const [amount, setAmount] = useState("");
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
   const [mode, setMode] = useState<Mode>("equal");
+  const [currency, setCurrency] = useState<string>(defaultCurrency);
   const lenderIsMe = paidByUserId === currentUserId;
   const lenderName = isPair ? (lenderIsMe ? "You" : primaryFriend.name) : "";
   const borrowerName = isPair ? (lenderIsMe ? primaryFriend.name : "you") : "";
@@ -149,7 +153,7 @@ export function AddExpenseWithFriendModal({
         0,
       );
       if (Math.abs(sum - total) > 0.01) {
-        Alert.alert(`Exact amounts must sum to ${formatCurrency(total, defaultCurrency)}`);
+        Alert.alert(`Exact amounts must sum to ${formatCurrency(total, currency)}`);
         return;
       }
       splits = participants.map((p) => ({
@@ -165,7 +169,7 @@ export function AddExpenseWithFriendModal({
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
-          currency: defaultCurrency,
+          currency,
           splitType: splitTypeForApi,
           paidByUserId: paidByForApi,
           date: new Date().toISOString().slice(0, 10),
@@ -317,7 +321,7 @@ export function AddExpenseWithFriendModal({
           </View>
 
           <View style={{ gap: 6 }}>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Amount ({getCurrencySymbol(defaultCurrency)})</Text>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Amount ({getCurrencySymbol(currency)})</Text>
             <TextInput
               style={[
                 styles.fieldInput,
@@ -333,6 +337,38 @@ export function AddExpenseWithFriendModal({
               value={amount}
               onChangeText={setAmount}
             />
+          </View>
+
+          <View style={{ gap: 6 }}>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Currency</Text>
+            <View style={styles.chipsWrap}>
+              {currencies.map((c) => {
+                const selected = currency === c.code;
+                return (
+                  <Pressable
+                    key={c.code}
+                    onPress={() => setCurrency(c.code)}
+                    style={[
+                      styles.chip,
+                      {
+                        borderColor: selected ? colors.primary : colors.border,
+                        backgroundColor: selected ? colors.primary : "transparent",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        { color: selected ? "#fff" : colors.foreground },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {c.symbol} {c.code}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
 
           <View style={{ gap: 6 }}>
@@ -440,7 +476,7 @@ export function AddExpenseWithFriendModal({
               <Text style={[styles.helperText, { color: colors.mutedForeground }]}>
                 {lenderName} paid the full amount. {borrowerName}{" "}
                 {lenderIsMe ? "owes you" : "owe"}{" "}
-                {amount ? formatCurrency(parseFloat(amount) || 0, defaultCurrency) : "the entire amount"}.
+                {amount ? formatCurrency(parseFloat(amount) || 0, currency) : "the entire amount"}.
               </Text>
             )}
           </View>

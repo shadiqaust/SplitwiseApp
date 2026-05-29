@@ -26,30 +26,30 @@ export function useDisplayCurrency(): string {
   return useSyncExternalStore(subscribe, getDisplayCurrency, getDisplayCurrency);
 }
 
-export function formatCurrency(amount: number, _currency?: string) {
-  const currency = displayCurrency;
+export function formatCurrency(amount: number, currency?: string) {
+  const code = currency ?? displayCurrency;
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency,
+      currency: code,
       currencyDisplay: "narrowSymbol",
     }).format(amount);
   } catch {
-    return `${getCurrencySymbol(currency)}${amount.toFixed(2)}`;
+    return `${getCurrencySymbol(code)}${amount.toFixed(2)}`;
   }
 }
 
-export function getCurrencySymbol(_currency?: string): string {
-  const currency = displayCurrency;
+export function getCurrencySymbol(currency?: string): string {
+  const code = currency ?? displayCurrency;
   try {
     const parts = new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency,
+      currency: code,
       currencyDisplay: "narrowSymbol",
     }).formatToParts(0);
-    return parts.find((p) => p.type === "currency")?.value ?? currency;
+    return parts.find((p) => p.type === "currency")?.value ?? code;
   } catch {
-    return currency;
+    return code;
   }
 }
 

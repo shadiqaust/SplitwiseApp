@@ -25,6 +25,7 @@ import {
   ListExpensesQueryParams,
 } from "@workspace/api-zod";
 import { createNotifications, getActorName, getGroupName } from "../lib/notifications";
+import { isSupportedCurrency } from "../lib/currencies.js";
 
 function toDateString(value: string): string {
   const d = new Date(value);
@@ -470,14 +471,16 @@ router.post(
       return;
     }
 
-    // Currency is a per-viewer display preference. Always store the
-    // creator's defaultCurrency, ignoring any client-supplied value.
+    // Store client-supplied currency if supported; otherwise fall back to creator default.
     const [creatorRow] = await db
       .select({ defaultCurrency: usersTable.defaultCurrency })
       .from(usersTable)
       .where(eq(usersTable.id, me));
-    const storedCurrency = creatorRow?.defaultCurrency ?? "USD";
-    void currency;
+    const fallbackCurrency = creatorRow?.defaultCurrency ?? "USD";
+    const storedCurrency =
+      currency && (await isSupportedCurrency(currency))
+        ? currency
+        : fallbackCurrency;
 
     const [expense] = await db
       .insert(expensesTable)
@@ -580,15 +583,18 @@ router.post(
       return;
     }
 
-    // Currency is a per-viewer display preference. Always store the creator's
-    // defaultCurrency for new group expenses, ignoring any client-supplied value.
+    // Store client-supplied currency if supported; otherwise fall back to the
+    // group's own currency (which is already set at group creation).
+    const [groupRow] = await db
+      .select({ currency: groupsTable.currency })
+      .from(groupsTable)
+      .where(eq(groupsTable.id, groupId));
+    const fallbackCurrency = groupRow?.currency ?? "USD";
+    const storedCurrency =
+      currency && (await isSupportedCurrency(currency))
+        ? currency
+        : fallbackCurrency;
     const me = req.dbUserId!;
-    const [creatorRow] = await db
-      .select({ defaultCurrency: usersTable.defaultCurrency })
-      .from(usersTable)
-      .where(eq(usersTable.id, me));
-    const groupCurrency = creatorRow?.defaultCurrency ?? "USD";
-    void currency;
 
     const [expense] = await db
       .insert(expensesTable)
@@ -597,7 +603,7 @@ router.post(
         description,
         category: category ?? null,
         totalAmount: totalAmount.toFixed(2),
-        currency: groupCurrency,
+        currency: storedCurrency,
         splitType,
         paidByUserId,
         createdByUserId: me,
@@ -622,7 +628,7 @@ router.post(
         userId: uid,
         type: "expense_added",
         title: `${actorName} added an expense in ${groupName}`,
-        body: `${description} · ${groupCurrency} ${totalAmount.toFixed(2)}`,
+        body: `${description} · ${storedCurrency} ${totalAmount.toFixed(2)}`,
         data: { expenseId: expense.id, groupId, actorUserId: me },
       })),
     );
@@ -744,7 +750,15 @@ router.put(
     if (parsed.data.category !== undefined) updateData.category = parsed.data.category;
     if (parsed.data.totalAmount !== undefined)
       updateData.totalAmount = parsed.data.totalAmount.toFixed(2);
-    // Currency is a per-viewer display preference — ignore client value on update.
+    // Currency may be changed on edit if the client supplies a supported code.
+    if (parsed.data.currency !== undefined && parsed.data.currency !== current.currency) {
+      if (await isSupportedCurrency(parsed.data.currency)) {
+        updateData.currency = parsed.data.currency;
+      } else {
+        res.status(400).json({ error: "Unsupported currency code" });
+        return;
+      }
+    }
     if (parsed.data.splitType !== undefined) updateData.splitType = parsed.data.splitType;
     if (parsed.data.paidByUserId !== undefined) updateData.paidByUserId = parsed.data.paidByUserId;
     if (parsed.data.date !== undefined) updateData.date = toDateString(String(parsed.data.date));

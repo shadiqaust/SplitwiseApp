@@ -31,6 +31,7 @@ import { getErrorMessage } from "@/lib/error";
 import { formatCurrency, getCurrencySymbol } from "@/lib/format";
 import { getCategoryIcon, guessCategory } from "@/lib/expense-categories";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { useListCurrencies } from "@workspace/api-client-react";
 
 const EXPENSE_CATEGORIES = [
   "General",
@@ -85,6 +86,8 @@ export function AddExpenseWithFriendDialog({
   const createExpense = useCreateFriendExpense();
   const { data: me } = useGetMe();
   const defaultCurrency = me?.defaultCurrency ?? "USD";
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
 
   // UI-only split mode. "loan" only available in 1:1 mode.
   type Mode = "equal" | "exact" | "loan";
@@ -95,6 +98,7 @@ export function AddExpenseWithFriendDialog({
   const [paidByUserId, setPaidByUserId] = useState<string>(currentUserId);
   const [mode, setMode] = useState<Mode>("equal");
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
+  const [currency, setCurrency] = useState<string>(defaultCurrency);
 
   useEffect(() => {
     if (open) {
@@ -104,8 +108,9 @@ export function AddExpenseWithFriendDialog({
       setPaidByUserId(currentUserId);
       setMode("equal");
       setExactAmounts({});
+      setCurrency(defaultCurrency);
     }
-  }, [open, currentUserId]);
+  }, [open, currentUserId, defaultCurrency]);
 
   // In loan mode (1:1 only), the lender = whoever paid.
   const lenderIsMe = paidByUserId === currentUserId;
@@ -172,7 +177,7 @@ export function AddExpenseWithFriendDialog({
       );
       if (Math.abs(sum - total) > 0.01) {
         toast({
-          title: `Exact amounts must sum to ${formatCurrency(total, defaultCurrency)}`,
+          title: `Exact amounts must sum to ${formatCurrency(total, currency)}`,
           variant: "destructive",
         });
         return;
@@ -199,7 +204,7 @@ export function AddExpenseWithFriendDialog({
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
-          currency: defaultCurrency,
+          currency,
           splitType: splitTypeForApi,
           paidByUserId: paidByForApi,
           date: new Date().toISOString().slice(0, 10),
@@ -256,7 +261,7 @@ export function AddExpenseWithFriendDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Amount ({getCurrencySymbol(defaultCurrency)})</Label>
+              <Label>Amount ({getCurrencySymbol(currency)})</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -265,6 +270,24 @@ export function AddExpenseWithFriendDialog({
                 onChange={(e) => setAmount(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Currency</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencies.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.symbol} {c.code} — {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Category</Label>
               <Select value={category} onValueChange={setCategory}>
@@ -338,7 +361,7 @@ export function AddExpenseWithFriendDialog({
             <p className="text-xs text-muted-foreground">
               {lenderName} paid the full amount. {borrowerName}{" "}
               {lenderIsMe ? "owes you" : "owe"} the entire{" "}
-              {amount ? formatCurrency(parseFloat(amount) || 0, defaultCurrency) : "amount"}.
+              {amount ? formatCurrency(parseFloat(amount) || 0, currency) : "amount"}.
             </p>
           )}
 

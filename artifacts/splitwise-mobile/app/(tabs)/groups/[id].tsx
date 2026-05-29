@@ -33,6 +33,7 @@ import {
   useGetGroupBalances,
   useGetMe,
   useIncludeMemberInPastExpenses,
+  useListCurrencies,
   useListExpenses,
   useListPayments,
   useUpdateGroup,
@@ -92,7 +93,10 @@ export default function GroupDetailScreen() {
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editCurrency, setEditCurrency] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [filterMemberId, setFilterMemberId] = useState<string | "all">("all");
@@ -236,6 +240,7 @@ export default function GroupDetailScreen() {
     if (!group.data) return;
     setEditName(group.data.name);
     setEditDescription(group.data.description ?? "");
+    setEditCurrency(group.data.currency ?? "USD");
     setShowEditSheet(true);
   };
 
@@ -252,6 +257,7 @@ export default function GroupDetailScreen() {
         data: {
           name: trimmedName,
           description: editDescription.trim() ? editDescription.trim() : null,
+          currency: editCurrency,
         },
       },
       {
@@ -992,6 +998,31 @@ export default function GroupDetailScreen() {
                   ]}
                 />
               </View>
+              <View style={{ gap: 6 }}>
+                <Text style={[{ fontFamily: "Inter_500Medium", fontSize: 13 }, { color: colors.foreground }]}>Currency</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {currencies.map((c) => {
+                    const active = c.code === editCurrency;
+                    return (
+                      <Pressable
+                        key={c.code}
+                        onPress={() => setEditCurrency(c.code)}
+                        style={[
+                          styles.editChip,
+                          {
+                            borderColor: active ? colors.primary : colors.border,
+                            backgroundColor: active ? colors.primary : colors.card,
+                          },
+                        ]}
+                      >
+                        <Text style={{ color: active ? "#fff" : colors.foreground, fontFamily: "Inter_500Medium", fontSize: 12 }}>
+                          {c.symbol} {c.code}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
             </ScrollView>
             {group.data?.createdByUserId === myUserId ? (
               <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
@@ -1259,6 +1290,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  editChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   activityAmount: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   settledBanner: {

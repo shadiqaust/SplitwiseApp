@@ -12,6 +12,7 @@ import {
   useGetGroup,
   useGetMe,
   useUpdateExpense,
+  useListCurrencies,
   SplitType,
 } from "@workspace/api-client-react";
 import { ArrowLeft, ImagePlus, Loader2, Search, UserPlus, X } from "lucide-react";
@@ -77,6 +78,7 @@ export function ExpenseEditPage() {
   const [, navigate] = useLocation();
   const me = useGetMe();
   const myId = me.data?.id;
+  const { data: currenciesData } = useListCurrencies();
 
   const expenseQ = useGetExpense(expenseId);
   const expense = expenseQ.data;
@@ -105,6 +107,7 @@ export function ExpenseEditPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [currency, setCurrency] = useState<string>("");
   // People added to this expense during edit (non-group only).
   const [extraParticipants, setExtraParticipants] = useState<Participant[]>([]);
   const [personSearch, setPersonSearch] = useState("");
@@ -292,6 +295,7 @@ export function ExpenseEditPage() {
     );
     setDate(expense.date);
     setPhotoUrl(expense.photoUrl ?? null);
+    setCurrency(expense.currency || "USD");
     setHydrated(true);
   }, [expense, groupQ.data, hydrated]);
 
@@ -417,6 +421,7 @@ export function ExpenseEditPage() {
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
+          currency,
           splitType,
           paidByUserId,
           date,
@@ -522,7 +527,7 @@ export function ExpenseEditPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Amount ({getCurrencySymbol()})</Label>
+                  <Label>Amount ({getCurrencySymbol(currency)})</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -531,6 +536,24 @@ export function ExpenseEditPage() {
                     onChange={(e) => setAmount(e.target.value)}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Currency</Label>
+                  <Select value={currency} onValueChange={setCurrency}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(currenciesData ?? []).map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.symbol} {c.code} — {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Category</Label>
                   <Select value={category} onValueChange={setCategory}>

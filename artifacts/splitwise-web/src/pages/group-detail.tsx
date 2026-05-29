@@ -20,6 +20,7 @@ import {
   useIncludeMemberInPastExpenses,
   useListExpenses,
   useListPayments,
+  useListCurrencies,
   useUpdateGroup,
   type GroupMember,
   type Payment,
@@ -155,28 +156,34 @@ function EditGroupDialog({
   groupId,
   currentName,
   currentDescription,
+  currentCurrency,
   isCreator,
 }: {
   groupId: string;
   currentName: string;
   currentDescription: string;
+  currentCurrency: string;
   isCreator?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(currentName);
   const [description, setDescription] = useState(currentDescription);
+  const [currency, setCurrency] = useState(currentCurrency);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { toast } = useToast();
   const updateGroup = useUpdateGroup();
   const deleteGroup = useDeleteGroup();
   const [, navigate] = useLocation();
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
 
   useEffect(() => {
     if (open) {
       setName(currentName);
       setDescription(currentDescription);
+      setCurrency(currentCurrency);
     }
-  }, [open, currentName, currentDescription]);
+  }, [open, currentName, currentDescription, currentCurrency]);
 
   const onSave = () => {
     const trimmed = name.trim();
@@ -190,6 +197,7 @@ function EditGroupDialog({
         data: {
           name: trimmed,
           description: description.trim() ? description.trim() : null,
+          currency,
         },
       },
       {
@@ -250,6 +258,21 @@ function EditGroupDialog({
               rows={3}
               placeholder="Optional"
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Currency</Label>
+            <Select value={currency} onValueChange={setCurrency}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {currencies.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.symbol} {c.code} — {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter className="gap-2 sm:gap-0 sm:justify-between">
@@ -802,8 +825,11 @@ function AddExpenseDialog({
   );
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
   const [percentages, setPercentages] = useState<Record<string, string>>({});
+  const [expenseCurrency, setExpenseCurrency] = useState<string>(groupCurrency);
   const { toast } = useToast();
   const createExpense = useCreateExpense();
+  const { data: currenciesData } = useListCurrencies();
+  const currencies = currenciesData ?? [];
 
   useEffect(() => {
     if (open) {
@@ -815,8 +841,9 @@ function AddExpenseDialog({
       setParticipantIds(new Set(members.map((m) => m.userId)));
       setExactAmounts({});
       setPercentages({});
+      setExpenseCurrency(groupCurrency);
     }
-  }, [open, currentUserId, members]);
+  }, [open, currentUserId, members, groupCurrency]);
 
   const toggleParticipant = (userId: string) => {
     const next = new Set(participantIds);
@@ -906,7 +933,7 @@ function AddExpenseDialog({
           description: description.trim(),
           category: category && category !== "General" ? category : null,
           totalAmount: total,
-          currency: groupCurrency,
+          currency: expenseCurrency,
           splitType,
           paidByUserId,
           date: new Date().toISOString().slice(0, 10),
@@ -960,7 +987,7 @@ function AddExpenseDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Amount ({getCurrencySymbol(groupCurrency)})</Label>
+              <Label>Amount ({getCurrencySymbol(expenseCurrency)})</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -969,6 +996,24 @@ function AddExpenseDialog({
                 onChange={(e) => setAmount(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Currency</Label>
+              <Select value={expenseCurrency} onValueChange={setExpenseCurrency}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencies.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.symbol} {c.code} — {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Category</Label>
               <Select value={category} onValueChange={setCategory}>
@@ -1562,6 +1607,7 @@ export function GroupDetailPage() {
                   groupId={groupId}
                   currentName={group.data.name}
                   currentDescription={group.data.description ?? ""}
+                  currentCurrency={group.data.currency ?? "USD"}
                   isCreator={group.data.createdByUserId === myUserId}
                 />
               </div>
